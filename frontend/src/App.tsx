@@ -7,6 +7,7 @@ import Loading from './components/Loading';
 // Lazy load pages for code splitting
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Controls = lazy(() => import('./pages/Controls'));
+const ControlNew = lazy(() => import('./pages/ControlNew'));
 const ControlDetail = lazy(() => import('./pages/ControlDetail'));
 const Evidence = lazy(() => import('./pages/Evidence'));
 const EvidenceDetail = lazy(() => import('./pages/EvidenceDetail'));
@@ -201,6 +202,7 @@ export default function App() {
           <Route path="dashboards" element={<ModuleRoute module="tools"><Suspense fallback={<PageLoader />}><CustomDashboards /></Suspense></ModuleRoute>} />
           {/* Compliance Module */}
           <Route path="controls" element={<ModuleRoute module="compliance"><Suspense fallback={<PageLoader />}><Controls /></Suspense></ModuleRoute>} />
+          <Route path="controls/new" element={<ModuleRoute module="compliance"><Suspense fallback={<PageLoader />}><ControlNew /></Suspense></ModuleRoute>} />
           <Route path="controls/:id" element={<ModuleRoute module="compliance"><Suspense fallback={<PageLoader />}><ControlDetail /></Suspense></ModuleRoute>} />
           <Route path="evidence" element={<ModuleRoute module="compliance"><Suspense fallback={<PageLoader />}><Evidence /></Suspense></ModuleRoute>} />
           <Route path="evidence/:id" element={<ModuleRoute module="compliance"><Suspense fallback={<PageLoader />}><EvidenceDetail /></Suspense></ModuleRoute>} />

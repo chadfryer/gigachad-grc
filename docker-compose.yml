@@ -82,6 +82,7 @@ services:
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
       KC_HOSTNAME_PORT: ${KEYCLOAK_PORT:-8080}
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -152,7 +153,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-grc}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
       # Security secrets
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-}
@@ -207,7 +208,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-grc}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
       - "3002:3002"
     depends_on:
@@ -252,7 +253,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-grc}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
       - "3004:3004"
     depends_on:
@@ -296,7 +297,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-grc}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
       - "3005:3005"
     depends_on:
@@ -343,7 +344,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-grc}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
       - "3006:3006"
     depends_on:
@@ -389,7 +390,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-grc}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
       - "3007:3007"
     depends_on:

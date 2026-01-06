@@ -33,7 +33,7 @@ export class DRTestsService {
       FROM bcdr.dr_tests dt
       LEFT JOIN shared.users u ON dt.coordinator_id = u.id
       LEFT JOIN bcdr.bcdr_plans bp ON dt.plan_id = bp.id
-      WHERE dt.organization_id = ${organizationId}::uuid
+      WHERE dt.organization_id = ${organizationId}
         AND dt.deleted_at IS NULL
         ${search ? this.prisma.$queryRaw`AND (dt.name ILIKE ${'%' + search + '%'} OR dt.test_id ILIKE ${'%' + search + '%'})` : this.prisma.$queryRaw``}
         ${testType ? this.prisma.$queryRaw`AND dt.test_type = ${testType}::bcdr.test_type` : this.prisma.$queryRaw``}
@@ -46,7 +46,7 @@ export class DRTestsService {
     const total = await this.prisma.$queryRaw<[{ count: bigint }]>`
       SELECT COUNT(*) as count
       FROM bcdr.dr_tests
-      WHERE organization_id = ${organizationId}::uuid
+      WHERE organization_id = ${organizationId}
         AND deleted_at IS NULL
     `;
 
@@ -68,7 +68,7 @@ export class DRTestsService {
       LEFT JOIN shared.users u ON dt.coordinator_id = u.id
       LEFT JOIN bcdr.bcdr_plans bp ON dt.plan_id = bp.id
       WHERE dt.id = ${id}::uuid
-        AND dt.organization_id = ${organizationId}::uuid
+        AND dt.organization_id = ${organizationId}
         AND dt.deleted_at IS NULL
     `;
 
@@ -121,7 +121,7 @@ export class DRTestsService {
     // Check for duplicate testId
     const existing = await this.prisma.$queryRaw<any[]>`
       SELECT id FROM bcdr.dr_tests 
-      WHERE organization_id = ${organizationId}::uuid 
+      WHERE organization_id = ${organizationId} 
         AND test_id = ${dto.testId}
         AND deleted_at IS NULL
     `;
@@ -138,7 +138,7 @@ export class DRTestsService {
         systems_in_scope, participant_ids, external_participants, tags,
         created_by, updated_by
       ) VALUES (
-        ${organizationId}::uuid, ${dto.workspaceId || null}::uuid,
+        ${organizationId}, ${dto.workspaceId || null}::uuid,
         ${dto.testId}, ${dto.name}, ${dto.description || null}, 
         ${dto.testType}::bcdr.test_type, 'planned'::bcdr.test_status,
         ${dto.planId || null}::uuid, ${dto.processIds || []}::uuid[],
@@ -481,7 +481,7 @@ export class DRTestsService {
       SELECT dt.*, bp.title as plan_title
       FROM bcdr.dr_tests dt
       LEFT JOIN bcdr.bcdr_plans bp ON dt.plan_id = bp.id
-      WHERE dt.organization_id = ${organizationId}::uuid
+      WHERE dt.organization_id = ${organizationId}
         AND dt.deleted_at IS NULL
         AND dt.status IN ('planned', 'scheduled')
         AND dt.scheduled_date >= CURRENT_DATE
@@ -503,7 +503,7 @@ export class DRTestsService {
         COUNT(*) FILTER (WHERE result = 'passed_with_issues') as issues_count,
         AVG(actual_recovery_time_minutes) FILTER (WHERE result IS NOT NULL) as avg_recovery_time
       FROM bcdr.dr_tests
-      WHERE organization_id = ${organizationId}::uuid
+      WHERE organization_id = ${organizationId}
         AND deleted_at IS NULL
     `;
 
@@ -512,7 +512,7 @@ export class DRTestsService {
       SELECT COUNT(*) as count
       FROM bcdr.dr_test_findings f
       JOIN bcdr.dr_tests t ON f.test_id = t.id
-      WHERE t.organization_id = ${organizationId}::uuid
+      WHERE t.organization_id = ${organizationId}
         AND f.remediation_required = true
         AND f.remediation_status NOT IN ('resolved', 'accepted')
     `;

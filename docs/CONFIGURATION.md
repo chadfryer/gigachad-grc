@@ -110,7 +110,7 @@ redis://:PASSWORD@HOST:PORT
 | `KEYCLOAK_ADMIN` | Yes | `admin` | Admin username |
 | `KEYCLOAK_ADMIN_PASSWORD` | Yes | - | Admin password |
 | `KEYCLOAK_HOSTNAME` | Yes | - | Keycloak hostname (e.g., `auth.grc.example.com`) |
-| `KEYCLOAK_REALM` | Yes | `grc` | Realm name |
+| `KEYCLOAK_REALM` | Yes | `gigachad-grc` | Realm name |
 | `KC_DB_POOL_INITIAL_SIZE` | No | `5` | Initial DB pool size |
 | `KC_DB_POOL_MIN_SIZE` | No | `5` | Minimum DB pool size |
 | `KC_DB_POOL_MAX_SIZE` | No | `20` | Maximum DB pool size |
