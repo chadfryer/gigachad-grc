@@ -50,7 +50,7 @@ export class BCDRPlansService {
                (SELECT COUNT(*) FROM bcdr.plan_controls WHERE plan_id = bp.id) as control_count
         FROM bcdr.bcdr_plans bp
         LEFT JOIN shared.users u ON bp.owner_id = u.id
-        WHERE bp.organization_id = ${organizationId}::uuid
+        WHERE bp.organization_id = ${organizationId}
           AND bp.deleted_at IS NULL
           ${search ? this.prisma.$queryRaw`AND (bp.title ILIKE ${'%' + search + '%'} OR bp.plan_id ILIKE ${'%' + search + '%'})` : this.prisma.$queryRaw``}
           ${planType ? this.prisma.$queryRaw`AND bp.plan_type = ${planType}::bcdr.plan_type` : this.prisma.$queryRaw``}
@@ -61,7 +61,7 @@ export class BCDRPlansService {
       this.prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count
         FROM bcdr.bcdr_plans
-        WHERE organization_id = ${organizationId}::uuid
+        WHERE organization_id = ${organizationId}
           AND deleted_at IS NULL
       `,
     ]);
@@ -84,7 +84,7 @@ export class BCDRPlansService {
       LEFT JOIN shared.users u ON bp.owner_id = u.id
       LEFT JOIN shared.users a ON bp.approver_id = a.id
       WHERE bp.id = ${id}::uuid
-        AND bp.organization_id = ${organizationId}::uuid
+        AND bp.organization_id = ${organizationId}
         AND bp.deleted_at IS NULL
     `;
 
@@ -135,7 +135,7 @@ export class BCDRPlansService {
     // Check for duplicate planId
     const existing = await this.prisma.$queryRaw<any[]>`
       SELECT id FROM bcdr.bcdr_plans 
-      WHERE organization_id = ${organizationId}::uuid 
+      WHERE organization_id = ${organizationId} 
         AND plan_id = ${dto.planId}
         AND deleted_at IS NULL
     `;
@@ -157,7 +157,7 @@ export class BCDRPlansService {
         review_frequency_months, next_review_due, tags,
         created_by, updated_by
       ) VALUES (
-        ${organizationId}::uuid, ${dto.workspaceId || null}::uuid, 
+        ${organizationId}, ${dto.workspaceId || null}::uuid, 
         ${dto.planId}, ${dto.title}, ${dto.description || null}, 
         ${dto.planType}::bcdr.plan_type, 'draft'::bcdr.plan_status,
         ${dto.version || '1.0'}, ${dto.ownerId || null}::uuid,
@@ -414,7 +414,7 @@ export class BCDRPlansService {
         COUNT(*) FILTER (WHERE next_review_due < NOW()) as overdue_review_count,
         COUNT(*) FILTER (WHERE expiry_date < NOW() AND status = 'published') as expired_count
       FROM bcdr.bcdr_plans
-      WHERE organization_id = ${organizationId}::uuid
+      WHERE organization_id = ${organizationId}
         AND deleted_at IS NULL
     `;
 

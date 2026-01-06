@@ -60,7 +60,7 @@ export class BusinessProcessesService {
                (SELECT COUNT(*) FROM bcdr.process_assets WHERE process_id = bp.id) as asset_count
         FROM bcdr.business_processes bp
         LEFT JOIN shared.users u ON bp.owner_id = u.id
-        WHERE bp.organization_id = ${organizationId}::uuid
+        WHERE bp.organization_id = ${organizationId}
           AND bp.deleted_at IS NULL
           ${search ? this.prisma.$queryRaw`AND (bp.name ILIKE ${'%' + search + '%'} OR bp.process_id ILIKE ${'%' + search + '%'})` : this.prisma.$queryRaw``}
           ${criticalityTier ? this.prisma.$queryRaw`AND bp.criticality_tier = ${criticalityTier}` : this.prisma.$queryRaw``}
@@ -80,7 +80,7 @@ export class BusinessProcessesService {
       this.prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count
         FROM bcdr.business_processes
-        WHERE organization_id = ${organizationId}::uuid
+        WHERE organization_id = ${organizationId}
           AND deleted_at IS NULL
       `,
     ]);
@@ -102,7 +102,7 @@ export class BusinessProcessesService {
       FROM bcdr.business_processes bp
       LEFT JOIN shared.users u ON bp.owner_id = u.id
       WHERE bp.id = ${id}::uuid
-        AND bp.organization_id = ${organizationId}::uuid
+        AND bp.organization_id = ${organizationId}
         AND bp.deleted_at IS NULL
     `;
 
@@ -165,7 +165,7 @@ export class BusinessProcessesService {
     // Check for duplicate processId
     const existing = await this.prisma.$queryRaw<any[]>`
       SELECT id FROM bcdr.business_processes 
-      WHERE organization_id = ${organizationId}::uuid 
+      WHERE organization_id = ${organizationId} 
         AND process_id = ${dto.processId}
         AND deleted_at IS NULL
     `;
@@ -188,7 +188,7 @@ export class BusinessProcessesService {
         review_frequency_months, next_review_due, tags,
         created_by, updated_by
       ) VALUES (
-        ${organizationId}::uuid, ${dto.workspaceId || null}::uuid, ${dto.processId}, ${dto.name}, 
+        ${organizationId}, ${dto.workspaceId || null}::uuid, ${dto.processId}, ${dto.name}, 
         ${dto.description || null}, ${dto.department || null},
         ${dto.ownerId || null}::uuid, ${dto.criticalityTier}::bcdr.criticality_tier, 
         ${dto.businessCriticalityScore || null},
@@ -423,7 +423,7 @@ export class BusinessProcessesService {
         organization_id, dependent_process_id, dependency_process_id, 
         dependency_type, description
       ) VALUES (
-        ${organizationId}::uuid, ${processId}::uuid, ${dto.dependencyProcessId}::uuid,
+        ${organizationId}, ${processId}::uuid, ${dto.dependencyProcessId}::uuid,
         ${dto.dependencyType || 'required'}, ${dto.description || null}
       )
       ON CONFLICT (dependent_process_id, dependency_process_id) DO UPDATE
@@ -449,7 +449,7 @@ export class BusinessProcessesService {
     const processes = await this.prisma.$queryRaw<any[]>`
       SELECT id, process_id, name, criticality_tier
       FROM bcdr.business_processes
-      WHERE organization_id = ${organizationId}::uuid
+      WHERE organization_id = ${organizationId}
         AND deleted_at IS NULL
         AND is_active = true
     `;
@@ -458,7 +458,7 @@ export class BusinessProcessesService {
       SELECT pd.dependent_process_id as source, pd.dependency_process_id as target, pd.dependency_type
       FROM bcdr.process_dependencies pd
       JOIN bcdr.business_processes bp ON pd.dependent_process_id = bp.id
-      WHERE bp.organization_id = ${organizationId}::uuid
+      WHERE bp.organization_id = ${organizationId}
     `;
 
     return {
@@ -540,7 +540,7 @@ export class BusinessProcessesService {
         AVG(rto_hours) as avg_rto,
         AVG(rpo_hours) as avg_rpo
       FROM bcdr.business_processes
-      WHERE organization_id = ${organizationId}::uuid
+      WHERE organization_id = ${organizationId}
         AND deleted_at IS NULL
     `;
 

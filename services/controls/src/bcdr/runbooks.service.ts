@@ -25,7 +25,7 @@ export class RunbooksService {
       FROM bcdr.runbooks r
       LEFT JOIN shared.users u ON r.owner_id = u.id
       LEFT JOIN bcdr.business_processes bp ON r.process_id = bp.id
-      WHERE r.organization_id = ${organizationId}::uuid
+      WHERE r.organization_id = ${organizationId}
         AND r.deleted_at IS NULL
         ${search ? this.prisma.$queryRaw`AND (r.title ILIKE ${'%' + search + '%'} OR r.runbook_id ILIKE ${'%' + search + '%'})` : this.prisma.$queryRaw``}
         ${category ? this.prisma.$queryRaw`AND r.category = ${category}` : this.prisma.$queryRaw``}
@@ -48,7 +48,7 @@ export class RunbooksService {
       LEFT JOIN bcdr.business_processes bp ON r.process_id = bp.id
       LEFT JOIN bcdr.recovery_strategies rs ON r.recovery_strategy_id = rs.id
       WHERE r.id = ${id}::uuid
-        AND r.organization_id = ${organizationId}::uuid
+        AND r.organization_id = ${organizationId}
         AND r.deleted_at IS NULL
     `;
 
@@ -80,7 +80,7 @@ export class RunbooksService {
     // Check for duplicate runbookId
     const existing = await this.prisma.$queryRaw<any[]>`
       SELECT id FROM bcdr.runbooks 
-      WHERE organization_id = ${organizationId}::uuid 
+      WHERE organization_id = ${organizationId} 
         AND runbook_id = ${dto.runbookId}
         AND deleted_at IS NULL
     `;
@@ -96,7 +96,7 @@ export class RunbooksService {
         estimated_duration_minutes, required_access_level, prerequisites, tags,
         created_by, updated_by
       ) VALUES (
-        ${organizationId}::uuid, ${dto.runbookId}, ${dto.title}, ${dto.description || null},
+        ${organizationId}, ${dto.runbookId}, ${dto.title}, ${dto.description || null},
         'draft'::bcdr.runbook_status, ${dto.category || null}, ${dto.systemName || null},
         ${dto.processId || null}::uuid, ${dto.recoveryStrategyId || null}::uuid,
         ${dto.content || null}, ${dto.version || '1.0'}, ${dto.ownerId || null}::uuid,
@@ -392,7 +392,7 @@ export class RunbooksService {
         COUNT(*) FILTER (WHERE status = 'needs_review') as needs_review_count,
         COUNT(DISTINCT category) as category_count
       FROM bcdr.runbooks
-      WHERE organization_id = ${organizationId}::uuid
+      WHERE organization_id = ${organizationId}
         AND deleted_at IS NULL
     `;
 
