@@ -133,6 +133,7 @@ Once started, open your browser to:
 ./start.sh stop     # Stop the application
 ./start.sh status   # Check if services are running
 ./start.sh logs     # View live logs (Ctrl+C to exit)
+./start.sh reset    # Delete all data and start fresh (fixes auth issues)
 ```
 
 ### Windows
@@ -142,6 +143,7 @@ start.bat           # Start the application
 start.bat stop      # Stop the application
 start.bat status    # Check if services are running
 start.bat logs      # View live logs (Ctrl+C to exit)
+start.bat reset     # Delete all data and start fresh (fixes auth issues)
 ```
 
 ---
@@ -197,6 +199,42 @@ docker compose down -v
    - **Memory:** 8 GB
    - **Disk:** 20 GB
 4. Click "Apply & Restart"
+
+### Database authentication errors (WSL)
+
+**Symptom:** Containers crash with errors like:
+- `FATAL: password authentication failed for user "grc"` or `"GRC"`
+- `failed to start server in dev mode`
+- Keycloak or other services can't connect to PostgreSQL
+
+**Cause:** The PostgreSQL data volume was initialized with different credentials than what's in your current `.env` file. This happens when:
+- The `.env` file was deleted and regenerated (new random passwords)
+- You cloned the repo fresh but Docker volumes still exist from a previous install
+- Environment variables changed after initial setup
+
+**Solution:**
+```bash
+# Stop all containers and REMOVE ALL VOLUMES (this deletes all data!)
+docker compose down -v
+
+# Start fresh - this will create new volumes with matching credentials
+./start.sh
+```
+
+> **Note:** The `-v` flag removes all Docker volumes, which means any data you had (users, controls, etc.) will be lost. This is fine for development but be careful in production.
+
+**Alternative (preserve data):**
+If you need to preserve your data, you can manually update the PostgreSQL password:
+```bash
+# 1. Check what password is in your .env file
+cat .env | grep POSTGRES_PASSWORD
+
+# 2. Connect to PostgreSQL and update the password
+docker compose exec postgres psql -U postgres -c "ALTER USER grc WITH PASSWORD 'your-password-from-env';"
+
+# 3. Restart all services
+docker compose restart
+```
 
 ### Slow performance
 

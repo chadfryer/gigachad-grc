@@ -32,6 +32,7 @@ if "%1"=="start" goto start
 if "%1"=="stop" goto stop
 if "%1"=="logs" goto logs
 if "%1"=="status" goto status
+if "%1"=="reset" goto reset
 goto usage
 
 :banner
@@ -203,12 +204,40 @@ docker compose ps
 echo.
 goto :eof
 
+:reset
+call :banner
+echo %RED%WARNING: This will delete ALL data including:%NC%
+echo    - Database (all users, controls, frameworks, etc.)
+echo    - Redis cache
+echo    - Uploaded files
+echo    - Configuration in .env
+echo.
+set /p CONFIRM="Are you sure you want to reset everything? (y/N) "
+if /i "%CONFIRM%"=="y" (
+    echo %YELLOW%Stopping all services and removing volumes...%NC%
+    docker compose down -v
+    
+    if exist ".env" (
+        echo %YELLOW%Removing .env file...%NC%
+        del /f .env
+    )
+    
+    echo %GREEN%Reset complete%NC%
+    echo.
+    echo Run start.bat to start fresh with new credentials.
+    echo.
+) else (
+    echo %YELLOW%Reset cancelled%NC%
+)
+goto :eof
+
 :usage
-echo Usage: start.bat [start^|stop^|logs^|status]
+echo Usage: start.bat [start^|stop^|logs^|status^|reset]
 echo.
 echo Commands:
 echo   start   Start all services (default)
 echo   stop    Stop all services
 echo   logs    View service logs
 echo   status  Check service status
+echo   reset   Delete all data and start fresh (fixes auth issues)
 exit /b 1

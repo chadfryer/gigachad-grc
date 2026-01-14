@@ -198,6 +198,34 @@ show_status() {
     echo ""
 }
 
+reset_all() {
+    print_banner
+    echo -e "${RED}⚠️  WARNING: This will delete ALL data including:${NC}"
+    echo "   - Database (all users, controls, frameworks, etc.)"
+    echo "   - Redis cache"
+    echo "   - Uploaded files"
+    echo "   - Configuration in .env"
+    echo ""
+    read -p "Are you sure you want to reset everything? (y/N) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${YELLOW}Stopping all services and removing volumes...${NC}"
+        docker compose down -v
+        
+        if [ -f ".env" ]; then
+            echo -e "${YELLOW}Removing .env file...${NC}"
+            rm -f .env
+        fi
+        
+        echo -e "${GREEN}✓ Reset complete${NC}"
+        echo ""
+        echo "Run ./start.sh to start fresh with new credentials."
+        echo ""
+    else
+        echo -e "${YELLOW}Reset cancelled${NC}"
+    fi
+}
+
 # Main
 case "${1:-start}" in
     start)
@@ -212,14 +240,18 @@ case "${1:-start}" in
     status)
         show_status
         ;;
+    reset)
+        reset_all
+        ;;
     *)
-        echo "Usage: ./start.sh [start|stop|logs|status]"
+        echo "Usage: ./start.sh [start|stop|logs|status|reset]"
         echo ""
         echo "Commands:"
         echo "  start   Start all services (default)"
         echo "  stop    Stop all services"
         echo "  logs    View service logs"
         echo "  status  Check service status"
+        echo "  reset   Delete all data and start fresh (fixes auth issues)"
         exit 1
         ;;
 esac
