@@ -19,6 +19,7 @@ import { SkeletonDetailHeader, SkeletonDetailSection } from '@/components/Skelet
 import { ConfirmModal } from '@/components/Modal';
 import { SOC2AnalysisPanel } from '@/components/vendor/SOC2AnalysisPanel';
 import { VendorRiskAssessmentWizard } from '@/components/vendor/VendorRiskAssessmentWizard';
+import { VendorRiskAssessmentPanel } from '@/components/vendor/VendorRiskAssessmentPanel';
 import { VendorSecurityScanPanel } from '@/components/vendor/VendorSecurityScanPanel';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -196,7 +197,12 @@ export default function VendorDetail() {
           onCancel={() => id === 'new' ? navigate('/vendors') : setEditing(false)}
         />
       ) : (
-        <VendorView vendor={vendor!} onRefresh={fetchVendor} featureSettings={featureSettings} />
+        <VendorView 
+          vendor={vendor!} 
+          onRefresh={fetchVendor} 
+          featureSettings={featureSettings} 
+          onStartRiskAssessment={() => setShowRiskAssessment(true)}
+        />
       )}
 
       {/* Risk Assessment Wizard Modal */}
@@ -439,7 +445,7 @@ function VendorForm({
   );
 }
 
-function VendorView({ vendor, onRefresh, featureSettings }: { vendor: Vendor; onRefresh?: () => void; featureSettings: TprmFeatureSettings }) {
+function VendorView({ vendor, onRefresh, featureSettings, onStartRiskAssessment }: { vendor: Vendor; onRefresh?: () => void; featureSettings: TprmFeatureSettings; onStartRiskAssessment: () => void }) {
   const [showSOC2Panel, setShowSOC2Panel] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<{ id: string; title: string } | null>(null);
 
@@ -632,6 +638,15 @@ function VendorView({ vendor, onRefresh, featureSettings }: { vendor: Vendor; on
             toast.success('Assessment created from analysis');
             setShowSOC2Panel(false);
           }}
+        />
+      )}
+
+      {/* Risk Assessment Panel - conditionally shown based on feature settings */}
+      {featureSettings.enableRiskAssessmentWizard !== false && (
+        <VendorRiskAssessmentPanel
+          vendorId={vendor.id}
+          vendorName={vendor.name}
+          onStartAssessment={onStartRiskAssessment}
         />
       )}
 

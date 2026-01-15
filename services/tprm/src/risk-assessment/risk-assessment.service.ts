@@ -163,19 +163,19 @@ export class RiskAssessmentService {
         inherentRiskScore: mapRiskLevelToInherentScore(riskLevel),
         outcome: 'completed',
         outcomeNotes: `Risk Assessment completed by ${dto.assessor}. Risk Level: ${riskLevel}. ${recommendedAction}`,
-        findings: JSON.stringify({
+        findings: {
           title: dto.title,
           description: dto.description,
           assessor: dto.assessor,
           assetScore: dto.assetScore,
           threatScore: dto.threatScore,
-          likelihood: likelihoodResult,
-          impact: impactResult,
+          likelihood: likelihoodResult as any,
+          impact: impactResult as any,
           totalScore,
           riskLevel,
           recommendedAction,
           nextReviewDate: nextReviewDate.toISOString(),
-        }),
+        } as any,
         recommendations: recommendedAction,
         createdBy: userId,
       },
@@ -243,9 +243,19 @@ export class RiskAssessmentService {
       return null;
     }
 
-    const findings = assessment.findings ? JSON.parse(JSON.stringify(assessment.findings)) : null;
+    // Handle both old (stringified) and new (object) data formats
+    let findings: any = assessment.findings;
     if (!findings) {
       return null;
+    }
+    
+    // If findings is a string (old double-serialized data), parse it
+    if (typeof findings === 'string') {
+      try {
+        findings = JSON.parse(findings);
+      } catch {
+        return null;
+      }
     }
 
     return {
@@ -282,8 +292,18 @@ export class RiskAssessmentService {
 
     return assessments
       .map((assessment): RiskAssessmentResult | null => {
-        const findings = assessment.findings ? JSON.parse(JSON.stringify(assessment.findings)) : null;
+        // Handle both old (stringified) and new (object) data formats
+        let findings: any = assessment.findings;
         if (!findings) return null;
+        
+        // If findings is a string (old double-serialized data), parse it
+        if (typeof findings === 'string') {
+          try {
+            findings = JSON.parse(findings);
+          } catch {
+            return null;
+          }
+        }
 
         return {
           id: assessment.id,
