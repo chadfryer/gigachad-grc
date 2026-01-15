@@ -14,7 +14,6 @@ import {
   DocumentArrowUpIcon,
   ChartBarIcon,
   Cog6ToothIcon,
-  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { trainingApi } from '@/lib/api';
 import { Button } from '@/components/Button';
