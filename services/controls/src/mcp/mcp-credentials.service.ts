@@ -295,15 +295,163 @@ export class MCPCredentialsService {
 
   /**
    * Rotate encryption key (re-encrypt all credentials with new key)
+   * 
+   * IMPORTANT: After calling this method, you MUST update the ENCRYPTION_KEY
+   * or MCP_ENCRYPTION_KEY environment variable to the new key and restart
+   * the service. Otherwise, credentials will be unreadable.
+   * 
+   * @param newKey - The new encryption key (must be at least 32 characters)
+   * @returns Summary of the rotation operation
    */
-  async rotateEncryptionKey(newKey: string): Promise<void> {
-    // This would be used for key rotation in production
-    // Implementation would:
-    // 1. Decrypt all credentials with old key
-    // 2. Re-encrypt with new key
-    // 3. Update database
-    // 4. Update encryption key in service
-    throw new Error('Key rotation not yet implemented');
+  async rotateEncryptionKey(newKey: string): Promise<{
+    success: boolean;
+    credentialsRotated: number;
+    errors: string[];
+  }> {
+    // Validate new key
+    if (!newKey || newKey.length < 32) {
+      throw new Error('New encryption key must be at least 32 characters long');
+    }
+
+    if (newKey === this.encryptionKey) {
+      throw new Error('New encryption key must be different from the current key');
+    }
+
+    this.logger.log('Starting encryption key rotation...');
+    
+    const errors: string[] = [];
+    let credentialsRotated = 0;
+
+    try {
+      // Get all stored credentials
+      const allCredentials = await this.getAllStoredCredentials();
+      
+      if (allCredentials.length === 0) {
+        this.logger.log('No credentials to rotate');
+        return { success: true, credentialsRotated: 0, errors: [] };
+      }
+
+      this.logger.log(`Found ${allCredentials.length} credential sets to rotate`);
+
+      // Process each credential set
+      for (const credential of allCredentials) {
+        try {
+          // Decrypt with old key
+          const decrypted = await this.getCredentials(credential.serverId);
+          
+          if (!decrypted) {
+            errors.push(`Could not decrypt credentials for ${credential.serverId}`);
+            continue;
+          }
+
+          // Re-encrypt with new key
+          const reEncrypted = this.encryptWithKey(JSON.stringify(decrypted), newKey);
+          const reEncryptedString = JSON.stringify(reEncrypted);
+
+          // Update in database
+          await this.prisma.$executeRaw`
+            UPDATE mcp_credentials 
+            SET encrypted_env = ${reEncryptedString},
+                last_updated = NOW()
+            WHERE server_id = ${credential.serverId}
+          `;
+
+          credentialsRotated++;
+          this.logger.log(`Rotated credentials for server: ${credential.serverId}`);
+        } catch (error: any) {
+          errors.push(`Failed to rotate ${credential.serverId}: ${error.message}`);
+          this.logger.error(`Failed to rotate credentials for ${credential.serverId}`, error);
+        }
+      }
+
+      // Clear the cache - credentials need to be re-decrypted with new key
+      this.clearCache();
+
+      if (errors.length > 0) {
+        this.logger.warn(`Key rotation completed with ${errors.length} errors`);
+      } else {
+        this.logger.log(`Key rotation completed successfully. ${credentialsRotated} credentials rotated.`);
+      }
+
+      this.logger.warn(
+        'IMPORTANT: Update ENCRYPTION_KEY or MCP_ENCRYPTION_KEY environment variable to the new key and restart the service!'
+      );
+
+      return {
+        success: errors.length === 0,
+        credentialsRotated,
+        errors,
+      };
+    } catch (error: any) {
+      this.logger.error('Key rotation failed', error);
+      throw new Error(`Key rotation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all stored credentials from database (for rotation)
+   */
+  private async getAllStoredCredentials(): Promise<Array<{ serverId: string; encryptedEnv: string }>> {
+    try {
+      const results = await this.prisma.$queryRaw<Array<{ server_id: string; encrypted_env: string }>>`
+        SELECT server_id, encrypted_env FROM mcp_credentials
+      `;
+      
+      return results.map(r => ({
+        serverId: r.server_id,
+        encryptedEnv: r.encrypted_env,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Encrypt with a specific key (used during key rotation)
+   */
+  private encryptWithKey(text: string, key: string): EncryptedData {
+    const iv = crypto.randomBytes(16);
+    const derivedKey = crypto.scryptSync(key, 'mcp-salt', 32);
+    const cipher = crypto.createCipheriv(this.algorithm, derivedKey, iv);
+
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    const authTag = cipher.getAuthTag();
+
+    return {
+      iv: iv.toString('hex'),
+      encrypted,
+      authTag: authTag.toString('hex'),
+    };
+  }
+
+  /**
+   * Verify that credentials can be decrypted with the current key
+   * Useful for health checks and troubleshooting
+   */
+  async verifyCredentialIntegrity(): Promise<{
+    total: number;
+    valid: number;
+    invalid: string[];
+  }> {
+    const allCredentials = await this.getAllStoredCredentials();
+    const invalid: string[] = [];
+
+    for (const credential of allCredentials) {
+      try {
+        const encryptedData: EncryptedData = JSON.parse(credential.encryptedEnv);
+        this.decrypt(encryptedData);
+      } catch {
+        invalid.push(credential.serverId);
+      }
+    }
+
+    return {
+      total: allCredentials.length,
+      valid: allCredentials.length - invalid.length,
+      invalid,
+    };
   }
 }
 

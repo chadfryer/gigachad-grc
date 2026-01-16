@@ -2,12 +2,26 @@ import { Injectable, Logger } from '@nestjs/common';
 
 /**
  * AWS Integration Configuration
+ * 
+ * Credentials must be provided via:
+ * - Integration configuration (stored encrypted)
+ * - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+ * - IAM role (when running on AWS infrastructure)
  */
 export interface AWSConfig {
   accessKeyId: string;
   secretAccessKey: string;
   region: string;
   assumeRoleArn?: string;
+}
+
+/**
+ * Result type with mock mode indicator
+ */
+interface AWSResponseResult {
+  data: any;
+  isMockMode?: boolean;
+  mockModeReason?: string;
 }
 
 /**
@@ -466,8 +480,8 @@ export class AWSConnector {
   }
 
   /**
-   * Make AWS API request using Signature V4
-   * Note: In production, use the official AWS SDK
+   * Make AWS API request using the official AWS SDK v3
+   * Falls back to demo mode when SDK is not available or credentials are missing
    */
   private async makeAWSRequest(
     service: string,
@@ -476,82 +490,347 @@ export class AWSConnector {
     params: any,
     config: AWSConfig,
   ): Promise<any> {
-    // This is a simplified implementation
-    // In production, use @aws-sdk/client-* packages
-    
-    const endpoint = `https://${service}.${region}.amazonaws.com`;
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/x-amz-json-1.1',
-      'X-Amz-Target': `${this.getServiceTarget(service)}.${action}`,
-    };
+    // Check if credentials are properly configured
+    if (!config.accessKeyId || !config.secretAccessKey) {
+      this.logger.warn(`AWS credentials not configured for ${service}.${action} - using demo mode`);
+      return this.getDemoResponse(service, action);
+    }
 
-    // For a real implementation, you would:
-    // 1. Sign the request with AWS Signature V4
-    // 2. Handle pagination
-    // 3. Handle assume role if configured
-
-    // Simulated response for demonstration
-    // In production, replace with actual AWS SDK calls
-    this.logger.debug(`AWS API call: ${service}.${action}`);
-    
-    return this.simulateAWSResponse(service, action);
-  }
-
-  private getServiceTarget(service: string): string {
-    const targets: Record<string, string> = {
-      sts: 'AWSSecurityTokenService',
-      securityhub: 'SecurityHub',
-      cloudtrail: 'CloudTrail_20131101',
-      config: 'StarlingDoveService',
-      iam: 'IAMService',
-      s3: 'AmazonS3',
-      guardduty: 'GuardDuty',
-    };
-    return targets[service] || service;
+    try {
+      // Try to use the actual AWS SDK
+      const result = await this.executeAWSSDKCall(service, region, action, params, config);
+      return result;
+    } catch (error: any) {
+      // If SDK is not installed or call fails, fall back to demo mode
+      if (error.code === 'MODULE_NOT_FOUND') {
+        this.logger.warn(`AWS SDK not installed for ${service} - using demo mode. Install @aws-sdk/client-${service} for actual functionality.`);
+        return this.getDemoResponse(service, action);
+      }
+      
+      // Re-throw actual API errors
+      throw error;
+    }
   }
 
   /**
-   * Simulate AWS responses for demonstration
-   * Replace with actual AWS SDK in production
+   * Execute actual AWS SDK call
+   * Uses dynamic imports to avoid requiring SDK at build time
    */
-  private simulateAWSResponse(service: string, action: string): any {
-    // This returns mock data structure
-    // In production, use actual AWS SDK calls
-    const mockResponses: Record<string, Record<string, any>> = {
+  private async executeAWSSDKCall(
+    service: string,
+    region: string,
+    action: string,
+    params: any,
+    config: AWSConfig,
+  ): Promise<any> {
+    const credentials = {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    };
+
+    this.logger.debug(`AWS API call: ${service}.${action} in ${region}`);
+
+    try {
+      switch (service) {
+        case 'sts':
+          return await this.callSTS(region, action, params, credentials);
+        case 'securityhub':
+          return await this.callSecurityHub(region, action, params, credentials);
+        case 'cloudtrail':
+          return await this.callCloudTrail(region, action, params, credentials);
+        case 'config':
+          return await this.callConfig(region, action, params, credentials);
+        case 'iam':
+          return await this.callIAM(action, params, credentials);
+        case 's3':
+          return await this.callS3(region, action, params, credentials);
+        case 'guardduty':
+          return await this.callGuardDuty(region, action, params, credentials);
+        default:
+          this.logger.warn(`Unknown AWS service: ${service}`);
+          return this.getDemoResponse(service, action);
+      }
+    } catch (error: any) {
+      this.logger.error(`AWS ${service}.${action} failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically load and call AWS STS service
+   */
+  private async callSTS(region: string, action: string, params: any, credentials: any): Promise<any> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');
+      const client = new STSClient({ region, credentials });
+      
+      if (action === 'GetCallerIdentity') {
+        const response = await client.send(new GetCallerIdentityCommand(params));
+        return {
+          Account: response.Account,
+          Arn: response.Arn,
+          UserId: response.UserId,
+        };
+      }
+      return {};
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw Object.assign(new Error('AWS STS SDK not installed'), { code: 'MODULE_NOT_FOUND' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically load and call AWS Security Hub service
+   */
+  private async callSecurityHub(region: string, action: string, params: any, credentials: any): Promise<any> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { SecurityHubClient, GetFindingsCommand } = require('@aws-sdk/client-securityhub');
+      const client = new SecurityHubClient({ region, credentials });
+      
+      if (action === 'GetFindings') {
+        const response = await client.send(new GetFindingsCommand(params));
+        return { Findings: response.Findings || [] };
+      }
+      return {};
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw Object.assign(new Error('AWS Security Hub SDK not installed'), { code: 'MODULE_NOT_FOUND' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically load and call AWS CloudTrail service
+   */
+  private async callCloudTrail(region: string, action: string, params: any, credentials: any): Promise<any> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { CloudTrailClient, LookupEventsCommand } = require('@aws-sdk/client-cloudtrail');
+      const client = new CloudTrailClient({ region, credentials });
+      
+      if (action === 'LookupEvents') {
+        const response = await client.send(new LookupEventsCommand(params));
+        return { Events: response.Events || [] };
+      }
+      return {};
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw Object.assign(new Error('AWS CloudTrail SDK not installed'), { code: 'MODULE_NOT_FOUND' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically load and call AWS Config service
+   */
+  private async callConfig(region: string, action: string, params: any, credentials: any): Promise<any> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ConfigServiceClient, DescribeComplianceByConfigRuleCommand } = require('@aws-sdk/client-config-service');
+      const client = new ConfigServiceClient({ region, credentials });
+      
+      if (action === 'DescribeComplianceByConfigRule') {
+        const response = await client.send(new DescribeComplianceByConfigRuleCommand(params));
+        return { ComplianceByConfigRules: response.ComplianceByConfigRules || [] };
+      }
+      return {};
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw Object.assign(new Error('AWS Config SDK not installed'), { code: 'MODULE_NOT_FOUND' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically load and call AWS IAM service
+   */
+  private async callIAM(action: string, params: any, credentials: any): Promise<any> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { 
+        IAMClient, 
+        ListUsersCommand, 
+        ListRolesCommand, 
+        ListPoliciesCommand,
+        ListMFADevicesCommand,
+        ListAccessKeysCommand,
+      } = require('@aws-sdk/client-iam');
+      
+      // IAM is global
+      const client = new IAMClient({ region: 'us-east-1', credentials });
+      
+      switch (action) {
+        case 'ListUsers':
+          const usersResponse = await client.send(new ListUsersCommand(params));
+          return { Users: usersResponse.Users || [] };
+        case 'ListRoles':
+          const rolesResponse = await client.send(new ListRolesCommand(params));
+          return { Roles: rolesResponse.Roles || [] };
+        case 'ListPolicies':
+          const policiesResponse = await client.send(new ListPoliciesCommand(params));
+          return { Policies: policiesResponse.Policies || [] };
+        case 'ListMFADevices':
+          const mfaResponse = await client.send(new ListMFADevicesCommand(params));
+          return { MFADevices: mfaResponse.MFADevices || [] };
+        case 'ListAccessKeys':
+          const keysResponse = await client.send(new ListAccessKeysCommand(params));
+          return { AccessKeyMetadata: keysResponse.AccessKeyMetadata || [] };
+        default:
+          return {};
+      }
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw Object.assign(new Error('AWS IAM SDK not installed'), { code: 'MODULE_NOT_FOUND' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically load and call AWS S3 service
+   */
+  private async callS3(region: string, action: string, params: any, credentials: any): Promise<any> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { 
+        S3Client, 
+        ListBucketsCommand,
+        GetPublicAccessBlockCommand,
+        GetBucketEncryptionCommand,
+        GetBucketVersioningCommand,
+        GetBucketLoggingCommand,
+      } = require('@aws-sdk/client-s3');
+      
+      const client = new S3Client({ region, credentials });
+      
+      switch (action) {
+        case 'ListBuckets':
+          const bucketsResponse = await client.send(new ListBucketsCommand(params));
+          return { Buckets: bucketsResponse.Buckets || [] };
+        case 'GetPublicAccessBlock':
+          const publicResponse = await client.send(new GetPublicAccessBlockCommand(params));
+          return { PublicAccessBlockConfiguration: publicResponse.PublicAccessBlockConfiguration };
+        case 'GetBucketEncryption':
+          const encResponse = await client.send(new GetBucketEncryptionCommand(params));
+          return { ServerSideEncryptionConfiguration: encResponse.ServerSideEncryptionConfiguration };
+        case 'GetBucketVersioning':
+          const versResponse = await client.send(new GetBucketVersioningCommand(params));
+          return { Status: versResponse.Status };
+        case 'GetBucketLogging':
+          const logResponse = await client.send(new GetBucketLoggingCommand(params));
+          return { LoggingEnabled: logResponse.LoggingEnabled };
+        default:
+          return {};
+      }
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw Object.assign(new Error('AWS S3 SDK not installed'), { code: 'MODULE_NOT_FOUND' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically load and call AWS GuardDuty service
+   */
+  private async callGuardDuty(region: string, action: string, params: any, credentials: any): Promise<any> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { 
+        GuardDutyClient, 
+        ListDetectorsCommand,
+        ListFindingsCommand,
+        GetFindingsCommand,
+      } = require('@aws-sdk/client-guardduty');
+      
+      const client = new GuardDutyClient({ region, credentials });
+      
+      switch (action) {
+        case 'ListDetectors':
+          const detectorsResponse = await client.send(new ListDetectorsCommand(params));
+          return { DetectorIds: detectorsResponse.DetectorIds || [] };
+        case 'ListFindings':
+          const findingsListResponse = await client.send(new ListFindingsCommand(params));
+          return { FindingIds: findingsListResponse.FindingIds || [] };
+        case 'GetFindings':
+          const findingsResponse = await client.send(new GetFindingsCommand(params));
+          return { Findings: findingsResponse.Findings || [] };
+        default:
+          return {};
+      }
+    } catch (error: any) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        throw Object.assign(new Error('AWS GuardDuty SDK not installed'), { code: 'MODULE_NOT_FOUND' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get demo response when AWS SDK is not available or credentials are missing
+   * Returns empty data with clear indication of demo mode
+   */
+  private getDemoResponse(service: string, action: string): any {
+    const demoResponses: Record<string, Record<string, any>> = {
       sts: {
         GetCallerIdentity: {
-          Account: '123456789012',
-          Arn: 'arn:aws:iam::123456789012:user/demo',
-          UserId: 'AIDAEXAMPLEID',
+          Account: 'DEMO-ACCOUNT',
+          Arn: 'arn:aws:iam::DEMO-ACCOUNT:user/demo-mode',
+          UserId: 'DEMO-USER-ID',
+          _isMockMode: true,
+          _mockModeReason: 'AWS credentials not configured or SDK not installed',
         },
       },
       securityhub: {
-        GetFindings: { Findings: [] },
+        GetFindings: { 
+          Findings: [],
+          _isMockMode: true,
+          _mockModeReason: 'Install @aws-sdk/client-securityhub and configure credentials for Security Hub data',
+        },
       },
       cloudtrail: {
-        LookupEvents: { Events: [] },
+        LookupEvents: { 
+          Events: [],
+          _isMockMode: true,
+          _mockModeReason: 'Install @aws-sdk/client-cloudtrail and configure credentials for CloudTrail data',
+        },
       },
       config: {
-        DescribeComplianceByConfigRule: { ComplianceByConfigRules: [] },
+        DescribeComplianceByConfigRule: { 
+          ComplianceByConfigRules: [],
+          _isMockMode: true,
+          _mockModeReason: 'Install @aws-sdk/client-config-service and configure credentials for AWS Config data',
+        },
       },
       iam: {
-        ListUsers: { Users: [] },
-        ListRoles: { Roles: [] },
-        ListPolicies: { Policies: [] },
-        ListMFADevices: { MFADevices: [] },
-        ListAccessKeys: { AccessKeyMetadata: [] },
+        ListUsers: { Users: [], _isMockMode: true },
+        ListRoles: { Roles: [], _isMockMode: true },
+        ListPolicies: { Policies: [], _isMockMode: true },
+        ListMFADevices: { MFADevices: [], _isMockMode: true },
+        ListAccessKeys: { AccessKeyMetadata: [], _isMockMode: true },
       },
       s3: {
-        ListBuckets: { Buckets: [] },
+        ListBuckets: { 
+          Buckets: [],
+          _isMockMode: true,
+          _mockModeReason: 'Install @aws-sdk/client-s3 and configure credentials for S3 data',
+        },
       },
       guardduty: {
-        ListDetectors: { DetectorIds: [] },
-        ListFindings: { FindingIds: [] },
-        GetFindings: { Findings: [] },
+        ListDetectors: { DetectorIds: [], _isMockMode: true },
+        ListFindings: { FindingIds: [], _isMockMode: true },
+        GetFindings: { Findings: [], _isMockMode: true },
       },
     };
 
-    return mockResponses[service]?.[action] || {};
+    return demoResponses[service]?.[action] || { _isMockMode: true };
   }
 }
 

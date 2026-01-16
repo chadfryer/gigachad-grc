@@ -248,7 +248,7 @@ export class RetentionService {
               });
               recordsProcessed = result.count;
             } else {
-              // Archive - mark as cancelled for archival (Task doesn't have deletedAt)
+              // Archive - mark as archived for archival (Task doesn't have deletedAt)
               const result = await this.prisma.task.updateMany({
                 where: {
                   organizationId,
@@ -266,8 +266,152 @@ export class RetentionService {
           }
           break;
 
+        case RetentionEntityType.EVIDENCE:
+          // Handle evidence retention - only process expired or rejected evidence
+          const evidenceCount = await this.prisma.evidence.count({
+            where: {
+              organizationId,
+              createdAt: { lt: cutoffDate },
+              deletedAt: null, // Not already soft-deleted
+              // Only process evidence that's expired, rejected, or past validUntil
+              OR: [
+                { status: 'expired' },
+                { status: 'rejected' },
+                { isExpired: true },
+                { validUntil: { lt: cutoffDate } },
+              ],
+            },
+          });
+          recordsFound = evidenceCount;
+
+          if (!dryRun) {
+            if (policy.action === RetentionAction.DELETE) {
+              // Soft delete by setting deletedAt
+              const result = await this.prisma.evidence.updateMany({
+                where: {
+                  organizationId,
+                  createdAt: { lt: cutoffDate },
+                  deletedAt: null,
+                  OR: [
+                    { status: 'expired' },
+                    { status: 'rejected' },
+                    { isExpired: true },
+                    { validUntil: { lt: cutoffDate } },
+                  ],
+                },
+                data: {
+                  deletedAt: new Date(),
+                },
+              });
+              recordsProcessed = result.count;
+            } else {
+              // Archive - mark as expired (closest to archive in the schema)
+              const result = await this.prisma.evidence.updateMany({
+                where: {
+                  organizationId,
+                  createdAt: { lt: cutoffDate },
+                  deletedAt: null,
+                  OR: [
+                    { status: 'expired' },
+                    { status: 'rejected' },
+                    { isExpired: true },
+                    { validUntil: { lt: cutoffDate } },
+                  ],
+                },
+                data: {
+                  status: 'expired',
+                  isExpired: true,
+                },
+              });
+              recordsProcessed = result.count;
+            }
+          } else {
+            recordsProcessed = recordsFound;
+          }
+          break;
+
+        case RetentionEntityType.POLICY_VERSIONS:
+          // Handle policy version retention - delete old versions beyond retention period
+          // Keep the most recent version for each policy
+          
+          // Get all policies in this organization
+          const orgPolicies = await this.prisma.policy.findMany({
+            where: { organizationId },
+            select: { id: true },
+          });
+
+          // Build list of version IDs that should be protected (most recent per policy)
+          const protectedVersions = new Set<string>();
+          for (const p of orgPolicies) {
+            // Find the most recent version for this policy
+            const latestVersion = await this.prisma.policyVersion.findFirst({
+              where: { policyId: p.id },
+              orderBy: { createdAt: 'desc' },
+              select: { id: true },
+            });
+            if (latestVersion) {
+              protectedVersions.add(latestVersion.id);
+            }
+          }
+
+          // Count old versions that are not the latest
+          const allOldVersions = await this.prisma.policyVersion.findMany({
+            where: {
+              policy: { organizationId },
+              createdAt: { lt: cutoffDate },
+            },
+            select: { id: true },
+          });
+          
+          const versionsToDelete = allOldVersions.filter(v => !protectedVersions.has(v.id));
+          recordsFound = versionsToDelete.length;
+
+          if (!dryRun && policy.action === RetentionAction.DELETE && versionsToDelete.length > 0) {
+            // Delete old policy versions (not the most recent)
+            const result = await this.prisma.policyVersion.deleteMany({
+              where: {
+                id: { in: versionsToDelete.map(v => v.id) },
+              },
+            });
+            recordsProcessed = result.count;
+          } else {
+            // Archive not applicable for versions - they don't have archive status
+            recordsProcessed = recordsFound;
+          }
+          break;
+
+        case RetentionEntityType.EXPORT_JOBS:
+          // Handle export job retention - clean up old export jobs and their files
+          // Use raw SQL since ExportJob might be in-memory only
+          try {
+            // Check if the table exists
+            const exportJobCount = await this.prisma.$queryRaw<[{ count: bigint }]>`
+              SELECT COUNT(*) as count FROM export_jobs 
+              WHERE organization_id = ${organizationId}
+              AND created_at < ${cutoffDate}
+            `;
+            recordsFound = Number(exportJobCount[0]?.count || 0);
+
+            if (!dryRun && policy.action === RetentionAction.DELETE) {
+              const result = await this.prisma.$executeRaw`
+                DELETE FROM export_jobs 
+                WHERE organization_id = ${organizationId}
+                AND created_at < ${cutoffDate}
+              `;
+              recordsProcessed = result;
+            } else {
+              recordsProcessed = recordsFound;
+            }
+          } catch (error) {
+            // Export jobs might be stored in memory only
+            this.logger.warn('Export jobs table not found - exports may be stored in memory only');
+            recordsFound = 0;
+            recordsProcessed = 0;
+          }
+          break;
+
         default:
-          this.logger.warn(`Retention for ${policy.entityType} not yet implemented`);
+          this.logger.warn(`Retention for ${policy.entityType} not supported`);
           recordsFound = 0;
           recordsProcessed = 0;
       }

@@ -11,6 +11,7 @@ import {
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import { Button } from '@/components/Button';
+import { vendorsApi } from '@/lib/api';
 import clsx from 'clsx';
 
 // ============================================
@@ -113,36 +114,23 @@ export function VendorRiskAssessmentPanel({
     setLoading(true);
     setError(null);
     try {
-      // Fetch latest assessment
-      const latestRes = await fetch(`/api/vendors/${vendorId}/risk-assessment/latest`, {
-        headers: {
-          'x-user-id': 'dev-user-1',
-          'x-organization-id': 'org-1',
-        },
-      });
-      
-      if (latestRes.ok) {
-        const latestData = await latestRes.json();
-        setLatestAssessment(latestData);
-      } else if (latestRes.status !== 404) {
-        throw new Error('Failed to fetch assessment');
+      // Fetch latest assessment using the vendorsApi (has proper auth headers)
+      const latestRes = await vendorsApi.getLatestRiskAssessment(vendorId);
+      if (latestRes.data) {
+        setLatestAssessment(latestRes.data);
       }
 
       // Fetch history
-      const historyRes = await fetch(`/api/vendors/${vendorId}/risk-assessment/history`, {
-        headers: {
-          'x-user-id': 'dev-user-1',
-          'x-organization-id': 'org-1',
-        },
-      });
-      
-      if (historyRes.ok) {
-        const historyData = await historyRes.json();
-        setHistory(historyData);
+      const historyRes = await vendorsApi.getRiskAssessmentHistory(vendorId);
+      if (historyRes.data) {
+        setHistory(historyRes.data);
       }
-    } catch (err) {
-      console.error('Failed to fetch risk assessments:', err);
-      setError('Failed to load risk assessments');
+    } catch (err: any) {
+      // 404 means no assessments yet - that's okay
+      if (err?.response?.status !== 404) {
+        console.error('Failed to fetch risk assessments:', err);
+        setError('Failed to load risk assessments');
+      }
     } finally {
       setLoading(false);
     }

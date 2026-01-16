@@ -4,6 +4,67 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project aims to follow Semantic Versioning where practical.
 
+## [Unreleased]
+
+### Added
+
+#### Graceful Demo Mode
+- **Consistent Mock Mode Behavior**: All external integrations now return realistic sample data when not configured, with explicit `isMockMode: true` flags in API responses
+- **Demo Mode Warnings**: Clear console warnings logged when services operate without credentials
+- **UI Configuration Status**: Frontend components display informational banners about service configuration status
+
+#### Cloud Provider Integrations
+- **AWS Evidence Collection**: Full implementation for Security Hub, CloudTrail, IAM, S3, and GuardDuty evidence collection using AWS SDK v3
+- **Azure Security Center**: Implementation for secure score and recommendation collection
+- **Google Workspace**: Audit log collection implementation with service account support
+
+#### Email Notifications
+- **Dynamic Email Status**: New `/api/notifications-config/email-status` endpoint to check email service configuration
+- **Provider Status Display**: NotificationSettings page now dynamically shows whether email is configured or in demo mode
+- **Multi-Provider Support**: Documentation for SMTP, SendGrid, and Amazon SES configuration
+
+#### Background Job System
+- **Job Scheduler Implementation**: All job handlers now call actual service methods instead of placeholder stubs
+- **Evidence Collection Jobs**: Automated evidence collection scheduling
+- **Retention Policy Jobs**: Automated data retention enforcement
+- **Integration Sync Jobs**: Jira and ServiceNow synchronization
+
+#### Data Retention
+- **Extended Entity Support**: Retention policies now support EVIDENCE, POLICY_VERSIONS, and EXPORT_JOBS in addition to existing entity types
+- **Policy Version Protection**: Retention automatically protects the most recent version of each policy
+
+#### AI/MCP Features
+- **AI Risk Analysis**: AI controller now returns actual analysis from the AI service with demo mode fallback
+- **MCP Key Rotation**: Full implementation of encryption key rotation for MCP credential storage
+
+#### Vulnerability Scanning
+- **Enhanced Fallback**: Vulnerability scanner returns detailed mock data with `toolsRequired` hints when scanning tools are not installed
+
+### Changed
+
+#### API Clients
+- **Report Builder API**: Migrated from localStorage to backend API with graceful localStorage fallback
+- **Scheduled Reports API**: Migrated from localStorage to backend API with graceful localStorage fallback
+- **CustomReportConfig Type**: Extended to include 'divider' section type and additional properties
+
+#### Session Management
+- **Async Cleanup**: Session cleanup refactored to async method returning cleanup count for job scheduler integration
+
+### Fixed
+
+- Fixed TypeScript compilation errors in retention service (incorrect field names for Prisma schema)
+- Fixed AWS connector dynamic imports to use runtime `require()` for optional SDK packages
+- Fixed Azure evidence collector dynamic imports
+- Fixed ScheduledReports component to display loading state
+
+### Documentation
+
+- **ENV_CONFIGURATION.md**: Added comprehensive sections for cloud provider integrations, email configuration, vulnerability scanning, AI features, and demo mode behavior
+- **guides/integrations-setup.md**: New comprehensive guide explaining how to configure all integrations with step-by-step instructions
+- **help/reporting/scheduled-reports.md**: Added email configuration section and demo mode explanation
+- **help/data/evidence-collectors.md**: Added demo mode section and SDK requirements
+- **help/ai-mcp/ai-configuration.md**: Added demo mode section with transition guidance
+
 ## [1.0.0] - 2024-12-15
 
 ### Added

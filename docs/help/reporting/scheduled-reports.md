@@ -158,6 +158,35 @@ Click any historical report to download.
 - Secure distribution
 - Maintain recipient list
 
+## Email Configuration
+
+Scheduled reports are delivered via email. If email is not configured, reports will still generate but delivery will be simulated.
+
+### Checking Email Status
+
+The Scheduled Reports page shows the current email configuration status:
+
+- **Green indicator**: Email is configured and active
+- **Amber indicator**: Email is in demo mode (console logging only)
+
+### Configuring Email
+
+To enable email delivery, configure one of the following:
+
+1. **SMTP**: Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`
+2. **SendGrid**: Set `SENDGRID_API_KEY`
+3. **Amazon SES**: Set `AWS_SES_REGION` with AWS credentials
+
+See the [Environment Configuration Guide](/docs/ENV_CONFIGURATION.md) for details.
+
+### Demo Mode
+
+When email is not configured:
+- Reports still generate on schedule
+- Report files are saved to the document library
+- Email delivery is logged to the console instead of sent
+- The UI displays "Email notifications are in demo mode"
+
 ## Troubleshooting
 
 ### Report Not Generating
@@ -165,6 +194,12 @@ Click any historical report to download.
 2. Verify report is active
 3. Check for errors in history
 4. Review parameters
+
+### Report Not Delivered
+1. Check email configuration status on the page
+2. Verify recipient email addresses
+3. Check email provider settings
+4. Review server logs for delivery errors
 
 ### Empty Report
 1. Verify date range

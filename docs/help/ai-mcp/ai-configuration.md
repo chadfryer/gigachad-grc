@@ -231,6 +231,59 @@ Content-Type: application/json
 }
 ```
 
+## Demo Mode
+
+GigaChad GRC's AI features can operate in **demo mode** when no AI provider is configured. This allows you to explore the AI capabilities before obtaining API keys.
+
+### How Demo Mode Works
+
+When AI is not configured:
+
+1. **Sample Responses**: AI endpoints return realistic sample recommendations
+2. **Mock Flag**: API responses include `isMockMode: true`
+3. **UI Indication**: The interface shows "AI running in demo mode"
+4. **No API Calls**: No requests are made to external AI providers
+
+### Demo Response Example
+
+```json
+{
+  "likelihood": 3,
+  "impact": 4,
+  "inherentRisk": 12,
+  "rationale": "This is a sample AI recommendation. Configure an AI provider for actual analysis.",
+  "confidence": 0.0,
+  "isMockMode": true,
+  "mockModeReason": "AI provider not configured - set OPENAI_API_KEY or ANTHROPIC_API_KEY"
+}
+```
+
+### Transitioning to Production
+
+To enable real AI analysis:
+
+1. **Obtain API Key**: Get a key from OpenAI or Anthropic
+2. **Configure Provider**: Set the environment variable or use the Settings UI
+3. **Test Connection**: Verify the API key works
+4. **Enable Features**: Toggle on the AI features you want
+
+### Environment Variables
+
+Configure AI via environment variables:
+
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-xxxxxx
+OPENAI_MODEL=gpt-4
+
+# Or Anthropic
+ANTHROPIC_API_KEY=sk-ant-xxxxxx
+ANTHROPIC_MODEL=claude-sonnet-4
+
+# Enable AI features
+ENABLE_AI_FEATURES=true
+```
+
 ## Best Practices
 
 ### API Key Security

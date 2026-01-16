@@ -1949,8 +1949,33 @@ export const auditLogApi = {
 };
 
 // Notification Configuration API
+export interface EmailStatus {
+  isConfigured: boolean;
+  provider: string;
+  isConsoleMode: boolean;
+  consoleReason?: string;
+}
+
 export const notificationsConfigApi = {
   get: () => api.get('/api/notifications-config'),
+  
+  getEmailStatus: async (): Promise<EmailStatus> => {
+    try {
+      const response = await api.get<{ success: boolean; data: EmailStatus }>('/api/notifications-config/email-status');
+      return response.data.data;
+    } catch (error: any) {
+      // Fallback if endpoint doesn't exist yet
+      if (error.response?.status === 404) {
+        return {
+          isConfigured: false,
+          provider: 'unknown',
+          isConsoleMode: true,
+          consoleReason: 'Email status endpoint not available',
+        };
+      }
+      throw error;
+    }
+  },
   updateEmail: (data: {
     emailProvider: 'disabled' | 'smtp' | 'sendgrid' | 'ses';
     emailFromAddress?: string;
@@ -2532,6 +2557,305 @@ export const mcpApi = {
   
   cancelExecution: (executionId: string): Promise<AxiosResponse<{ success: boolean }>> =>
     api.post(`/api/mcp/workflows/executions/${executionId}/cancel`),
+};
+
+// ============================================
+// Custom Reports API
+// ============================================
+
+export interface CustomReportSection {
+  id: string;
+  type: 'heading' | 'text' | 'table' | 'chart' | 'summary' | 'divider';
+  title?: string;
+  content?: string;
+  dataSource?: string;
+  fields?: string[];
+  filters?: Array<{
+    field: string;
+    operator: 'equals' | 'contains' | 'gt' | 'lt' | 'between' | 'in';
+    value: string | number | string[];
+  }>;
+  groupBy?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  chartType?: 'bar' | 'pie' | 'line' | 'donut';
+  chartConfig?: {
+    xAxis?: string;
+    yAxis?: string;
+    colorBy?: string;
+  };
+}
+
+export interface CustomReportConfig {
+  id?: string;
+  name: string;
+  description?: string;
+  sections: CustomReportSection[];
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+}
+
+export const customReportsApi = {
+  /**
+   * List all custom reports for the organization
+   */
+  list: async (): Promise<CustomReportConfig[]> => {
+    try {
+      const response = await api.get<{ success: boolean; data: CustomReportConfig[] }>('/api/custom-reports');
+      return response.data.data || [];
+    } catch (error: any) {
+      // Fallback to localStorage if API not available (demo mode)
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Custom reports API not available - using localStorage fallback');
+        const stored = localStorage.getItem('custom-reports');
+        return stored ? JSON.parse(stored) : [];
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Get a specific custom report by ID
+   */
+  get: async (id: string): Promise<CustomReportConfig | null> => {
+    try {
+      const response = await api.get<{ success: boolean; data: CustomReportConfig }>(`/api/custom-reports/${id}`);
+      return response.data.data;
+    } catch (error: any) {
+      // Fallback to localStorage if API not available
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        const reports = await customReportsApi.list();
+        return reports.find(r => r.id === id) || null;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Save a custom report (create or update)
+   */
+  save: async (config: CustomReportConfig): Promise<CustomReportConfig> => {
+    const id = config.id || `report-${Date.now()}`;
+    const now = new Date().toISOString();
+    
+    const updatedConfig: CustomReportConfig = {
+      ...config,
+      id,
+      createdAt: config.createdAt || now,
+      updatedAt: now,
+    };
+
+    try {
+      if (config.id) {
+        // Update existing
+        const response = await api.put<{ success: boolean; data: CustomReportConfig }>(
+          `/api/custom-reports/${config.id}`,
+          updatedConfig
+        );
+        return response.data.data;
+      } else {
+        // Create new
+        const response = await api.post<{ success: boolean; data: CustomReportConfig }>(
+          '/api/custom-reports',
+          updatedConfig
+        );
+        return response.data.data;
+      }
+    } catch (error: any) {
+      // Fallback to localStorage if API not available
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Custom reports API not available - using localStorage fallback');
+        const reports = await customReportsApi.list();
+        const index = reports.findIndex(r => r.id === id);
+        
+        if (index >= 0) {
+          reports[index] = updatedConfig;
+        } else {
+          reports.push(updatedConfig);
+        }
+        
+        localStorage.setItem('custom-reports', JSON.stringify(reports));
+        return updatedConfig;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a custom report
+   */
+  delete: async (id: string): Promise<void> => {
+    try {
+      await api.delete(`/api/custom-reports/${id}`);
+    } catch (error: any) {
+      // Fallback to localStorage if API not available
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Custom reports API not available - using localStorage fallback');
+        const reports = await customReportsApi.list();
+        const filtered = reports.filter(r => r.id !== id);
+        localStorage.setItem('custom-reports', JSON.stringify(filtered));
+        return;
+      }
+      throw error;
+    }
+  },
+};
+
+// ============================================
+// Scheduled Reports API
+// ============================================
+
+export interface ScheduledReport {
+  id: string;
+  name: string;
+  reportType: string;
+  format: 'pdf' | 'csv' | 'xlsx';
+  schedule: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly';
+    dayOfWeek?: number;
+    dayOfMonth?: number;
+    time: string;
+  };
+  recipients: string[];
+  filters?: Record<string, string>;
+  enabled: boolean;
+  lastRun?: string;
+  nextRun?: string;
+  createdAt: string;
+}
+
+export const scheduledReportsApi = {
+  /**
+   * List all scheduled reports for the organization
+   */
+  list: async (): Promise<ScheduledReport[]> => {
+    try {
+      const response = await api.get<{ success: boolean; data: ScheduledReport[] }>('/api/scheduled-reports');
+      return response.data.data || [];
+    } catch (error: any) {
+      // Fallback to localStorage if API not available (demo mode)
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Scheduled reports API not available - using localStorage fallback');
+        const stored = localStorage.getItem('scheduled_reports');
+        return stored ? JSON.parse(stored) : [];
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Get a specific scheduled report by ID
+   */
+  get: async (id: string): Promise<ScheduledReport | null> => {
+    try {
+      const response = await api.get<{ success: boolean; data: ScheduledReport }>(`/api/scheduled-reports/${id}`);
+      return response.data.data;
+    } catch (error: any) {
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        const reports = await scheduledReportsApi.list();
+        return reports.find(r => r.id === id) || null;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new scheduled report
+   */
+  create: async (report: Omit<ScheduledReport, 'id' | 'createdAt'>): Promise<ScheduledReport> => {
+    const newReport: ScheduledReport = {
+      ...report,
+      id: `sr-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const response = await api.post<{ success: boolean; data: ScheduledReport }>(
+        '/api/scheduled-reports',
+        newReport
+      );
+      return response.data.data;
+    } catch (error: any) {
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Scheduled reports API not available - using localStorage fallback');
+        const reports = await scheduledReportsApi.list();
+        reports.push(newReport);
+        localStorage.setItem('scheduled_reports', JSON.stringify(reports));
+        return newReport;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Update a scheduled report
+   */
+  update: async (id: string, updates: Partial<ScheduledReport>): Promise<ScheduledReport> => {
+    try {
+      const response = await api.put<{ success: boolean; data: ScheduledReport }>(
+        `/api/scheduled-reports/${id}`,
+        updates
+      );
+      return response.data.data;
+    } catch (error: any) {
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Scheduled reports API not available - using localStorage fallback');
+        const reports = await scheduledReportsApi.list();
+        const index = reports.findIndex(r => r.id === id);
+        if (index >= 0) {
+          reports[index] = { ...reports[index], ...updates };
+          localStorage.setItem('scheduled_reports', JSON.stringify(reports));
+          return reports[index];
+        }
+        throw new Error('Report not found');
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a scheduled report
+   */
+  delete: async (id: string): Promise<void> => {
+    try {
+      await api.delete(`/api/scheduled-reports/${id}`);
+    } catch (error: any) {
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Scheduled reports API not available - using localStorage fallback');
+        const reports = await scheduledReportsApi.list();
+        const filtered = reports.filter(r => r.id !== id);
+        localStorage.setItem('scheduled_reports', JSON.stringify(filtered));
+        return;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Run a scheduled report immediately
+   */
+  runNow: async (id: string): Promise<{ success: boolean; jobId?: string }> => {
+    try {
+      const response = await api.post<{ success: boolean; data: { jobId: string } }>(
+        `/api/scheduled-reports/${id}/run`
+      );
+      return { success: true, jobId: response.data.data.jobId };
+    } catch (error: any) {
+      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+        console.warn('Scheduled reports API not available - simulating run');
+        // Update lastRun in localStorage
+        const reports = await scheduledReportsApi.list();
+        const index = reports.findIndex(r => r.id === id);
+        if (index >= 0) {
+          reports[index].lastRun = new Date().toISOString();
+          localStorage.setItem('scheduled_reports', JSON.stringify(reports));
+        }
+        return { success: true };
+      }
+      throw error;
+    }
+  },
 };
 
 export default api;

@@ -240,6 +240,48 @@ Collected evidence follows:
 - Automatic cleanup when expired
 - Audit trail maintained
 
+## Demo Mode
+
+Evidence collectors can operate in **demo mode** when cloud provider credentials are not configured. This allows you to explore the feature before connecting to production systems.
+
+### How Demo Mode Works
+
+When a collector runs without valid credentials:
+
+1. **Sample Evidence Generated**: The collector returns realistic sample data
+2. **Mock Flag Set**: API responses include `isMockMode: true`
+3. **Warning Logged**: The system logs "credentials not configured - using demo mode"
+4. **UI Indication**: The evidence displays a demo indicator
+
+### Identifying Demo Evidence
+
+Demo evidence is clearly marked:
+- Evidence source shows "Demo/Sample Data"
+- Metadata includes `isMockMode: true`
+- Collection logs note "Demo mode collection"
+
+### Moving to Production
+
+To transition from demo to real evidence collection:
+
+1. **Configure Credentials**: Add valid API keys/credentials for the provider
+2. **Test Connection**: Use the "Test Connection" button to verify
+3. **Run Collection**: Trigger a manual collection to get real data
+4. **Review Evidence**: Confirm real evidence is being collected
+5. **Archive Demo Data**: Optionally remove demo evidence
+
+### SDK Requirements
+
+Some collectors require optional SDK packages to be installed:
+
+| Provider | Required Packages |
+|----------|------------------|
+| AWS | `@aws-sdk/client-*` packages |
+| Azure | `@azure/identity`, `@azure/arm-security` |
+| Google | `googleapis` |
+
+If packages are not installed, the collector operates in demo mode and logs which packages are needed.
+
 ## Troubleshooting
 
 ### Connection Failed

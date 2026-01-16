@@ -9,6 +9,7 @@ import {
   InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { Button } from '@/components/Button';
+import { vendorsApi } from '@/lib/api';
 import clsx from 'clsx';
 
 // ============================================
@@ -299,35 +300,29 @@ export function VendorRiskAssessmentWizard({
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/vendors/${vendorId}/risk-assessment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: state.title,
-          description: state.description,
-          assessor: state.assessor,
-          assetScore,
-          threatScore,
-          likelihood: {
-            frequency: state.likelihoodFrequency,
-            capability: state.likelihoodCapability,
-            controlStrength: state.likelihoodControl,
-          },
-          impact: {
-            productivity: state.impactProductivity,
-            response: state.impactResponse,
-            recovery: state.impactRecovery,
-            competitive: state.impactCompetitive,
-            legal: state.impactLegal,
-            reputation: state.impactReputation,
-          },
-        }),
+      // Use the vendorsApi which has proper auth headers via axios interceptors
+      const response = await vendorsApi.submitRiskAssessment(vendorId, {
+        title: state.title,
+        description: state.description,
+        assessor: state.assessor,
+        assetScore,
+        threatScore,
+        likelihood: {
+          frequency: state.likelihoodFrequency,
+          capability: state.likelihoodCapability,
+          controlStrength: state.likelihoodControl,
+        },
+        impact: {
+          productivity: state.impactProductivity,
+          response: state.impactResponse,
+          recovery: state.impactRecovery,
+          competitive: state.impactCompetitive,
+          legal: state.impactLegal,
+          reputation: state.impactReputation,
+        },
       });
 
-      if (!response.ok) throw new Error('Failed to submit assessment');
-      
-      const result = await response.json();
-      onComplete(result);
+      onComplete(response.data);
     } catch (error) {
       console.error('Failed to submit assessment:', error);
     } finally {

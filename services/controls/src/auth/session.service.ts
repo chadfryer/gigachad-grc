@@ -340,8 +340,9 @@ export class SessionService {
 
   /**
    * Clean up expired sessions (call periodically)
+   * @returns Number of sessions cleaned up
    */
-  cleanup(): void {
+  async cleanupExpiredSessions(): Promise<number> {
     const now = new Date();
     let cleaned = 0;
 
@@ -358,6 +359,17 @@ export class SessionService {
     if (cleaned > 0) {
       this.logger.log(`Cleaned up ${cleaned} expired sessions`);
     }
+
+    return cleaned;
+  }
+
+  /**
+   * @deprecated Use cleanupExpiredSessions instead
+   */
+  cleanup(): void {
+    this.cleanupExpiredSessions().catch(err => {
+      this.logger.error('Failed to cleanup sessions', err);
+    });
   }
 }
 

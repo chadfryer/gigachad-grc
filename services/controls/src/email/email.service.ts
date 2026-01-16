@@ -10,13 +10,35 @@ export interface EmailOptions {
   text?: string;
 }
 
+export interface EmailServiceStatus {
+  isConfigured: boolean;
+  provider: string;
+  isConsoleMode: boolean;
+  consoleReason?: string;
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: Transporter;
+  private _isConsoleMode = false;
+  private _consoleReason?: string;
+  private _provider: string = 'unknown';
 
   constructor(private configService: ConfigService) {
     this.initializeTransporter();
+  }
+
+  /**
+   * Get the current email service configuration status
+   */
+  getStatus(): EmailServiceStatus {
+    return {
+      isConfigured: !this._isConsoleMode,
+      provider: this._provider,
+      isConsoleMode: this._isConsoleMode,
+      consoleReason: this._consoleReason,
+    };
   }
 
   private initializeTransporter(): void {
@@ -25,6 +47,9 @@ export class EmailService {
     if (emailProvider === 'console') {
       // Console mode for development - just logs emails
       this.logger.log('Email service initialized in CONSOLE mode');
+      this._provider = 'console';
+      this._isConsoleMode = true;
+      this._consoleReason = 'EMAIL_PROVIDER is set to console (development mode)';
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
@@ -38,7 +63,7 @@ export class EmailService {
       const apiKey = this.configService.get<string>('SENDGRID_API_KEY');
       if (!apiKey) {
         this.logger.warn('SENDGRID_API_KEY not configured, falling back to console mode');
-        this.initializeConsoleMode();
+        this.initializeConsoleMode('SENDGRID_API_KEY environment variable not set');
         return;
       }
 
@@ -51,6 +76,8 @@ export class EmailService {
           pass: apiKey,
         },
       });
+      this._provider = 'sendgrid';
+      this._isConsoleMode = false;
       this.logger.log('Email service initialized with SendGrid');
     } else if (emailProvider === 'ses') {
       // AWS SES configuration
@@ -60,7 +87,7 @@ export class EmailService {
 
       if (!accessKeyId || !secretAccessKey) {
         this.logger.warn('AWS credentials not configured, falling back to console mode');
-        this.initializeConsoleMode();
+        this.initializeConsoleMode('AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables not set');
         return;
       }
 
@@ -73,6 +100,8 @@ export class EmailService {
           pass: secretAccessKey,
         },
       });
+      this._provider = 'ses';
+      this._isConsoleMode = false;
       this.logger.log('Email service initialized with AWS SES');
     } else {
       // Generic SMTP configuration
@@ -84,7 +113,7 @@ export class EmailService {
 
       if (!host || !user || !pass) {
         this.logger.warn('SMTP credentials not configured, falling back to console mode');
-        this.initializeConsoleMode();
+        this.initializeConsoleMode('SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables not set');
         return;
       }
 
@@ -97,11 +126,16 @@ export class EmailService {
           pass,
         },
       });
+      this._provider = 'smtp';
+      this._isConsoleMode = false;
       this.logger.log('Email service initialized with SMTP');
     }
   }
 
-  private initializeConsoleMode(): void {
+  private initializeConsoleMode(reason?: string): void {
+    this._provider = 'console';
+    this._isConsoleMode = true;
+    this._consoleReason = reason || 'No email provider configured';
     this.transporter = nodemailer.createTransport({
       streamTransport: true,
       newline: 'unix',

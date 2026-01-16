@@ -6,8 +6,9 @@ import {
   CheckIcon,
   ArrowPathIcon,
   TrashIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import { notificationsApi } from '../lib/api';
+import { notificationsApi, notificationsConfigApi, EmailStatus } from '../lib/api';
 import { formatDistanceToNow } from 'date-fns';
 
 interface NotificationPreference {
@@ -49,6 +50,63 @@ const categoryIcons: Record<string, string> = {
   Collaboration: '💬',
   System: '⚙️',
 };
+
+/**
+ * Component to display dynamic email configuration status
+ */
+function EmailConfigurationNotice() {
+  const { data: emailStatus, isLoading } = useQuery<EmailStatus>({
+    queryKey: ['email-status'],
+    queryFn: () => notificationsConfigApi.getEmailStatus(),
+    staleTime: 60000, // Cache for 1 minute
+  });
+
+  if (isLoading) {
+    return (
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 animate-pulse">
+        <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
+        <div className="h-3 bg-gray-700 rounded w-3/4"></div>
+      </div>
+    );
+  }
+
+  const isConfigured = emailStatus?.isConfigured ?? false;
+
+  if (isConfigured) {
+    return (
+      <div className="bg-green-900/20 border border-green-700 rounded-xl p-4">
+        <div className="flex items-start space-x-3">
+          <CheckCircleIcon className="h-6 w-6 text-green-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-green-400 font-medium">Email Notifications Active</h4>
+            <p className="text-gray-300 text-sm mt-1">
+              Email delivery is configured using {emailStatus?.provider?.toUpperCase() || 'SMTP'}. 
+              Notifications will be sent to recipient email addresses.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-amber-900/20 border border-amber-700 rounded-xl p-4">
+      <div className="flex items-start space-x-3">
+        <EnvelopeIcon className="h-6 w-6 text-amber-400 flex-shrink-0 mt-0.5" />
+        <div>
+          <h4 className="text-amber-400 font-medium">Email Notifications (Demo Mode)</h4>
+          <p className="text-gray-300 text-sm mt-1">
+            {emailStatus?.consoleReason || 
+              'Email provider not configured. Configure SMTP, SendGrid, or AWS SES in environment variables to enable email delivery.'}
+          </p>
+          <p className="text-gray-400 text-xs mt-2">
+            In demo mode, emails are logged to the console instead of being sent.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function NotificationSettings() {
   const queryClient = useQueryClient();
@@ -365,17 +423,7 @@ export default function NotificationSettings() {
           )}
 
           {/* Email Configuration Notice */}
-          <div className="bg-amber-900/20 border border-amber-700 rounded-xl p-4">
-            <div className="flex items-start space-x-3">
-              <EnvelopeIcon className="h-6 w-6 text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-amber-400 font-medium">Email Notifications</h4>
-                <p className="text-gray-300 text-sm mt-1">
-                  Email notifications are currently in placeholder mode. Configure your email provider in the settings to enable email delivery.
-                </p>
-              </div>
-            </div>
-          </div>
+          <EmailConfigurationNotice />
         </div>
       ) : (
         /* Notifications List */

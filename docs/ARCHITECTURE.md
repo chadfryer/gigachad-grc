@@ -190,9 +190,9 @@ labels:
 | `/api/ai` | controls | 3001 | AI configuration and features |
 | `/api/mcp` | controls | 3001 | MCP server management |
 | `/api/training` | controls | 3001 | Training management |
+| `/api/risks` | controls | 3001 | Risk register |
+| `/api/risk-config` | controls | 3001 | Risk configuration |
 | `/api/frameworks` | frameworks | 3002 | Compliance frameworks |
-| `/api/risks` | frameworks | 3002 | Risk register |
-| `/api/risk-config` | frameworks | 3002 | Risk configuration |
 | `/api/policies` | policies | 3004 | Policy management |
 | `/api/vendors` | tprm | 3005 | Vendor management |
 | `/api/assessments` | tprm | 3005 | Vendor assessments |
@@ -263,8 +263,8 @@ kubectl port-forward svc/traefik 8080:8080
 
 | Service | Port | Responsibility |
 |---------|------|----------------|
-| **controls** | 3001 | Controls, evidence, assets, implementations, collectors |
-| **frameworks** | 3002 | Frameworks, mappings, risk management |
+| **controls** | 3001 | Controls, evidence, assets, implementations, collectors, risk management |
+| **frameworks** | 3002 | Frameworks, mappings, framework assessments |
 | **policies** | 3004 | Policy lifecycle, approvals, acknowledgments |
 | **tprm** | 3005 | Vendors, assessments, contracts |
 | **trust** | 3006 | Questionnaires, knowledge base, trust center |
@@ -318,8 +318,8 @@ Response format:
 - **Extensions**: uuid-ossp, pg_trgm (full-text search)
 
 **Schemas**:
-- `controls` - Control and evidence management
-- `frameworks` - Compliance frameworks and risk
+- `controls` - Control and evidence management, risk management
+- `frameworks` - Compliance frameworks and mappings
 - `integrations` - Third-party integrations
 - `policies` - Policy management
 - `shared` - Cross-cutting concerns

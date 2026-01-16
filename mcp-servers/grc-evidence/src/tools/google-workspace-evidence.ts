@@ -15,6 +15,9 @@ interface EvidenceResult {
     criticalFindings: number;
     warnings: number;
   };
+  isMockMode?: boolean;
+  mockModeReason?: string;
+  requiredCredentials?: string[];
 }
 
 export async function collectGoogleWorkspaceEvidence(
@@ -37,20 +40,20 @@ export async function collectGoogleWorkspaceEvidence(
   const adminEmail = process.env.GOOGLE_ADMIN_EMAIL;
 
   if (!serviceAccountKey || !adminEmail) {
+    console.warn('Google Workspace credentials not configured - running in demo mode');
+    
     return {
       service: 'google_workspace',
       collectedAt: new Date().toISOString(),
-      findings: [
-        {
-          error: 'GOOGLE_SERVICE_ACCOUNT_KEY and GOOGLE_ADMIN_EMAIL environment variables required',
-          note: 'Configure a service account with domain-wide delegation for Google Workspace API access',
-        },
-      ],
+      findings: [],
       summary: {
         totalEvents: 0,
         criticalFindings: 0,
         warnings: 0,
       },
+      isMockMode: true,
+      mockModeReason: 'Google Workspace credentials not configured. Set GOOGLE_SERVICE_ACCOUNT_KEY and GOOGLE_ADMIN_EMAIL environment variables.',
+      requiredCredentials: ['GOOGLE_SERVICE_ACCOUNT_KEY', 'GOOGLE_ADMIN_EMAIL'],
     };
   }
 

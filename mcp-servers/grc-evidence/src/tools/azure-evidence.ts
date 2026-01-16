@@ -16,6 +16,9 @@ interface EvidenceResult {
     compliantResources: number;
     nonCompliantResources: number;
   };
+  isMockMode?: boolean;
+  mockModeReason?: string;
+  requiredCredentials?: string[];
 }
 
 export async function collectAzureEvidence(params: AzureEvidenceParams): Promise<EvidenceResult> {
@@ -97,38 +100,99 @@ export async function collectAzureEvidence(params: AzureEvidenceParams): Promise
       },
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isAuthError = errorMessage.includes('credential') || 
+                        errorMessage.includes('authentication') ||
+                        errorMessage.includes('AZURE_');
+    
+    console.warn(`Azure evidence collection failed: ${errorMessage}`);
+    
     return {
       service: 'azure',
       collectedAt: new Date().toISOString(),
       subscriptionId,
-      findings: [{ error: error instanceof Error ? error.message : 'Unknown error' }],
+      findings: [],
       summary: {
         totalResources: 0,
         compliantResources: 0,
         nonCompliantResources: 0,
       },
+      isMockMode: true,
+      mockModeReason: isAuthError 
+        ? 'Azure credentials not configured. Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID environment variables, or run on Azure with managed identity.'
+        : `Azure evidence collection failed: ${errorMessage}`,
+      requiredCredentials: isAuthError 
+        ? ['AZURE_CLIENT_ID', 'AZURE_CLIENT_SECRET', 'AZURE_TENANT_ID'] 
+        : undefined,
     };
   }
 }
 
 async function collectSecurityCenterEvidence(subscriptionId: string): Promise<unknown> {
-  // Note: In a real implementation, you would use @azure/arm-security
-  // This is a placeholder that shows the structure
-  return {
-    type: 'security_center',
-    subscriptionId,
-    collectedAt: new Date().toISOString(),
-    findings: {
-      secureScore: {
-        current: 0,
-        max: 100,
-        percentage: 0,
+  try {
+    // Try to use the Azure Security SDK with require() for runtime loading
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { SecurityCenter } = require('@azure/arm-security');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { DefaultAzureCredential } = require('@azure/identity');
+    
+    const credential = new DefaultAzureCredential();
+    const client = new SecurityCenter(credential, subscriptionId);
+    
+    // Collect secure score
+    const secureScores: unknown[] = [];
+    for await (const score of client.secureScores.list()) {
+      secureScores.push({
+        name: score.displayName,
+        current: score.current,
+        max: score.max,
+        percentage: score.percentage,
+      });
+    }
+    
+    // Collect recommendations
+    const recommendations: unknown[] = [];
+    for await (const rec of client.recommendations.list()) {
+      recommendations.push({
+        name: rec.displayName,
+        status: rec.status,
+        resourceId: rec.resourceDetails?.source,
+      });
+    }
+    
+    return {
+      type: 'security_center',
+      subscriptionId,
+      collectedAt: new Date().toISOString(),
+      findings: {
+        secureScores,
+        recommendations: recommendations.slice(0, 50), // Limit for storage
+        recommendationCount: recommendations.length,
       },
-      recommendations: [],
-      alerts: [],
-      note: 'Azure Security Center evidence collection requires @azure/arm-security SDK',
-    },
-  };
+    };
+  } catch (error: any) {
+    // SDK not available or error occurred
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isModuleError = error.code === 'MODULE_NOT_FOUND' || 
+                          errorMessage.includes('Cannot find module');
+    
+    console.warn(`Security Center evidence collection: ${isModuleError ? 'SDK not installed' : errorMessage}`);
+    
+    return {
+      type: 'security_center',
+      subscriptionId,
+      collectedAt: new Date().toISOString(),
+      findings: {
+        secureScore: { current: 0, max: 100, percentage: 0 },
+        recommendations: [],
+        alerts: [],
+      },
+      isMockMode: true,
+      mockModeReason: isModuleError 
+        ? 'Install @azure/arm-security SDK for actual Security Center data'
+        : `Security Center collection failed: ${errorMessage}`,
+    };
+  }
 }
 
 async function collectKeyVaultEvidence(resourceClient: ResourceManagementClient): Promise<unknown> {

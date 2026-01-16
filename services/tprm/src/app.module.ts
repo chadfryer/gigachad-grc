@@ -17,13 +17,16 @@ import { StorageModule } from '@gigachad-grc/shared';
       isGlobal: true,
     }),
     StorageModule.forRoot(),
+    // RiskAssessmentModule and SecurityScannerModule must be imported BEFORE VendorsModule
+    // because their routes (/vendors/:id/risk-assessment/*, /vendors/:id/security-scan/*)
+    // are more specific than VendorsModule's catch-all /:id route
+    RiskAssessmentModule,
+    SecurityScannerModule,
     VendorsModule,
     AssessmentsModule,
     ContractsModule,
     VendorAIModule,
     TprmConfigModule,
-    RiskAssessmentModule,
-    SecurityScannerModule,
   ],
   providers: [PrismaService, AuditService],
   exports: [PrismaService, AuditService],

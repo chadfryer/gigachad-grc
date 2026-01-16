@@ -265,6 +265,251 @@ LOG_LEVEL=info
 
 ---
 
+## Cloud Provider Integrations
+
+GigaChad GRC can collect security evidence from major cloud providers. When credentials are not configured, the system operates in **demo mode** with sample data.
+
+### AWS Integration
+
+```bash
+# AWS credentials for evidence collection
+# Required for: Security Hub findings, CloudTrail events, IAM analysis, S3 security, GuardDuty
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_REGION=us-east-1
+
+# Optional: Use IAM role instead of access keys (recommended for EC2/ECS)
+AWS_ROLE_ARN=arn:aws:iam::123456789012:role/GRCReadOnlyRole
+```
+
+**Required IAM Permissions:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "securityhub:GetFindings",
+        "cloudtrail:LookupEvents",
+        "config:DescribeComplianceByConfigRule",
+        "iam:ListUsers",
+        "iam:ListRoles",
+        "iam:ListPolicies",
+        "iam:ListMFADevices",
+        "iam:ListAccessKeys",
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketEncryption",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketLogging",
+        "s3:GetPublicAccessBlock",
+        "guardduty:ListDetectors",
+        "guardduty:ListFindings",
+        "guardduty:GetFindings",
+        "sts:GetCallerIdentity"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**Demo Mode Behavior:** When AWS credentials are not configured, the system returns sample security data with `isMockMode: true` in API responses. A warning is logged: "AWS credentials not configured - using demo mode".
+
+### Azure Integration
+
+```bash
+# Azure credentials for Security Center evidence
+# Uses Azure Default Credential chain (supports managed identity, CLI, env vars)
+AZURE_TENANT_ID=your-tenant-id
+AZURE_CLIENT_ID=your-client-id
+AZURE_CLIENT_SECRET=your-client-secret
+AZURE_SUBSCRIPTION_ID=your-subscription-id
+```
+
+**Required Azure Roles:**
+- Security Reader (for Security Center data)
+- Reader (for resource enumeration)
+
+**Demo Mode Behavior:** When Azure credentials are not configured or the Azure SDK is not installed, the system returns sample security scores and recommendations with `isMockMode: true`.
+
+### Google Workspace Integration
+
+```bash
+# Google Workspace for audit log collection
+# Requires a service account with domain-wide delegation
+GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}
+GOOGLE_ADMIN_EMAIL=admin@yourcompany.com
+GOOGLE_CUSTOMER_ID=C0xxxxxx
+```
+
+**Required API Scopes:**
+- `https://www.googleapis.com/auth/admin.reports.audit.readonly`
+- `https://www.googleapis.com/auth/admin.directory.user.readonly`
+
+**Demo Mode Behavior:** When Google credentials are not configured, the system returns sample audit logs with clear indication that it's operating in demo mode.
+
+---
+
+## Email Service Configuration
+
+Email notifications support multiple providers. The system will fall back to console logging when no provider is configured.
+
+### SMTP (Generic)
+
+```bash
+SMTP_HOST=smtp.yourprovider.com
+SMTP_PORT=587
+SMTP_USER=notifications@yourcompany.com
+SMTP_PASSWORD=your-password
+SMTP_FROM=GigaChad GRC <notifications@yourcompany.com>
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+```
+
+### SendGrid
+
+```bash
+EMAIL_PROVIDER=sendgrid
+SENDGRID_API_KEY=SG.xxxxxxxxxxxx
+SMTP_FROM=notifications@yourcompany.com
+```
+
+### Amazon SES
+
+```bash
+EMAIL_PROVIDER=ses
+AWS_SES_REGION=us-east-1
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=your-secret
+SMTP_FROM=notifications@yourcompany.com
+```
+
+**Demo Mode Behavior:** When no email provider is configured, emails are logged to the console instead of being sent. The UI displays a banner indicating "Email notifications are in demo mode" with instructions on how to configure a provider.
+
+---
+
+## Vulnerability Scanning Tools
+
+The vulnerability scanner integrates with external security tools. These are optional dependencies.
+
+### Container Scanning (Trivy)
+
+```bash
+# Install Trivy for container vulnerability scanning
+# https://aquasecurity.github.io/trivy/
+# No environment variables required - uses CLI
+```
+
+**Demo Mode Behavior:** If Trivy is not installed, the scanner returns sample vulnerability data with `isMockMode: true` and `toolsRequired: ["trivy"]`.
+
+### Dependency Scanning
+
+```bash
+# Uses npm audit for Node.js projects
+# Uses pip-audit for Python projects
+# No additional configuration required
+```
+
+**Demo Mode Behavior:** If the package manager tools are not available, sample vulnerability data is returned.
+
+### Network Scanning (Nmap)
+
+```bash
+# Install nmap for network scanning
+# https://nmap.org/
+# No environment variables required - uses CLI
+```
+
+**Demo Mode Behavior:** If Nmap is not installed, sample port scan results are returned with instructions to install the tool.
+
+---
+
+## AI and MCP Server Configuration
+
+### AI Features
+
+```bash
+# Enable AI-powered analysis
+ENABLE_AI_FEATURES=true
+
+# OpenAI API (for AI analysis)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4
+
+# Or use Azure OpenAI
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_API_KEY=your-key
+AZURE_OPENAI_DEPLOYMENT=gpt-4
+```
+
+**Demo Mode Behavior:** When AI is not configured, the risk analysis endpoint returns sample recommendations with `isMockMode: true`. The UI indicates that AI features are running in demo mode.
+
+### MCP Server Credentials
+
+```bash
+# Encryption key for MCP credential storage (32+ characters)
+MCP_ENCRYPTION_KEY=your-32-character-encryption-key
+
+# Key rotation is supported via API
+# POST /api/mcp/credentials/rotate-key
+```
+
+---
+
+## Integration Services
+
+### Jira Integration
+
+```bash
+JIRA_URL=https://yourcompany.atlassian.net
+JIRA_EMAIL=jira-bot@yourcompany.com
+JIRA_API_TOKEN=your-api-token
+JIRA_PROJECT_KEY=GRC
+```
+
+### ServiceNow Integration
+
+```bash
+SERVICENOW_INSTANCE=yourcompany.service-now.com
+SERVICENOW_USERNAME=integration-user
+SERVICENOW_PASSWORD=your-password
+```
+
+### Slack Integration
+
+```bash
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_SIGNING_SECRET=your-signing-secret
+SLACK_DEFAULT_CHANNEL=grc-notifications
+```
+
+**Demo Mode Behavior:** When integration credentials are not configured, sync operations log warnings and return mock confirmation responses. The job scheduler continues to run but skips actual external calls.
+
+---
+
+## Demo Mode Summary
+
+GigaChad GRC is designed to operate gracefully when external services are not configured:
+
+| Feature | Required Configuration | Demo Mode Behavior |
+|---------|----------------------|-------------------|
+| AWS Evidence | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Sample security findings |
+| Azure Evidence | Azure credentials | Sample secure scores |
+| Google Workspace | Service account JSON | Sample audit logs |
+| Email Notifications | SMTP or provider config | Console logging |
+| Vulnerability Scanning | Trivy, nmap installed | Sample vulnerabilities |
+| AI Analysis | OpenAI/Azure OpenAI key | Sample recommendations |
+| Jira Sync | Jira credentials | Mock confirmations |
+| ServiceNow Sync | ServiceNow credentials | Mock confirmations |
+
+**Identifying Demo Mode:**
+- API responses include `isMockMode: true` when operating without real data
+- Console/logs show `WARN` messages indicating demo mode
+- UI components display informational banners about configuration status
+
+---
+
 ## Generating Secrets
 
 Always generate fresh secrets for production:
@@ -323,5 +568,5 @@ Before deploying, validate your configuration:
 
 ---
 
-*Last updated: December 2024*
+*Last updated: January 2026*
 

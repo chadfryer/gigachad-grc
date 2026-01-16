@@ -1,7 +1,28 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JobsService } from './jobs.service';
-import * as cronParser from 'cron-parser';
+import { CollectorsService } from '../collectors/collectors.service';
+import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ScheduledNotificationsService } from '../notifications/scheduled-notifications.service';
+import { JiraService } from '../integrations/jira/jira.service';
+import { ServiceNowService } from '../integrations/servicenow/servicenow.service';
+import { ExportsService } from '../exports/exports.service';
+import { ReportsService } from '../reports/reports.service';
+import { RetentionService } from '../retention/retention.service';
+import { RetentionPolicyStatus } from '../retention/dto/retention.dto';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { SessionService } from '../auth/session.service';
+
+/**
+ * Job execution result with mock mode indicator
+ */
+interface JobResult {
+  status: string;
+  isMockMode?: boolean;
+  mockModeReason?: string;
+  [key: string]: any;
+}
 
 /**
  * Central job scheduler that replaces scattered setInterval calls
@@ -12,6 +33,9 @@ import * as cronParser from 'cron-parser';
  * 2. Triggers scheduled jobs when their time comes
  * 3. Handles delayed/retry jobs
  * 4. Provides crash-resilient scheduling
+ *
+ * When external services are not configured, jobs run in demo mode
+ * with clear warnings logged.
  */
 @Injectable()
 export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -27,6 +51,28 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jobsService: JobsService,
+    @Optional() @Inject(forwardRef(() => CollectorsService))
+    private readonly collectorsService: CollectorsService | null,
+    @Optional() @Inject(forwardRef(() => EmailService))
+    private readonly emailService: EmailService | null,
+    @Optional() @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService | null,
+    @Optional() @Inject(forwardRef(() => ScheduledNotificationsService))
+    private readonly scheduledNotificationsService: ScheduledNotificationsService | null,
+    @Optional() @Inject(forwardRef(() => JiraService))
+    private readonly jiraService: JiraService | null,
+    @Optional() @Inject(forwardRef(() => ServiceNowService))
+    private readonly serviceNowService: ServiceNowService | null,
+    @Optional() @Inject(forwardRef(() => ExportsService))
+    private readonly exportsService: ExportsService | null,
+    @Optional() @Inject(forwardRef(() => ReportsService))
+    private readonly reportsService: ReportsService | null,
+    @Optional() @Inject(forwardRef(() => RetentionService))
+    private readonly retentionService: RetentionService | null,
+    @Optional() @Inject(forwardRef(() => WebhooksService))
+    private readonly webhooksService: WebhooksService | null,
+    @Optional() @Inject(forwardRef(() => SessionService))
+    private readonly sessionService: SessionService | null,
   ) {}
 
   onModuleInit() {
@@ -240,99 +286,376 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
   // Job Handlers
   // =============================================
 
-  private async runEvidenceCollector(data: any): Promise<any> {
+  /**
+   * Run an evidence collector
+   */
+  private async runEvidenceCollector(data: any): Promise<JobResult> {
     const { collectorId, organizationId } = data;
     this.logger.log(`Running evidence collector ${collectorId}`);
-    // This would call the CollectorsService
-    // await this.collectorsService.run(collectorId, organizationId, 'system-scheduler');
-    return { status: 'completed', collectorId };
+
+    if (!this.collectorsService) {
+      this.logger.warn('CollectorsService not available - running in demo mode');
+      return {
+        status: 'completed',
+        collectorId,
+        isMockMode: true,
+        mockModeReason: 'CollectorsService not injected - ensure CollectorsModule is imported',
+      };
+    }
+
+    try {
+      // Run the collector
+      const result = await this.collectorsService.run(
+        collectorId,
+        organizationId,
+        'system-scheduler',
+      );
+      return { status: 'completed', collectorId, result };
+    } catch (error: any) {
+      this.logger.error(`Evidence collector ${collectorId} failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async sendScheduledNotifications(data: any): Promise<any> {
+  /**
+   * Send scheduled notifications
+   */
+  private async sendScheduledNotifications(data: any): Promise<JobResult> {
     this.logger.log('Running scheduled notifications');
-    // This would call the ScheduledNotificationsService
-    // await this.scheduledNotificationsService.runScheduledNotifications();
-    return { status: 'completed' };
+
+    if (!this.scheduledNotificationsService) {
+      this.logger.warn('ScheduledNotificationsService not available - running in demo mode');
+      return {
+        status: 'completed',
+        isMockMode: true,
+        mockModeReason: 'ScheduledNotificationsService not injected',
+      };
+    }
+
+    try {
+      await this.scheduledNotificationsService.runScheduledNotifications();
+      return { status: 'completed' };
+    } catch (error: any) {
+      this.logger.error(`Scheduled notifications failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async sendEmail(data: any): Promise<any> {
-    const { to, subject, html } = data;
+  /**
+   * Send an email
+   */
+  private async sendEmail(data: any): Promise<JobResult> {
+    const { to, subject, html, text } = data;
     this.logger.log(`Sending email to ${to}`);
-    // This would call the EmailService
-    // await this.emailService.sendEmail({ to, subject, html });
-    return { status: 'sent', to };
+
+    if (!this.emailService) {
+      this.logger.warn('EmailService not available - running in demo mode');
+      return {
+        status: 'sent',
+        to,
+        isMockMode: true,
+        mockModeReason: 'EmailService not injected',
+      };
+    }
+
+    try {
+      await this.emailService.sendEmail({ to, subject, html, text });
+      return { status: 'sent', to };
+    } catch (error: any) {
+      this.logger.error(`Email to ${to} failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async syncJira(data: any): Promise<any> {
+  /**
+   * Sync Jira integration
+   */
+  private async syncJira(data: any): Promise<JobResult> {
     const { mappingId, organizationId } = data;
     this.logger.log(`Syncing Jira mapping ${mappingId}`);
-    // This would call the JiraService
-    // await this.jiraService.syncNow(organizationId, mappingId);
-    return { status: 'synced', mappingId };
+
+    if (!this.jiraService) {
+      this.logger.warn('JiraService not available - running in demo mode');
+      return {
+        status: 'synced',
+        mappingId,
+        isMockMode: true,
+        mockModeReason: 'JiraService not injected - ensure JiraModule is imported',
+      };
+    }
+
+    try {
+      await this.jiraService.syncNow(organizationId, mappingId);
+      return { status: 'synced', mappingId };
+    } catch (error: any) {
+      this.logger.error(`Jira sync ${mappingId} failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async syncServiceNow(data: any): Promise<any> {
+  /**
+   * Sync ServiceNow integration
+   */
+  private async syncServiceNow(data: any): Promise<JobResult> {
     const { mappingId, organizationId } = data;
     this.logger.log(`Syncing ServiceNow mapping ${mappingId}`);
-    // This would call the ServiceNowService
-    // await this.serviceNowService.syncNow(organizationId, mappingId);
-    return { status: 'synced', mappingId };
+
+    if (!this.serviceNowService) {
+      this.logger.warn('ServiceNowService not available - running in demo mode');
+      return {
+        status: 'synced',
+        mappingId,
+        isMockMode: true,
+        mockModeReason: 'ServiceNowService not injected - ensure ServiceNowModule is imported',
+      };
+    }
+
+    try {
+      await this.serviceNowService.syncNow(organizationId, mappingId);
+      return { status: 'synced', mappingId };
+    } catch (error: any) {
+      this.logger.error(`ServiceNow sync ${mappingId} failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async generateExport(data: any): Promise<any> {
+  /**
+   * Generate an export
+   */
+  private async generateExport(data: any): Promise<JobResult> {
     const { exportId, organizationId } = data;
     this.logger.log(`Generating export ${exportId}`);
-    // This would call the ExportsService
-    // await this.exportsService.processExport(exportId);
-    return { status: 'generated', exportId };
+
+    if (!this.exportsService) {
+      this.logger.warn('ExportsService not available - running in demo mode');
+      return {
+        status: 'generated',
+        exportId,
+        isMockMode: true,
+        mockModeReason: 'ExportsService not injected',
+      };
+    }
+
+    try {
+      await this.exportsService.processExportJob(exportId, organizationId);
+      return { status: 'generated', exportId };
+    } catch (error: any) {
+      this.logger.error(`Export ${exportId} failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async generateReport(data: any): Promise<any> {
+  /**
+   * Generate a report
+   */
+  private async generateReport(data: any): Promise<JobResult> {
     const { reportType, organizationId, parameters } = data;
     this.logger.log(`Generating report ${reportType}`);
-    // This would call the ReportsService
-    return { status: 'generated', reportType };
+
+    if (!this.reportsService) {
+      this.logger.warn('ReportsService not available - running in demo mode');
+      return {
+        status: 'generated',
+        reportType,
+        isMockMode: true,
+        mockModeReason: 'ReportsService not injected',
+      };
+    }
+
+    try {
+      const dto = {
+        reportType,
+        ...parameters,
+      };
+      const result = await this.reportsService.generateReport(
+        organizationId,
+        'system-scheduler',
+        dto,
+      );
+      return { status: 'generated', reportType, filename: result.filename };
+    } catch (error: any) {
+      this.logger.error(`Report ${reportType} failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async cleanupExpiredSessions(data: any): Promise<any> {
-    // Note: Session cleanup is handled by the session service
-    // This is a placeholder for when proper session table is implemented
-    this.logger.log('Session cleanup job executed (placeholder)');
-    return { deletedCount: 0, status: 'no-op' };
+  /**
+   * Cleanup expired sessions
+   */
+  private async cleanupExpiredSessions(data: any): Promise<JobResult> {
+    this.logger.log('Running session cleanup');
+
+    if (!this.sessionService) {
+      this.logger.warn('SessionService not available - running in demo mode');
+      return {
+        status: 'completed',
+        deletedCount: 0,
+        isMockMode: true,
+        mockModeReason: 'SessionService not injected',
+      };
+    }
+
+    try {
+      const deletedCount = await this.sessionService.cleanupExpiredSessions();
+      this.logger.log(`Cleaned up ${deletedCount} expired sessions`);
+      return { status: 'completed', deletedCount };
+    } catch (error: any) {
+      this.logger.error(`Session cleanup failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async cleanupOldAuditLogs(data: any): Promise<any> {
-    const { retentionDays = 365 } = data;
+  /**
+   * Cleanup old audit logs based on retention policy
+   */
+  private async cleanupOldAuditLogs(data: any): Promise<JobResult> {
+    const { retentionDays = 365, organizationId } = data;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
+    const whereClause: any = {
+      timestamp: { lt: cutoffDate },
+    };
+
+    // If organizationId is provided, scope to that org
+    if (organizationId) {
+      whereClause.organizationId = organizationId;
+    }
+
     const result = await this.prisma.auditLog.deleteMany({
-      where: {
-        timestamp: { lt: cutoffDate },
-      },
+      where: whereClause,
     });
-    this.logger.log(`Cleaned up ${result.count} old audit logs`);
-    return { deletedCount: result.count, retentionDays };
+    this.logger.log(`Cleaned up ${result.count} old audit logs (retention: ${retentionDays} days)`);
+    return { status: 'completed', deletedCount: result.count, retentionDays };
   }
 
-  private async runRetentionPolicies(data: any): Promise<any> {
+  /**
+   * Run retention policies
+   */
+  private async runRetentionPolicies(data: any): Promise<JobResult> {
+    const { organizationId } = data;
     this.logger.log('Running retention policies');
-    // This would call the RetentionService
-    // await this.retentionService.applyPolicies();
-    return { status: 'completed' };
+
+    if (!this.retentionService) {
+      this.logger.warn('RetentionService not available - running in demo mode');
+      return {
+        status: 'completed',
+        isMockMode: true,
+        mockModeReason: 'RetentionService not injected',
+      };
+    }
+
+    try {
+      // Get all active retention policies and run them
+      const policies = await this.retentionService.listPolicies(organizationId, {
+        status: RetentionPolicyStatus.ACTIVE,
+      });
+
+      const results: any[] = [];
+      for (const policy of policies.data || []) {
+        const result = await this.retentionService.runPolicy(
+          organizationId,
+          policy.id,
+          { dryRun: false },
+        );
+        results.push(result);
+      }
+
+      return {
+        status: 'completed',
+        policiesExecuted: results.length,
+        results,
+      };
+    } catch (error: any) {
+      this.logger.error(`Retention policies failed: ${error.message}`);
+      throw error;
+    }
   }
 
-  private async refreshSearchIndexes(data: any): Promise<any> {
+  /**
+   * Refresh search indexes (tsvector columns)
+   */
+  private async refreshSearchIndexes(data: any): Promise<JobResult> {
+    const { organizationId } = data;
     this.logger.log('Refreshing search indexes');
-    // This would update tsvector columns for any records that need it
-    return { status: 'completed' };
+
+    try {
+      // Refresh tsvector columns for controls
+      await this.prisma.$executeRaw`
+        UPDATE "Control"
+        SET "searchVector" = to_tsvector('english', 
+          COALESCE(title, '') || ' ' || 
+          COALESCE(description, '') || ' ' || 
+          COALESCE("controlId", '')
+        )
+        WHERE "searchVector" IS NULL 
+        OR "updatedAt" > NOW() - INTERVAL '1 day'
+      `;
+
+      // Refresh tsvector columns for risks
+      await this.prisma.$executeRaw`
+        UPDATE "Risk"
+        SET "searchVector" = to_tsvector('english', 
+          COALESCE(title, '') || ' ' || 
+          COALESCE(description, '') || ' ' || 
+          COALESCE("riskId", '')
+        )
+        WHERE "searchVector" IS NULL 
+        OR "updatedAt" > NOW() - INTERVAL '1 day'
+      `;
+
+      // Refresh tsvector columns for policies
+      await this.prisma.$executeRaw`
+        UPDATE "Policy"
+        SET "searchVector" = to_tsvector('english', 
+          COALESCE(title, '') || ' ' || 
+          COALESCE(description, '') || ' ' || 
+          COALESCE("policyId", '')
+        )
+        WHERE "searchVector" IS NULL 
+        OR "updatedAt" > NOW() - INTERVAL '1 day'
+      `;
+
+      this.logger.log('Search indexes refreshed');
+      return { status: 'completed' };
+    } catch (error: any) {
+      // If the tables don't have searchVector columns, just log and continue
+      this.logger.warn(`Search index refresh partial: ${error.message}`);
+      return { status: 'completed', warning: error.message };
+    }
   }
 
-  private async deliverWebhook(data: any): Promise<any> {
-    const { deliveryId } = data;
-    this.logger.log(`Delivering webhook ${deliveryId}`);
-    // This would call the WebhooksService
-    // await this.webhooksService.deliverWebhook(deliveryId);
-    return { status: 'delivered', deliveryId };
+  /**
+   * Deliver a webhook
+   */
+  private async deliverWebhook(data: any): Promise<JobResult> {
+    const { deliveryId, webhookId, event, payload } = data;
+    this.logger.log(`Delivering webhook ${deliveryId || webhookId}`);
+
+    if (!this.webhooksService) {
+      this.logger.warn('WebhooksService not available - running in demo mode');
+      return {
+        status: 'delivered',
+        deliveryId,
+        isMockMode: true,
+        mockModeReason: 'WebhooksService not injected',
+      };
+    }
+
+    try {
+      if (deliveryId && data.organizationId && data.webhookId) {
+        // Retry a specific delivery
+        await this.webhooksService.retryDelivery(data.organizationId, data.webhookId, deliveryId);
+      } else if (data.organizationId && event && payload) {
+        // Trigger a new webhook event
+        await this.webhooksService.triggerEvent(data.organizationId, event, payload);
+      } else {
+        throw new Error('Missing required webhook delivery parameters');
+      }
+      return { status: 'delivered', deliveryId };
+    } catch (error: any) {
+      this.logger.error(`Webhook delivery ${deliveryId} failed: ${error.message}`);
+      throw error;
+    }
   }
 }

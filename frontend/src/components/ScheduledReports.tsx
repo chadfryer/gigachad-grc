@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ClockIcon,
   PlusIcon,
@@ -14,29 +14,7 @@ import { Button } from './Button';
 import { Modal } from './Modal';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
-
-// ===========================================
-// Types
-// ===========================================
-
-interface ScheduledReport {
-  id: string;
-  name: string;
-  reportType: string;
-  format: 'pdf' | 'csv' | 'xlsx';
-  schedule: {
-    frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly';
-    dayOfWeek?: number; // 0-6 for weekly
-    dayOfMonth?: number; // 1-31 for monthly
-    time: string; // HH:mm format
-  };
-  recipients: string[];
-  filters?: Record<string, string>;
-  enabled: boolean;
-  lastRun?: string;
-  nextRun?: string;
-  createdAt: string;
-}
+import { scheduledReportsApi, ScheduledReport } from '@/lib/api';
 
 interface ScheduledReportsProps {
   className?: string;
@@ -81,42 +59,66 @@ const DAYS_OF_WEEK = [
 export function ScheduledReports({ className }: ScheduledReportsProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingReport, setEditingReport] = useState<ScheduledReport | null>(null);
+  const [reports, setReports] = useState<ScheduledReport[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // In a real app, this would fetch from the API
-  const [reports, setReports] = useState<ScheduledReport[]>(() => {
-    const saved = localStorage.getItem('scheduled_reports');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Load reports on mount
+  const loadReports = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await scheduledReportsApi.list();
+      setReports(data);
+    } catch (error) {
+      console.error('Failed to load scheduled reports:', error);
+      toast.error('Failed to load scheduled reports');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const saveReports = (newReports: ScheduledReport[]) => {
-    localStorage.setItem('scheduled_reports', JSON.stringify(newReports));
-    setReports(newReports);
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
+
+  const createReport = async (report: Omit<ScheduledReport, 'id' | 'createdAt' | 'lastRun'>) => {
+    try {
+      const reportWithNextRun = {
+        ...report,
+        nextRun: calculateNextRun(report.schedule),
+      };
+      const newReport = await scheduledReportsApi.create(reportWithNextRun);
+      setReports(prev => [...prev, newReport]);
+      toast.success('Scheduled report created');
+    } catch (error) {
+      console.error('Failed to create report:', error);
+      toast.error('Failed to create scheduled report');
+    }
   };
 
-  const createReport = (report: Omit<ScheduledReport, 'id' | 'createdAt' | 'lastRun'>) => {
-    const newReport: ScheduledReport = {
-      ...report,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString(),
-      nextRun: calculateNextRun(report.schedule),
-    };
-    saveReports([...reports, newReport]);
-    toast.success('Scheduled report created');
+  const updateReport = async (id: string, updates: Partial<ScheduledReport>) => {
+    try {
+      const updatesWithNextRun = {
+        ...updates,
+        ...(updates.schedule ? { nextRun: calculateNextRun(updates.schedule) } : {}),
+      };
+      const updated = await scheduledReportsApi.update(id, updatesWithNextRun);
+      setReports(prev => prev.map(r => r.id === id ? updated : r));
+      toast.success('Report updated');
+    } catch (error) {
+      console.error('Failed to update report:', error);
+      toast.error('Failed to update scheduled report');
+    }
   };
 
-  const updateReport = (id: string, updates: Partial<ScheduledReport>) => {
-    const newReports = reports.map(r => 
-      r.id === id 
-        ? { ...r, ...updates, nextRun: updates.schedule ? calculateNextRun(updates.schedule) : r.nextRun }
-        : r
-    );
-    saveReports(newReports);
-    toast.success('Report updated');
-  };
-
-  const deleteReport = (id: string) => {
-    saveReports(reports.filter(r => r.id !== id));
-    toast.success('Scheduled report deleted');
+  const deleteReport = async (id: string) => {
+    try {
+      await scheduledReportsApi.delete(id);
+      setReports(prev => prev.filter(r => r.id !== id));
+      toast.success('Scheduled report deleted');
+    } catch (error) {
+      console.error('Failed to delete report:', error);
+      toast.error('Failed to delete scheduled report');
+    }
   };
 
   const toggleEnabled = (id: string) => {
@@ -126,10 +128,18 @@ export function ScheduledReports({ className }: ScheduledReportsProps) {
     }
   };
 
-  const runNow = (report: ScheduledReport) => {
-    // In a real app, this would trigger the report generation
-    toast.success(`Running ${report.name}...`);
-    updateReport(report.id, { lastRun: new Date().toISOString() });
+  const runNow = async (report: ScheduledReport) => {
+    try {
+      toast.success(`Running ${report.name}...`);
+      const result = await scheduledReportsApi.runNow(report.id);
+      if (result.success) {
+        // Refresh reports to get updated lastRun
+        await loadReports();
+      }
+    } catch (error) {
+      console.error('Failed to run report:', error);
+      toast.error('Failed to run report');
+    }
   };
 
   return (
@@ -151,7 +161,11 @@ export function ScheduledReports({ className }: ScheduledReportsProps) {
       </div>
 
       {/* Reports List */}
-      {reports.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full"></div>
+        </div>
+      ) : reports.length === 0 ? (
         <div className="text-center py-12 bg-surface-800 border border-surface-700 rounded-xl">
           <ClockIcon className="w-12 h-12 mx-auto text-surface-600 mb-4" />
           <h3 className="text-lg font-medium text-surface-300 mb-2">No scheduled reports</h3>

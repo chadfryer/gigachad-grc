@@ -581,6 +581,154 @@ function RoleCard({
 
 // Modal Components
 
+// Reusable User Picker Component
+function UserPicker({
+  label,
+  selectedUserId,
+  onSelect,
+  required = false,
+  allowUnassign = false,
+  description,
+}: {
+  label: string;
+  selectedUserId: string;
+  onSelect: (userId: string) => void;
+  required?: boolean;
+  allowUnassign?: boolean;
+  description?: string;
+}) {
+  const [search, setSearch] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Fetch users for selection
+  const { data: usersData } = useQuery({
+    queryKey: ['users', 'list'],
+    queryFn: async () => {
+      const response = await fetch('/api/users?limit=100');
+      if (!response.ok) return { users: [] };
+      return response.json();
+    },
+  });
+
+  const users = usersData?.users || [];
+  const filteredUsers = users.filter((user: any) =>
+    user.email?.toLowerCase().includes(search.toLowerCase()) ||
+    user.firstName?.toLowerCase().includes(search.toLowerCase()) ||
+    user.lastName?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedUser = users.find((u: any) => u.id === selectedUserId);
+
+  return (
+    <div>
+      <label className="block text-sm text-surface-400 mb-2">
+        {label} {required && '*'}
+      </label>
+      
+      {/* Selected user display / toggle button */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full px-4 py-2 bg-surface-700 border border-surface-600 rounded-lg text-left flex items-center justify-between hover:bg-surface-600 transition-colors"
+      >
+        {selectedUser ? (
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-medium">
+              {(selectedUser.firstName?.[0] || selectedUser.email?.[0] || '?').toUpperCase()}
+            </div>
+            <span className="text-white">
+              {selectedUser.firstName && selectedUser.lastName
+                ? `${selectedUser.firstName} ${selectedUser.lastName}`
+                : selectedUser.email}
+            </span>
+          </div>
+        ) : (
+          <span className="text-surface-400">Select a user...</span>
+        )}
+        <ChevronDown className={`w-4 h-4 text-surface-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {description && (
+        <p className="text-xs text-surface-500 mt-1">{description}</p>
+      )}
+
+      {/* Expandable user list */}
+      {isExpanded && (
+        <div className="mt-2 border border-surface-600 rounded-lg bg-surface-750 overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-surface-600">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name or email..."
+              className="w-full px-3 py-1.5 bg-surface-700 border border-surface-600 rounded text-white text-sm"
+            />
+          </div>
+
+          {/* User list */}
+          <div className="max-h-48 overflow-y-auto">
+            {allowUnassign && (
+              <button
+                type="button"
+                onClick={() => { onSelect(''); setIsExpanded(false); }}
+                className={`w-full flex items-center gap-3 p-2 hover:bg-surface-600 ${
+                  selectedUserId === '' ? 'bg-brand-500/20' : ''
+                }`}
+              >
+                <div className="w-6 h-6 rounded-full bg-surface-600 flex items-center justify-center">
+                  <User className="w-3 h-3 text-surface-400" />
+                </div>
+                <span className="text-surface-300 text-sm">None (skip for now)</span>
+              </button>
+            )}
+
+            {filteredUsers.length === 0 && search && (
+              <p className="text-center text-surface-500 py-4 text-sm">No users found</p>
+            )}
+
+            {filteredUsers.map((user: any) => (
+              <button
+                key={user.id}
+                type="button"
+                onClick={() => { onSelect(user.id); setIsExpanded(false); }}
+                className={`w-full flex items-center gap-3 p-2 hover:bg-surface-600 ${
+                  selectedUserId === user.id ? 'bg-brand-500/20' : ''
+                }`}
+              >
+                <div className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-medium">
+                  {(user.firstName?.[0] || user.email?.[0] || '?').toUpperCase()}
+                </div>
+                <div className="text-left min-w-0 flex-1">
+                  <p className="text-white text-sm truncate">
+                    {user.firstName && user.lastName
+                      ? `${user.firstName} ${user.lastName}`
+                      : user.email}
+                  </p>
+                  <p className="text-xs text-surface-400 truncate">{user.email}</p>
+                </div>
+              </button>
+            ))}
+
+            {/* Fallback manual input if no users loaded */}
+            {users.length === 0 && (
+              <div className="p-2">
+                <input
+                  type="text"
+                  value={selectedUserId}
+                  onChange={e => onSelect(e.target.value)}
+                  placeholder="Enter user ID manually..."
+                  className="w-full px-3 py-1.5 bg-surface-700 border border-surface-600 rounded text-white text-sm"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ValidateRiskModal({
   riskId,
   approve,
@@ -622,18 +770,13 @@ function ValidateRiskModal({
         </div>
         <div className="p-4 space-y-4">
           {approve && (
-            <div>
-              <label className="block text-sm text-surface-400 mb-2">
-                Risk Assessor ID (optional)
-              </label>
-              <input
-                type="text"
-                value={riskAssessorId}
-                onChange={e => setRiskAssessorId(e.target.value)}
-                placeholder="Enter assessor user ID"
-                className="w-full px-4 py-2 bg-surface-700 border border-surface-600 rounded-lg text-white"
-              />
-            </div>
+            <UserPicker
+              label="Risk Assessor"
+              selectedUserId={riskAssessorId}
+              onSelect={setRiskAssessorId}
+              allowUnassign={true}
+              description="Optionally assign who will perform the risk assessment"
+            />
           )}
           <div>
             <label className="block text-sm text-surface-400 mb-2">
@@ -699,22 +842,13 @@ function StartAssessmentModal({
           </button>
         </div>
         <div className="p-4 space-y-4">
-          <div>
-            <label className="block text-sm text-surface-400 mb-2">
-              Risk Assessor ID *
-            </label>
-            <input
-              type="text"
-              value={riskAssessorId}
-              onChange={e => setRiskAssessorId(e.target.value)}
-              required
-              placeholder="Enter the user ID of the risk assessor"
-              className="w-full px-4 py-2 bg-surface-700 border border-surface-600 rounded-lg text-white"
-            />
-            <p className="text-xs text-surface-500 mt-1">
-              The SME who will analyze and assess this risk
-            </p>
-          </div>
+          <UserPicker
+            label="Risk Assessor"
+            selectedUserId={riskAssessorId}
+            onSelect={setRiskAssessorId}
+            required={true}
+            description="The SME who will analyze and assess this risk"
+          />
         </div>
         <div className="p-4 border-t border-surface-700 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 bg-surface-700 text-surface-300 rounded-lg">
@@ -885,17 +1019,13 @@ function SubmitAssessmentModal({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-surface-400 mb-2">Recommended Risk Owner *</label>
-              <input
-                type="text"
-                value={formData.recommendedOwnerId}
-                onChange={e => setFormData(prev => ({ ...prev, recommendedOwnerId: e.target.value }))}
-                required
-                className="w-full px-4 py-2 bg-surface-700 border border-surface-600 rounded-lg text-white"
-                placeholder="User ID of recommended owner"
-              />
-            </div>
+            <UserPicker
+              label="Recommended Risk Owner"
+              selectedUserId={formData.recommendedOwnerId}
+              onSelect={(id) => setFormData(prev => ({ ...prev, recommendedOwnerId: id }))}
+              required={true}
+              description="Who should own this risk going forward"
+            />
             <div>
               <label className="block text-sm text-surface-400 mb-2">Treatment Recommendation</label>
               <select
@@ -1373,17 +1503,13 @@ function AssignApproverModal({
           <p className="text-surface-400 text-sm">
             Identify the department lead or executive who should approve this treatment decision.
           </p>
-          <div>
-            <label className="block text-sm text-surface-400 mb-2">Executive Approver ID *</label>
-            <input
-              type="text"
-              value={executiveApproverId}
-              onChange={e => setExecutiveApproverId(e.target.value)}
-              required
-              className="w-full px-4 py-2 bg-surface-700 border border-surface-600 rounded-lg text-white"
-              placeholder="User ID of the executive approver"
-            />
-          </div>
+          <UserPicker
+            label="Executive Approver"
+            selectedUserId={executiveApproverId}
+            onSelect={setExecutiveApproverId}
+            required={true}
+            description="The executive who will approve this treatment decision"
+          />
         </div>
         <div className="p-4 border-t border-surface-700 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 bg-surface-700 text-surface-300 rounded-lg">

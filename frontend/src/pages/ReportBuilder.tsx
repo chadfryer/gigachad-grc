@@ -13,45 +13,9 @@ import toast from 'react-hot-toast';
 import ReportBuilder, { ReportConfig } from '@/components/reports/ReportBuilder';
 import { Modal } from '@/components/Modal';
 import { format } from 'date-fns';
+import { customReportsApi } from '@/lib/api';
 
-// Mock API for reports - replace with actual API
-const reportsApi = {
-  list: async (): Promise<ReportConfig[]> => {
-    const stored = localStorage.getItem('custom-reports');
-    return stored ? JSON.parse(stored) : [];
-  },
-  get: async (id: string): Promise<ReportConfig | null> => {
-    const reports = await reportsApi.list();
-    return reports.find(r => r.id === id) || null;
-  },
-  save: async (config: ReportConfig): Promise<ReportConfig> => {
-    const reports = await reportsApi.list();
-    const id = config.id || `report-${Date.now()}`;
-    const now = new Date().toISOString();
-    
-    const updatedConfig = {
-      ...config,
-      id,
-      createdAt: config.createdAt || now,
-      updatedAt: now,
-    };
-
-    const index = reports.findIndex(r => r.id === id);
-    if (index >= 0) {
-      reports[index] = updatedConfig;
-    } else {
-      reports.push(updatedConfig);
-    }
-
-    localStorage.setItem('custom-reports', JSON.stringify(reports));
-    return updatedConfig;
-  },
-  delete: async (id: string): Promise<void> => {
-    const reports = await reportsApi.list();
-    const filtered = reports.filter(r => r.id !== id);
-    localStorage.setItem('custom-reports', JSON.stringify(filtered));
-  },
-};
+// Use the API from lib/api.ts which has proper backend support with localStorage fallback
 
 // ===========================================
 // Report Templates
@@ -111,19 +75,19 @@ export default function ReportBuilderPage() {
   // Fetch reports list
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['custom-reports'],
-    queryFn: reportsApi.list,
+    queryFn: customReportsApi.list,
   });
 
   // Fetch single report for editing
   const { data: editingReport } = useQuery({
     queryKey: ['custom-report', reportId],
-    queryFn: () => reportsApi.get(reportId!),
+    queryFn: () => customReportsApi.get(reportId!),
     enabled: isEditing,
   });
 
   // Save mutation
   const saveMutation = useMutation({
-    mutationFn: reportsApi.save,
+    mutationFn: customReportsApi.save,
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ['custom-reports'] });
       toast.success('Report saved');
@@ -136,7 +100,7 @@ export default function ReportBuilderPage() {
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: reportsApi.delete,
+    mutationFn: customReportsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['custom-reports'] });
       toast.success('Report deleted');

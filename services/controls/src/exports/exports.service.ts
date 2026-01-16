@@ -167,7 +167,11 @@ export class ExportsService {
     exportJobStore.set(id, job);
   }
 
-  private async processExportJob(id: string): Promise<void> {
+  /**
+   * Process an export job by ID
+   * Can be called by the job scheduler for async processing
+   */
+  async processExportJob(id: string, _organizationId?: string): Promise<void> {
     const job = exportJobStore.get(id);
     if (!job) return;
 
