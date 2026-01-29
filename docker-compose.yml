@@ -6,16 +6,16 @@ services:
     image: traefik:v3.0
     container_name: grc-traefik
     command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--log.level=INFO"
+      - '--api.insecure=true'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--log.level=INFO'
     ports:
-      - "80:80"
-      - "443:443"
-      - "8090:8080"  # Traefik dashboard
+      - '80:80'
+      - '443:443'
+      - '8090:8080' # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./gateway/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -34,7 +34,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-grc_secret}
       POSTGRES_DB: ${POSTGRES_DB:-gigachad_grc}
     ports:
-      - "5433:5432"  # Using 5433 externally to avoid conflicts
+      - '5433:5432' # Using 5433 externally to avoid conflicts
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
@@ -42,7 +42,7 @@ services:
       - grc-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-grc} -d ${POSTGRES_DB:-gigachad_grc}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-grc} -d ${POSTGRES_DB:-gigachad_grc}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,14 +55,14 @@ services:
     container_name: grc-redis
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secret}
     ports:
-      - "6380:6379"  # Using 6380 externally to avoid conflicts
+      - '6380:6379' # Using 6380 externally to avoid conflicts
     volumes:
       - redis_data:/data
     networks:
       - grc-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-redis_secret}', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -81,13 +81,13 @@ services:
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-grc_secret}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost}
       KC_HOSTNAME_PORT: ${KEYCLOAK_PORT:-8080}
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: 'false'
+      KC_HOSTNAME_STRICT_HTTPS: 'false'
+      KC_HTTP_ENABLED: 'true'
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     ports:
-      - "8080:8080"
+      - '8080:8080'
     volumes:
       - ./auth/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     depends_on:
@@ -96,9 +96,9 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.keycloak.rule=Host(`auth.localhost`)"
-      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.keycloak.rule=Host(`auth.localhost`)'
+      - 'traefik.http.services.keycloak.loadbalancer.server.port=8080'
     restart: unless-stopped
 
   # ===========================================
@@ -113,8 +113,8 @@ services:
       RUSTFS_ROOT_USER: ${MINIO_ROOT_USER:-rustfsadmin}
       RUSTFS_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Console
+      - '9000:9000' # S3 API
+      - '9001:9001' # Console
     volumes:
       - rustfs_data:/data
       - rustfs_logs:/logs
@@ -122,7 +122,8 @@ services:
       - grc-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:9001/rustfs/console/index.html || exit 1"]
+      test:
+        ['CMD-SHELL', 'wget -q --spider http://localhost:9001/rustfs/console/index.html || exit 1']
       interval: 30s
       timeout: 20s
       retries: 3
@@ -163,7 +164,7 @@ services:
       DR_REMOTE_BACKUP_ENABLED: ${DR_REMOTE_BACKUP_ENABLED:-false}
       DR_REMOTE_BACKUP_S3_BUCKET: ${DR_REMOTE_BACKUP_S3_BUCKET:-}
     ports:
-      - "3001:3001"
+      - '3001:3001'
     volumes:
       - ./deploy:/app/deploy:ro
     depends_on:
@@ -178,14 +179,15 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.controls.rule=PathPrefix(`/api/controls`)"
-      - "traefik.http.routers.controls-evidence.rule=PathPrefix(`/api/evidence`)"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.controls.rule=PathPrefix(`/api/controls`)'
+      - 'traefik.http.routers.controls-evidence.rule=PathPrefix(`/api/evidence`)'
+      - 'traefik.http.routers.controls-workspaces.rule=PathPrefix(`/api/workspaces`)'
       # Risk module is in controls service, not frameworks
-      - "traefik.http.routers.controls-risks.rule=PathPrefix(`/api/risks`)"
-      - "traefik.http.routers.controls-risk-config.rule=PathPrefix(`/api/risk-config`)"
-      - "traefik.http.routers.controls-risk-tasks.rule=PathPrefix(`/api/risk-tasks`)"
-      - "traefik.http.services.controls.loadbalancer.server.port=3001"
+      - 'traefik.http.routers.controls-risks.rule=PathPrefix(`/api/risks`)'
+      - 'traefik.http.routers.controls-risk-config.rule=PathPrefix(`/api/risk-config`)'
+      - 'traefik.http.routers.controls-risk-tasks.rule=PathPrefix(`/api/risk-tasks`)'
+      - 'traefik.http.services.controls.loadbalancer.server.port=3001'
     restart: unless-stopped
 
   # ===========================================
@@ -214,7 +216,7 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - "3002:3002"
+      - '3002:3002'
     depends_on:
       postgres:
         condition: service_healthy
@@ -227,9 +229,9 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frameworks.rule=PathPrefix(`/api/frameworks`)"
-      - "traefik.http.services.frameworks.loadbalancer.server.port=3002"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.frameworks.rule=PathPrefix(`/api/frameworks`)'
+      - 'traefik.http.services.frameworks.loadbalancer.server.port=3002'
     restart: unless-stopped
 
   # ===========================================
@@ -258,7 +260,7 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - "3004:3004"
+      - '3004:3004'
     depends_on:
       postgres:
         condition: service_healthy
@@ -271,9 +273,9 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.policies.rule=PathPrefix(`/api/policies`)"
-      - "traefik.http.services.policies.loadbalancer.server.port=3004"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.policies.rule=PathPrefix(`/api/policies`)'
+      - 'traefik.http.services.policies.loadbalancer.server.port=3004'
     restart: unless-stopped
 
   # ===========================================
@@ -302,7 +304,7 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - "3005:3005"
+      - '3005:3005'
     depends_on:
       postgres:
         condition: service_healthy
@@ -315,12 +317,12 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.tprm-vendors.rule=PathPrefix(`/api/vendors`)"
-      - "traefik.http.routers.tprm-assessments.rule=PathPrefix(`/api/assessments`)"
-      - "traefik.http.routers.tprm-contracts.rule=PathPrefix(`/api/contracts`)"
-      - "traefik.http.routers.tprm-config.rule=PathPrefix(`/api/tprm-config`)"
-      - "traefik.http.services.tprm.loadbalancer.server.port=3005"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.tprm-vendors.rule=PathPrefix(`/api/vendors`)'
+      - 'traefik.http.routers.tprm-assessments.rule=PathPrefix(`/api/assessments`)'
+      - 'traefik.http.routers.tprm-contracts.rule=PathPrefix(`/api/contracts`)'
+      - 'traefik.http.routers.tprm-config.rule=PathPrefix(`/api/tprm-config`)'
+      - 'traefik.http.services.tprm.loadbalancer.server.port=3005'
     restart: unless-stopped
 
   # ===========================================
@@ -349,7 +351,7 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - "3006:3006"
+      - '3006:3006'
     depends_on:
       postgres:
         condition: service_healthy
@@ -362,11 +364,11 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.trust-questionnaires.rule=PathPrefix(`/api/questionnaires`)"
-      - "traefik.http.routers.trust-knowledge-base.rule=PathPrefix(`/api/knowledge-base`)"
-      - "traefik.http.routers.trust-center.rule=PathPrefix(`/api/trust-center`)"
-      - "traefik.http.services.trust.loadbalancer.server.port=3006"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.trust-questionnaires.rule=PathPrefix(`/api/questionnaires`)'
+      - 'traefik.http.routers.trust-knowledge-base.rule=PathPrefix(`/api/knowledge-base`)'
+      - 'traefik.http.routers.trust-center.rule=PathPrefix(`/api/trust-center`)'
+      - 'traefik.http.services.trust.loadbalancer.server.port=3006'
     restart: unless-stopped
 
   # ===========================================
@@ -395,7 +397,7 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - "3007:3007"
+      - '3007:3007'
     depends_on:
       postgres:
         condition: service_healthy
@@ -408,20 +410,20 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.audit-audits.rule=PathPrefix(`/api/audits`)"
-      - "traefik.http.routers.audit-requests.rule=PathPrefix(`/api/audit-requests`)"
-      - "traefik.http.routers.audit-findings.rule=PathPrefix(`/api/audit-findings`)"
-      - "traefik.http.routers.audit-portal.rule=PathPrefix(`/api/audit-portal`)"
-      - "traefik.http.routers.audit-templates.rule=PathPrefix(`/api/audit/templates`)"
-      - "traefik.http.routers.audit-workpapers.rule=PathPrefix(`/api/audit/workpapers`)"
-      - "traefik.http.routers.audit-test-procedures.rule=PathPrefix(`/api/audit/test-procedures`)"
-      - "traefik.http.routers.audit-remediation.rule=PathPrefix(`/api/audit/remediation`)"
-      - "traefik.http.routers.audit-analytics.rule=PathPrefix(`/api/audit/analytics`)"
-      - "traefik.http.routers.audit-planning.rule=PathPrefix(`/api/audit/planning`)"
-      - "traefik.http.routers.audit-reports.rule=PathPrefix(`/api/audit/reports`)"
-      - "traefik.http.routers.audit-ai.rule=PathPrefix(`/api/audit/audit-ai`)"
-      - "traefik.http.services.audit.loadbalancer.server.port=3007"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.audit-audits.rule=PathPrefix(`/api/audits`)'
+      - 'traefik.http.routers.audit-requests.rule=PathPrefix(`/api/audit-requests`)'
+      - 'traefik.http.routers.audit-findings.rule=PathPrefix(`/api/audit-findings`)'
+      - 'traefik.http.routers.audit-portal.rule=PathPrefix(`/api/audit-portal`)'
+      - 'traefik.http.routers.audit-templates.rule=PathPrefix(`/api/audit/templates`)'
+      - 'traefik.http.routers.audit-workpapers.rule=PathPrefix(`/api/audit/workpapers`)'
+      - 'traefik.http.routers.audit-test-procedures.rule=PathPrefix(`/api/audit/test-procedures`)'
+      - 'traefik.http.routers.audit-remediation.rule=PathPrefix(`/api/audit/remediation`)'
+      - 'traefik.http.routers.audit-analytics.rule=PathPrefix(`/api/audit/analytics`)'
+      - 'traefik.http.routers.audit-planning.rule=PathPrefix(`/api/audit/planning`)'
+      - 'traefik.http.routers.audit-reports.rule=PathPrefix(`/api/audit/reports`)'
+      - 'traefik.http.routers.audit-ai.rule=PathPrefix(`/api/audit/audit-ai`)'
+      - 'traefik.http.services.audit.loadbalancer.server.port=3007'
     restart: unless-stopped
 
   # ===========================================
@@ -433,7 +435,7 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: grc-frontend
     ports:
-      - "3000:80"
+      - '3000:80'
     environment:
       - VITE_API_URL=http://localhost:3001
       - VITE_ENABLE_DEV_AUTH=true
@@ -442,10 +444,10 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
-      - "traefik.http.routers.frontend.priority=1"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.frontend.rule=Host(`localhost`)'
+      - 'traefik.http.routers.frontend.priority=1'
+      - 'traefik.http.services.frontend.loadbalancer.server.port=80'
     restart: unless-stopped
 
   # ===========================================
@@ -462,7 +464,7 @@ services:
       - prometheus_data:/prometheus
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
-      - "9090:9090"
+      - '9090:9090'
     networks:
       - grc-network
     restart: unless-stopped
@@ -470,10 +472,10 @@ services:
       - controls
       - audit
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)"
-      - "traefik.http.routers.prometheus.entrypoints=web"
-      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)'
+      - 'traefik.http.routers.prometheus.entrypoints=web'
+      - 'traefik.http.services.prometheus.loadbalancer.server.port=9090'
 
   grafana:
     image: grafana/grafana:10.2.0
@@ -481,25 +483,25 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: 'Viewer'
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
     ports:
-      - "3003:3000"
+      - '3003:3000'
     networks:
       - grc-network
     restart: unless-stopped
     depends_on:
       - prometheus
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.localhost`)"
-      - "traefik.http.routers.grafana.entrypoints=web"
-      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.grafana.rule=Host(`grafana.localhost`)'
+      - 'traefik.http.routers.grafana.entrypoints=web'
+      - 'traefik.http.services.grafana.loadbalancer.server.port=3000'
 
 networks:
   grc-network:

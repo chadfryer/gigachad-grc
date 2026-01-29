@@ -50,12 +50,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { ModulesController } from './modules/modules.controller';
 import { CustomThrottlerGuard } from './auth/throttler.guard';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
-import { 
-  StorageModule, 
-  EventsModule,
-  CacheModule,
-  HealthModule,
-} from '@gigachad-grc/shared';
+import { StorageModule, EventsModule, CacheModule, HealthModule } from '@gigachad-grc/shared';
 
 @Module({
   imports: [
@@ -66,22 +61,24 @@ import {
     ThrottlerModule.forRoot([
       {
         name: 'short',
-        ttl: 1000,    // 1 second
-        limit: 5,     // 5 requests per second
+        ttl: 1000, // 1 second
+        limit: 5, // 5 requests per second
       },
       {
         name: 'medium',
-        ttl: 10000,   // 10 seconds
-        limit: 30,    // 30 requests per 10 seconds
+        ttl: 10000, // 10 seconds
+        limit: 30, // 30 requests per 10 seconds
       },
       {
         name: 'long',
-        ttl: 60000,   // 1 minute
-        limit: 100,   // 100 requests per minute
+        ttl: 60000, // 1 minute
+        limit: 100, // 100 requests per minute
       },
     ]),
     // Export Prometheus metrics at /metrics for monitoring and alerts
-    PrometheusModule.register(),
+    PrometheusModule.register({
+      path: 'api/metrics',
+    }),
     PrismaModule,
     StorageModule.forRoot(),
     EventsModule,
@@ -147,8 +144,6 @@ import {
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Apply correlation ID middleware to all API routes
-    consumer
-      .apply(CorrelationIdMiddleware)
-      .forRoutes({ path: '*', method: RequestMethod.ALL });
+    consumer.apply(CorrelationIdMiddleware).forRoutes({ path: '*', method: RequestMethod.ALL });
   }
 }

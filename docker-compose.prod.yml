@@ -8,25 +8,25 @@ services:
     image: traefik:v3.0
     container_name: grc-traefik
     command:
-      - "--api.dashboard=false"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--log.level=${TRAEFIK_LOG_LEVEL:-WARN}"
-      - "--log.format=json"
-      - "--accesslog=true"
-      - "--accesslog.format=json"
-      - "--accesslog.filepath=/var/log/traefik/access.log"
+      - '--api.dashboard=false'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--entrypoints.web.http.redirections.entryPoint.to=websecure'
+      - '--entrypoints.web.http.redirections.entryPoint.scheme=https'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web'
+      - '--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}'
+      - '--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json'
+      - '--log.level=${TRAEFIK_LOG_LEVEL:-WARN}'
+      - '--log.format=json'
+      - '--accesslog=true'
+      - '--accesslog.format=json'
+      - '--accesslog.filepath=/var/log/traefik/access.log'
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
@@ -42,12 +42,12 @@ services:
     cap_add:
       - NET_BIND_SERVICE
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -71,7 +71,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=en_US.UTF-8'
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -95,12 +95,12 @@ services:
       - /tmp
       - /run/postgresql
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -122,15 +122,7 @@ services:
     image: redis:7-alpine
     container_name: grc-redis
     command: >
-      redis-server
-      --appendonly yes
-      --requirepass ${REDIS_PASSWORD}
-      --maxmemory ${REDIS_MAX_MEMORY:-512mb}
-      --maxmemory-policy allkeys-lru
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-      --loglevel ${REDIS_LOG_LEVEL:-warning}
+      redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory ${REDIS_MAX_MEMORY:-512mb} --maxmemory-policy allkeys-lru --save 900 1 --save 300 10 --save 60 10000 --loglevel ${REDIS_LOG_LEVEL:-warning}
     volumes:
       - redis_data:/data
     networks:
@@ -144,12 +136,12 @@ services:
     tmpfs:
       - /tmp
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -182,12 +174,12 @@ services:
 
       # Hostname
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
-      KC_HOSTNAME_STRICT: "true"
-      KC_HOSTNAME_STRICT_HTTPS: "true"
+      KC_HOSTNAME_STRICT: 'true'
+      KC_HOSTNAME_STRICT_HTTPS: 'true'
       KC_PROXY: edge
 
       # HTTP/HTTPS
-      KC_HTTP_ENABLED: "true"
+      KC_HTTP_ENABLED: 'true'
       KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/server.crt.pem
       KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/server.key.pem
 
@@ -204,8 +196,8 @@ services:
       KC_LOG_CONSOLE_OUTPUT: json
 
       # Features
-      KC_HEALTH_ENABLED: "true"
-      KC_METRICS_ENABLED: "true"
+      KC_HEALTH_ENABLED: 'true'
+      KC_METRICS_ENABLED: 'true'
       KC_HTTP_RELATIVE_PATH: /auth
     volumes:
       - ./auth/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
@@ -218,26 +210,30 @@ services:
       - grc-network
       - grc-dmz
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=grc-dmz"
-      - "traefik.http.routers.keycloak.rule=Host(`${KEYCLOAK_HOSTNAME}`)"
-      - "traefik.http.routers.keycloak.entrypoints=websecure"
-      - "traefik.http.routers.keycloak.tls.certresolver=letsencrypt"
-      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
-      - "traefik.http.middlewares.keycloak-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
-      - "traefik.http.routers.keycloak.middlewares=keycloak-headers"
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=grc-dmz'
+      - 'traefik.http.routers.keycloak.rule=Host(`${KEYCLOAK_HOSTNAME}`)'
+      - 'traefik.http.routers.keycloak.entrypoints=websecure'
+      - 'traefik.http.routers.keycloak.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.keycloak.loadbalancer.server.port=8080'
+      - 'traefik.http.middlewares.keycloak-headers.headers.customrequestheaders.X-Forwarded-Proto=https'
+      - 'traefik.http.routers.keycloak.middlewares=keycloak-headers'
     restart: always
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /auth/health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      test:
+        [
+          'CMD-SHELL',
+          "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /auth/health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -272,32 +268,33 @@ services:
       - grc-network
       - grc-dmz
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=grc-dmz"
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=grc-dmz'
       # S3 API
-      - "traefik.http.routers.rustfs-api.rule=Host(`storage.${APP_DOMAIN}`)"
-      - "traefik.http.routers.rustfs-api.entrypoints=websecure"
-      - "traefik.http.routers.rustfs-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.rustfs-api.service=rustfs-api"
-      - "traefik.http.services.rustfs-api.loadbalancer.server.port=9000"
+      - 'traefik.http.routers.rustfs-api.rule=Host(`storage.${APP_DOMAIN}`)'
+      - 'traefik.http.routers.rustfs-api.entrypoints=websecure'
+      - 'traefik.http.routers.rustfs-api.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.rustfs-api.service=rustfs-api'
+      - 'traefik.http.services.rustfs-api.loadbalancer.server.port=9000'
       # Console
-      - "traefik.http.routers.rustfs-console.rule=Host(`console.storage.${APP_DOMAIN}`)"
-      - "traefik.http.routers.rustfs-console.entrypoints=websecure"
-      - "traefik.http.routers.rustfs-console.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.rustfs-console.service=rustfs-console"
-      - "traefik.http.services.rustfs-console.loadbalancer.server.port=9001"
+      - 'traefik.http.routers.rustfs-console.rule=Host(`console.storage.${APP_DOMAIN}`)'
+      - 'traefik.http.routers.rustfs-console.entrypoints=websecure'
+      - 'traefik.http.routers.rustfs-console.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.rustfs-console.service=rustfs-console'
+      - 'traefik.http.services.rustfs-console.loadbalancer.server.port=9001'
     restart: always
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:9001/rustfs/console/index.html || exit 1"]
+      test:
+        ['CMD-SHELL', 'wget -q --spider http://localhost:9001/rustfs/console/index.html || exit 1']
       interval: 30s
       timeout: 20s
       retries: 3
@@ -356,28 +353,32 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.controls.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/controls`)"
-      - "traefik.http.routers.controls-evidence.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/evidence`)"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.controls.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/controls`)'
+      - 'traefik.http.routers.controls-evidence.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/evidence`)'
+      - 'traefik.http.routers.controls-workspaces.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/workspaces`)'
+      - 'traefik.http.routers.controls-workspaces.entrypoints=websecure'
+      - 'traefik.http.routers.controls-workspaces.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.controls-workspaces.middlewares=controls-ratelimit'
       # Risk module is in controls service, not frameworks
-      - "traefik.http.routers.controls-risks.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/risks`)"
-      - "traefik.http.routers.controls-risks.entrypoints=websecure"
-      - "traefik.http.routers.controls-risks.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.controls-risks.middlewares=controls-ratelimit"
-      - "traefik.http.routers.controls-risk-config.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/risk-config`)"
-      - "traefik.http.routers.controls-risk-config.entrypoints=websecure"
-      - "traefik.http.routers.controls-risk-config.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.controls-risk-config.middlewares=controls-ratelimit"
-      - "traefik.http.routers.controls-risk-tasks.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/risk-tasks`)"
-      - "traefik.http.routers.controls-risk-tasks.entrypoints=websecure"
-      - "traefik.http.routers.controls-risk-tasks.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.controls-risk-tasks.middlewares=controls-ratelimit"
-      - "traefik.http.routers.controls.entrypoints=websecure"
-      - "traefik.http.routers.controls.tls.certresolver=letsencrypt"
-      - "traefik.http.services.controls.loadbalancer.server.port=3001"
-      - "traefik.http.middlewares.controls-ratelimit.ratelimit.average=100"
-      - "traefik.http.middlewares.controls-ratelimit.ratelimit.burst=50"
-      - "traefik.http.routers.controls.middlewares=controls-ratelimit"
+      - 'traefik.http.routers.controls-risks.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/risks`)'
+      - 'traefik.http.routers.controls-risks.entrypoints=websecure'
+      - 'traefik.http.routers.controls-risks.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.controls-risks.middlewares=controls-ratelimit'
+      - 'traefik.http.routers.controls-risk-config.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/risk-config`)'
+      - 'traefik.http.routers.controls-risk-config.entrypoints=websecure'
+      - 'traefik.http.routers.controls-risk-config.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.controls-risk-config.middlewares=controls-ratelimit'
+      - 'traefik.http.routers.controls-risk-tasks.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/risk-tasks`)'
+      - 'traefik.http.routers.controls-risk-tasks.entrypoints=websecure'
+      - 'traefik.http.routers.controls-risk-tasks.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.controls-risk-tasks.middlewares=controls-ratelimit'
+      - 'traefik.http.routers.controls.entrypoints=websecure'
+      - 'traefik.http.routers.controls.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.controls.loadbalancer.server.port=3001'
+      - 'traefik.http.middlewares.controls-ratelimit.ratelimit.average=100'
+      - 'traefik.http.middlewares.controls-ratelimit.ratelimit.burst=50'
+      - 'traefik.http.routers.controls.middlewares=controls-ratelimit'
     restart: always
     security_opt:
       - no-new-privileges:true
@@ -388,12 +389,12 @@ services:
       - /tmp
       - /app/.npm
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3001/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -452,14 +453,14 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frameworks.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/frameworks`)"
-      - "traefik.http.routers.frameworks.entrypoints=websecure"
-      - "traefik.http.routers.frameworks.tls.certresolver=letsencrypt"
-      - "traefik.http.services.frameworks.loadbalancer.server.port=3002"
-      - "traefik.http.middlewares.frameworks-ratelimit.ratelimit.average=100"
-      - "traefik.http.middlewares.frameworks-ratelimit.ratelimit.burst=50"
-      - "traefik.http.routers.frameworks.middlewares=frameworks-ratelimit"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.frameworks.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/frameworks`)'
+      - 'traefik.http.routers.frameworks.entrypoints=websecure'
+      - 'traefik.http.routers.frameworks.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.frameworks.loadbalancer.server.port=3002'
+      - 'traefik.http.middlewares.frameworks-ratelimit.ratelimit.average=100'
+      - 'traefik.http.middlewares.frameworks-ratelimit.ratelimit.burst=50'
+      - 'traefik.http.routers.frameworks.middlewares=frameworks-ratelimit'
     restart: always
     security_opt:
       - no-new-privileges:true
@@ -470,12 +471,12 @@ services:
       - /tmp
       - /app/.npm
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3002/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -534,14 +535,14 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.policies.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/policies`)"
-      - "traefik.http.routers.policies.entrypoints=websecure"
-      - "traefik.http.routers.policies.tls.certresolver=letsencrypt"
-      - "traefik.http.services.policies.loadbalancer.server.port=3004"
-      - "traefik.http.middlewares.policies-ratelimit.ratelimit.average=100"
-      - "traefik.http.middlewares.policies-ratelimit.ratelimit.burst=50"
-      - "traefik.http.routers.policies.middlewares=policies-ratelimit"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.policies.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/policies`)'
+      - 'traefik.http.routers.policies.entrypoints=websecure'
+      - 'traefik.http.routers.policies.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.policies.loadbalancer.server.port=3004'
+      - 'traefik.http.middlewares.policies-ratelimit.ratelimit.average=100'
+      - 'traefik.http.middlewares.policies-ratelimit.ratelimit.burst=50'
+      - 'traefik.http.routers.policies.middlewares=policies-ratelimit'
     restart: always
     security_opt:
       - no-new-privileges:true
@@ -552,12 +553,12 @@ services:
       - /tmp
       - /app/.npm
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3004/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -616,16 +617,16 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.tprm-vendors.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/vendors`)"
-      - "traefik.http.routers.tprm-assessments.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/assessments`)"
-      - "traefik.http.routers.tprm-contracts.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/contracts`)"
-      - "traefik.http.routers.tprm-vendors.entrypoints=websecure"
-      - "traefik.http.routers.tprm-vendors.tls.certresolver=letsencrypt"
-      - "traefik.http.services.tprm.loadbalancer.server.port=3005"
-      - "traefik.http.middlewares.tprm-ratelimit.ratelimit.average=100"
-      - "traefik.http.middlewares.tprm-ratelimit.ratelimit.burst=50"
-      - "traefik.http.routers.tprm-vendors.middlewares=tprm-ratelimit"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.tprm-vendors.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/vendors`)'
+      - 'traefik.http.routers.tprm-assessments.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/assessments`)'
+      - 'traefik.http.routers.tprm-contracts.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/contracts`)'
+      - 'traefik.http.routers.tprm-vendors.entrypoints=websecure'
+      - 'traefik.http.routers.tprm-vendors.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.tprm.loadbalancer.server.port=3005'
+      - 'traefik.http.middlewares.tprm-ratelimit.ratelimit.average=100'
+      - 'traefik.http.middlewares.tprm-ratelimit.ratelimit.burst=50'
+      - 'traefik.http.routers.tprm-vendors.middlewares=tprm-ratelimit'
     restart: always
     security_opt:
       - no-new-privileges:true
@@ -636,12 +637,12 @@ services:
       - /tmp
       - /app/.npm
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3005/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3005/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -700,16 +701,16 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.trust-questionnaires.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/questionnaires`)"
-      - "traefik.http.routers.trust-knowledge-base.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/knowledge-base`)"
-      - "traefik.http.routers.trust-center.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/trust-center`)"
-      - "traefik.http.routers.trust-questionnaires.entrypoints=websecure"
-      - "traefik.http.routers.trust-questionnaires.tls.certresolver=letsencrypt"
-      - "traefik.http.services.trust.loadbalancer.server.port=3006"
-      - "traefik.http.middlewares.trust-ratelimit.ratelimit.average=100"
-      - "traefik.http.middlewares.trust-ratelimit.ratelimit.burst=50"
-      - "traefik.http.routers.trust-questionnaires.middlewares=trust-ratelimit"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.trust-questionnaires.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/questionnaires`)'
+      - 'traefik.http.routers.trust-knowledge-base.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/knowledge-base`)'
+      - 'traefik.http.routers.trust-center.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/trust-center`)'
+      - 'traefik.http.routers.trust-questionnaires.entrypoints=websecure'
+      - 'traefik.http.routers.trust-questionnaires.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.trust.loadbalancer.server.port=3006'
+      - 'traefik.http.middlewares.trust-ratelimit.ratelimit.average=100'
+      - 'traefik.http.middlewares.trust-ratelimit.ratelimit.burst=50'
+      - 'traefik.http.routers.trust-questionnaires.middlewares=trust-ratelimit'
     restart: always
     security_opt:
       - no-new-privileges:true
@@ -720,12 +721,12 @@ services:
       - /tmp
       - /app/.npm
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3006/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3006/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -784,17 +785,17 @@ services:
     networks:
       - grc-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.audit-audits.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audits`)"
-      - "traefik.http.routers.audit-requests.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audit-requests`)"
-      - "traefik.http.routers.audit-findings.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audit-findings`)"
-      - "traefik.http.routers.audit-portal.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audit-portal`)"
-      - "traefik.http.routers.audit-audits.entrypoints=websecure"
-      - "traefik.http.routers.audit-audits.tls.certresolver=letsencrypt"
-      - "traefik.http.services.audit.loadbalancer.server.port=3007"
-      - "traefik.http.middlewares.audit-ratelimit.ratelimit.average=100"
-      - "traefik.http.middlewares.audit-ratelimit.ratelimit.burst=50"
-      - "traefik.http.routers.audit-audits.middlewares=audit-ratelimit"
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.audit-audits.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audits`)'
+      - 'traefik.http.routers.audit-requests.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audit-requests`)'
+      - 'traefik.http.routers.audit-findings.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audit-findings`)'
+      - 'traefik.http.routers.audit-portal.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api/audit-portal`)'
+      - 'traefik.http.routers.audit-audits.entrypoints=websecure'
+      - 'traefik.http.routers.audit-audits.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.audit.loadbalancer.server.port=3007'
+      - 'traefik.http.middlewares.audit-ratelimit.ratelimit.average=100'
+      - 'traefik.http.middlewares.audit-ratelimit.ratelimit.burst=50'
+      - 'traefik.http.routers.audit-audits.middlewares=audit-ratelimit'
     restart: always
     security_opt:
       - no-new-privileges:true
@@ -805,12 +806,12 @@ services:
       - /tmp
       - /app/.npm
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3007/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3007/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -861,10 +862,10 @@ services:
     security_opt:
       - no-new-privileges:true
     logging:
-      driver: "json-file"
+      driver: 'json-file'
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: '10m'
+        max-file: '3'
     deploy:
       resources:
         limits:
