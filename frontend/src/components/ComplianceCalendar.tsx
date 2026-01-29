@@ -145,7 +145,10 @@ export function ComplianceCalendar({ className, showFilters = true }: Compliance
       setNewEventPriority('medium');
       toast.success('Event created');
     },
-    onError: () => toast.error('Failed to create event'),
+    onError: (error: Error) => {
+      console.error('Failed to create calendar event:', error);
+      toast.error('Failed to create event. Please try again.');
+    },
   });
 
   // Fetch custom calendar events from backend

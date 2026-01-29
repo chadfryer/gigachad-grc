@@ -292,13 +292,7 @@ async function collectKeyVaultEvidence(
 
     for await (const vault of kvClient.vaults.list()) {
       const vaultName = vault.name || 'unknown';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const properties = (vault as any).properties as {
-        enableSoftDelete?: boolean;
-        enablePurgeProtection?: boolean;
-        enableRbacAuthorization?: boolean;
-        networkAcls?: { defaultAction?: string };
-      } | undefined;
+      const properties = vault.properties;
 
       // Check soft delete
       if (properties?.enableSoftDelete) {
