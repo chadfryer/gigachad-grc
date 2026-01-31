@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as tls from 'tls';
-import * as https from 'https';
 import * as http from 'http';
 import { SSLInfo } from '../dto/security-scan.dto';
 

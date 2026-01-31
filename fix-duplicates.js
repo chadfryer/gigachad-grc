@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Script to remove duplicate iconSlug entries
 const fs = require('fs');
 const path = require('path');

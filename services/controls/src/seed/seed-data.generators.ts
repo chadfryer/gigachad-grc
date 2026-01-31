@@ -9,7 +9,7 @@ function randomItem<T>(arr: T[]): T {
 }
 
 // Helper to get random items from array
-function randomItems<T>(arr: T[], count: number): T[] {
+function _randomItems<T>(arr: T[], count: number): T[] {
   const shuffled = [...arr].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
 }
@@ -20,7 +20,7 @@ function randomDate(start: Date, end: Date): Date {
 }
 
 // Helper to generate UUID-like string
-function generateId(): string {
+function _generateId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;

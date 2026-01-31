@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { BaseConnector } from './base-connector';
-import axios from 'axios';
 
 export interface LaceworkConfig {
   accountName: string;

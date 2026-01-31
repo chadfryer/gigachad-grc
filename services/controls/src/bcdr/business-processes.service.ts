@@ -11,7 +11,6 @@ import {
   UpdateVendorDependencyDto,
 } from './dto/bcdr.dto';
 import { addMonths } from 'date-fns';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class BusinessProcessesService {

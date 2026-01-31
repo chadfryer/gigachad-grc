@@ -87,6 +87,7 @@ export function getCorrelationId(req: any): string {
  * Type declaration for extended request
  */
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       correlationId?: string;

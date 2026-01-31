@@ -375,7 +375,7 @@ async function seedPermissionGroups(organizationId: string) {
   console.log('\nSeeding permission groups...');
 
   let count = 0;
-  for (const [key, group] of Object.entries(DEFAULT_PERMISSION_GROUPS)) {
+  for (const [_key, group] of Object.entries(DEFAULT_PERMISSION_GROUPS)) {
     const existing = await prisma.permissionGroup.findUnique({
       where: {
         organizationId_name: {

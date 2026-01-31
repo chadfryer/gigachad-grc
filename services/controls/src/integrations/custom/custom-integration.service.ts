@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger, Inject } fr
 import * as crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../../audit/audit.service';
-import { STORAGE_PROVIDER, StorageProvider, generateId } from '@gigachad-grc/shared';
+import { STORAGE_PROVIDER, StorageProvider } from '@gigachad-grc/shared';
 import {
   SaveCustomConfigDto,
   TestEndpointDto,
@@ -103,7 +103,7 @@ export class CustomIntegrationService {
       decrypted += decipher.final('utf8');
       
       return decrypted;
-    } catch (error) {
+    } catch {
       this.logger.warn('Failed to decrypt value, returning as-is');
       return encryptedText;
     }
@@ -587,8 +587,8 @@ export class CustomIntegrationService {
    */
   private async executeVisualSync(
     config: any,
-    organizationId: string,
-    integrationId: string,
+    _organizationId: string,
+    _integrationId: string,
   ): Promise<SyncResult> {
     const evidence: EvidenceItem[] = [];
     const baseUrl = config.baseUrl;

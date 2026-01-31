@@ -8,7 +8,7 @@ export class RequestsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createRequestDto: CreateAuditRequestDto, createdBy: string) {
-    const { auditId, organizationId } = createRequestDto;
+    const { auditId } = createRequestDto;
 
     // Generate request number if not provided
     const requestCount = await this.prisma.auditRequest.count({

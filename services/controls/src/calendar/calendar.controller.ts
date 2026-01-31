@@ -124,7 +124,7 @@ export class CalendarController {
   @Get('feed')
   @RequirePermission(Resource.CONTROLS, Action.READ)
   async getCalendarFeed(
-    @Headers('x-organization-id') orgId: string = 'default',
+    @Headers('x-organization-id') _orgId: string = 'default',
   ) {
     // Return the URL that external calendars can subscribe to
     const baseUrl = process.env.API_URL || 'http://localhost:3000';

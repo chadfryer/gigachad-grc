@@ -242,7 +242,7 @@ export class TemplatesService {
     auditId: string,
     organizationId: string,
     templates: TestProcedureTemplateDto[],
-    userId: string,
+    _userId: string,
   ) {
     for (let i = 0; i < templates.length; i++) {
       const template = templates[i];
@@ -342,7 +342,7 @@ export class TemplatesService {
   // Clone Template
   // ===========================================
 
-  async cloneTemplate(id: string, organizationId: string, newName: string, userId: string) {
+  async cloneTemplate(id: string, organizationId: string, newName: string, _userId: string) {
     const template = await this.findOne(id, organizationId);
 
     return this.prisma.auditTemplate.create({
@@ -356,7 +356,7 @@ export class TemplatesService {
         requestTemplates: template.requestTemplates ?? [],
         testProcedureTemplates: template.testProcedureTemplates ?? [],
         isSystem: false,
-        createdBy: userId,
+        createdBy: _userId,
       },
     });
   }

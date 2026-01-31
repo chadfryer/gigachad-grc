@@ -8,7 +8,6 @@ import {
   CreateApprovalRequestDto,
   ApprovalActionDto,
   ApprovalRequestDto,
-  StepApprovalDto,
   ApprovalRequestListQueryDto,
   WorkflowListQueryDto,
   WorkflowEntityType,

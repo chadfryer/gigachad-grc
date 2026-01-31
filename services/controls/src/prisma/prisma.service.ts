@@ -68,7 +68,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   private setupQueryLogging(): void {
-    // @ts-ignore - Prisma event typing
+    // @ts-expect-error - Prisma event typing
     this.$on('query', (e: Prisma.QueryEvent) => {
       this.queryCount++;
       
@@ -202,7 +202,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         status: 'healthy',
         latencyMs: Date.now() - start,
       };
-    } catch (error) {
+    } catch {
       return {
         status: 'unhealthy',
         latencyMs: Date.now() - start,

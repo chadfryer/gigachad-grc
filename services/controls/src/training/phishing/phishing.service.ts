@@ -751,7 +751,7 @@ export class PhishingService {
       }
 
       return { campaignId, userId };
-    } catch (error) {
+    } catch {
       throw new BadRequestException('Invalid tracking token');
     }
   }

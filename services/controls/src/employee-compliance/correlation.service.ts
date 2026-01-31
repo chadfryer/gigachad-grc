@@ -139,7 +139,7 @@ export class CorrelationService {
     let errors = 0;
 
     switch (evidenceType) {
-      case EMPLOYEE_EVIDENCE_TYPES.EMPLOYEE_ROSTER:
+      case EMPLOYEE_EVIDENCE_TYPES.EMPLOYEE_ROSTER: {
         const rosterResult = await this.handleEmployeeRoster(
           organizationId,
           integrationId,
@@ -148,9 +148,10 @@ export class CorrelationService {
         processed = rosterResult.processed;
         errors = rosterResult.errors;
         break;
+      }
 
       case EMPLOYEE_EVIDENCE_TYPES.BACKGROUND_CHECK_RESULTS:
-      case EMPLOYEE_EVIDENCE_TYPES.SCREENING_STATUS:
+      case EMPLOYEE_EVIDENCE_TYPES.SCREENING_STATUS: {
         const bgResult = await this.handleBackgroundChecks(
           organizationId,
           integrationId,
@@ -159,10 +160,11 @@ export class CorrelationService {
         processed = bgResult.processed;
         errors = bgResult.errors;
         break;
+      }
 
       case EMPLOYEE_EVIDENCE_TYPES.TRAINING_ASSIGNMENTS:
       case EMPLOYEE_EVIDENCE_TYPES.TRAINING_COMPLETIONS:
-      case EMPLOYEE_EVIDENCE_TYPES.USER_TRAINING_STATUS:
+      case EMPLOYEE_EVIDENCE_TYPES.USER_TRAINING_STATUS: {
         const trainingResult = await this.handleTrainingRecords(
           organizationId,
           integrationId,
@@ -171,9 +173,10 @@ export class CorrelationService {
         processed = trainingResult.processed;
         errors = trainingResult.errors;
         break;
+      }
 
       case EMPLOYEE_EVIDENCE_TYPES.DEVICE_INVENTORY:
-      case EMPLOYEE_EVIDENCE_TYPES.DEVICE_ASSIGNMENTS:
+      case EMPLOYEE_EVIDENCE_TYPES.DEVICE_ASSIGNMENTS: {
         const deviceResult = await this.handleDeviceAssignments(
           organizationId,
           integrationId,
@@ -182,10 +185,11 @@ export class CorrelationService {
         processed = deviceResult.processed;
         errors = deviceResult.errors;
         break;
+      }
 
       case EMPLOYEE_EVIDENCE_TYPES.USER_ACCESS_LIST:
       case EMPLOYEE_EVIDENCE_TYPES.APP_ASSIGNMENTS:
-      case EMPLOYEE_EVIDENCE_TYPES.MFA_STATUS:
+      case EMPLOYEE_EVIDENCE_TYPES.MFA_STATUS: {
         const accessResult = await this.handleAccessRecords(
           organizationId,
           integrationId,
@@ -194,9 +198,10 @@ export class CorrelationService {
         processed = accessResult.processed;
         errors = accessResult.errors;
         break;
+      }
 
       case EMPLOYEE_EVIDENCE_TYPES.SECURITY_AWARENESS_SCORE:
-      case EMPLOYEE_EVIDENCE_TYPES.PHISHING_TEST_RESULTS:
+      case EMPLOYEE_EVIDENCE_TYPES.PHISHING_TEST_RESULTS: {
         const securityResult = await this.handleSecurityScores(
           organizationId,
           integrationId,
@@ -205,6 +210,7 @@ export class CorrelationService {
         processed = securityResult.processed;
         errors = securityResult.errors;
         break;
+      }
 
       default:
         this.logger.warn(`Unhandled evidence type: ${evidenceType}`);

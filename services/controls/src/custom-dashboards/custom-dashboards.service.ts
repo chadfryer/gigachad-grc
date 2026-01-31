@@ -9,7 +9,6 @@ import {
   DataSourceType,
   DataSourceDefinitionDto,
   FilterOperator,
-  AggregationFunction,
 } from './dto/dashboard.dto';
 
 // Field definitions for each data source

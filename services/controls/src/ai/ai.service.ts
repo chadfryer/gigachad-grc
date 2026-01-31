@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AIProvider,
@@ -17,12 +17,10 @@ import {
   EntityType,
   SmartSearchRequestDto,
   SmartSearchResponseDto,
-  SearchResultDto,
   PolicyDraftRequestDto,
   PolicyDraftResponseDto,
   ControlSuggestionRequestDto,
   ControlSuggestionResponseDto,
-  SuggestedControlDto,
 } from './dto/ai.dto';
 
 @Injectable()

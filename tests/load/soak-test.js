@@ -1,6 +1,7 @@
+/* global __ENV */
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
-import { Rate, Trend, Counter, Gauge } from 'k6/metrics';
+import { Rate, Trend, Counter as _Counter, Gauge } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
 import { BASE_URL, ENDPOINTS, getHeaders, SCENARIOS } from './config.js';
 

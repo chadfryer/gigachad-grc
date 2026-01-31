@@ -394,7 +394,7 @@ export class MCPWorkflowService {
 
     // Build dependency graph and execute steps
     const completed = new Set<string>();
-    const stepMap = new Map(workflow.steps.map((s) => [s.id, s]));
+    const _stepMap = new Map(workflow.steps.map((s) => [s.id, s]));
 
     while (completed.size < workflow.steps.length) {
       // Check for global timeout

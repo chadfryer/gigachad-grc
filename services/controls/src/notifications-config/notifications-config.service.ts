@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import {
@@ -71,7 +71,7 @@ export class NotificationsConfigService {
       decrypted += decipher.final('utf8');
       
       return decrypted;
-    } catch (error) {
+    } catch {
       this.logger.warn('Failed to decrypt value, returning as-is');
       return encryptedText;
     }

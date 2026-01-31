@@ -265,7 +265,7 @@ export class RedisEventBus implements EventBus {
         publisherConnected,
         subscribedChannels: this.subscribedChannels.size,
       };
-    } catch (error) {
+    } catch {
       return {
         status: 'unhealthy',
         latencyMs: Date.now() - startTime,

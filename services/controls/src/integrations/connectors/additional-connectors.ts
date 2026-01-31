@@ -71,8 +71,8 @@ export class MimecastAwarenessConnector extends BaseConnector {
       return { success: true, message: 'Mimecast Awareness connection configured (requires HMAC auth)', details: {} };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: any): Promise<any> {
-    const users: any[] = []; const modules: any[] = []; const errors: string[] = [];
+  async sync(_config: any): Promise<any> {
+    const users: any[] = []; const modules: any[] = []; const _errors: string[] = [];
     try {
       return { users: { total: users.length, items: users }, modules: { total: modules.length, items: modules }, completionRate: 0, collectedAt: new Date().toISOString(), errors: ['Mimecast requires HMAC authentication'] };
     } catch (error: any) { return { users: { total: 0, items: [] }, modules: { total: 0, items: [] }, completionRate: 0, collectedAt: new Date().toISOString(), errors: [error.message] }; }

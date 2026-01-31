@@ -226,7 +226,7 @@ export class AuditsService {
     });
   }
 
-  async disablePortal(id: string, organizationId: string) {
+  async disablePortal(id: string, _organizationId: string) {
     return this.prisma.audit.update({
       where: { id },
       data: {

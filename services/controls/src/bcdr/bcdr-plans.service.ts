@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { STORAGE_PROVIDER, StorageProvider, generateId } from '@gigachad-grc/shared';
+import { STORAGE_PROVIDER, StorageProvider } from '@gigachad-grc/shared';
 import {
   CreateBCDRPlanDto,
   UpdateBCDRPlanDto,
@@ -9,7 +9,6 @@ import {
   PlanStatus,
 } from './dto/bcdr.dto';
 import { addMonths } from 'date-fns';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class BCDRPlansService {
@@ -205,7 +204,7 @@ export class BCDRPlansService {
     userEmail?: string,
     userName?: string,
   ) {
-    const existing = await this.findOne(id, organizationId);
+    const _existing = await this.findOne(id, organizationId);
 
     const updates: string[] = ['updated_by = $2::uuid', 'updated_at = NOW()'];
     const values: any[] = [id, userId];

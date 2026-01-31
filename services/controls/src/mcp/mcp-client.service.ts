@@ -7,7 +7,6 @@ import {
   MCPServerConfig,
   MCP_SERVERS,
   MCP_TOOLS,
-  getServerConfig,
   getAutoStartServers,
 } from './mcp-servers.config';
 
@@ -357,14 +356,14 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
   // Private Methods
   // ============================================
 
-  private async waitForReady(serverId: string, timeout: number): Promise<void> {
+  private async waitForReady(serverId: string, _timeout: number): Promise<void> {
     const state = this.servers.get(serverId);
     if (!state || !state.process) {
       throw new Error('Server not started');
     }
 
     // Send initialize request
-    const initResult = await this.sendRequest(serverId, 'initialize', {
+    const _initResult = await this.sendRequest(serverId, 'initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {
         tools: {},
@@ -446,7 +445,7 @@ export class MCPClientService implements OnModuleInit, OnModuleDestroy {
       try {
         const message = JSON.parse(line) as MCPMessage;
         this.handleMessage(serverId, message);
-      } catch (error) {
+      } catch {
         this.logger.debug(`[${serverId}] Non-JSON output: ${line}`);
       }
     }

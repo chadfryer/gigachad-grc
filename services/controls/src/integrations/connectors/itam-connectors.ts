@@ -475,8 +475,8 @@ export class AWSCognitoConnector extends BaseConnector {
       return { success: true, message: 'AWS Cognito connection configured (requires AWS SDK for full sync)', details: {} };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: any): Promise<any> {
-    const users: any[] = []; const groups: any[] = []; const errors: string[] = [];
+  async sync(_config: any): Promise<any> {
+    const users: any[] = []; const groups: any[] = []; const _errors: string[] = [];
     try {
       return { users: { total: users.length, items: users }, groups: { total: groups.length, items: groups }, collectedAt: new Date().toISOString(), errors: ['AWS Cognito requires AWS SDK for full sync'] };
     } catch (error: any) { return { users: { total: 0, items: [] }, groups: { total: 0, items: [] }, collectedAt: new Date().toISOString(), errors: [error.message] }; }
@@ -728,8 +728,8 @@ export class GoogleDriveConnector extends BaseConnector {
       return { success: true, message: 'Google Drive connection configured (requires OAuth2 setup)', details: {} };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: any): Promise<any> {
-    const files: any[] = []; const folders: any[] = []; const sharedDrives: any[] = []; const errors: string[] = [];
+  async sync(_config: any): Promise<any> {
+    const files: any[] = []; const folders: any[] = []; const sharedDrives: any[] = []; const _errors: string[] = [];
     try {
       return { files: { total: files.length, items: files }, folders: { total: folders.length, items: folders }, sharedDrives: { total: sharedDrives.length, items: sharedDrives }, collectedAt: new Date().toISOString(), errors: ['Google Drive requires OAuth2 authentication'] };
     } catch (error: any) { return { files: { total: 0, items: [] }, folders: { total: 0, items: [] }, sharedDrives: { total: 0, items: [] }, collectedAt: new Date().toISOString(), errors: [error.message] }; }

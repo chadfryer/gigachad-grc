@@ -1,4 +1,4 @@
-import { Module, Global, forwardRef } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { makeCounterProvider } from '@willsoto/nestjs-prometheus';
 import { ConfigModule } from '@nestjs/config';
 import { MCPClientService } from './mcp-client.service';

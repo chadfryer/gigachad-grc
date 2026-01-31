@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Script to update integration metadata with verified API docs and icon slugs
 const fs = require('fs');
 const path = require('path');

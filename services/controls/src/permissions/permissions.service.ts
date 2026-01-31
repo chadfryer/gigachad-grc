@@ -216,7 +216,7 @@ export class PermissionsService {
   /**
    * Get user's permission summary (for API response)
    */
-  async getUserPermissions(userId: string, organizationId: string) {
+  async getUserPermissions(userId: string, _organizationId: string) {
     const memberships = await this.prisma.userGroupMembership.findMany({
       where: { userId },
       include: {

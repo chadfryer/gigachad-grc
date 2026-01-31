@@ -156,7 +156,7 @@ export function escapeHtml(input: string): string {
     '=': '&#x3D;',
   };
 
-  return input.replace(/[&<>"'`=\/]/g, char => escapeMap[char] || char);
+  return input.replace(/[&<>"'`=/]/g, char => escapeMap[char] || char);
 }
 
 /**
@@ -170,10 +170,12 @@ export function sanitizeFilenameStrict(filename: string): string {
 
   return filename
     // Remove path separators
-    .replace(/[\\\/]/g, '')
-    // Remove null bytes
+    .replace(/[\\/]/g, '')
+    // Remove null bytes (eslint-disable-next-line no-control-regex)
+    // eslint-disable-next-line no-control-regex
     .replace(/\x00/g, '')
-    // Remove control characters
+    // Remove control characters (eslint-disable-next-line no-control-regex)
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1f\x80-\x9f]/g, '')
     // Replace other special characters
     .replace(/[<>:"|?*]/g, '_')

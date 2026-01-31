@@ -124,10 +124,11 @@ export class AnalyticsService {
       let key: string;
 
       switch (groupBy) {
-        case 'quarter':
+        case 'quarter': {
           const quarter = Math.floor(date.getMonth() / 3) + 1;
           key = `${date.getFullYear()}-Q${quarter}`;
           break;
+        }
         case 'year':
           key = date.getFullYear().toString();
           break;

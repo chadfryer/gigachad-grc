@@ -143,9 +143,9 @@ export class QuestionnaireExportService {
 
     // Add summary at the bottom
     sheet.addRow([]);
-    const totalRow = sheet.addRow(['', `Total Questions: ${questionnaire.questions.length}`]);
-    const answeredRow = sheet.addRow(['', `Answered: ${questionnaire.questions.filter((q: any) => q.status === 'answered' || q.status === 'approved').length}`]);
-    const pendingRow = sheet.addRow(['', `Pending: ${questionnaire.questions.filter((q: any) => q.status === 'pending').length}`]);
+    const _totalRow = sheet.addRow(['', `Total Questions: ${questionnaire.questions.length}`]);
+    const _answeredRow = sheet.addRow(['', `Answered: ${questionnaire.questions.filter((q: any) => q.status === 'answered' || q.status === 'approved').length}`]);
+    const _pendingRow = sheet.addRow(['', `Pending: ${questionnaire.questions.filter((q: any) => q.status === 'pending').length}`]);
 
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
@@ -206,7 +206,7 @@ export class QuestionnaireExportService {
   }
 
   // Export multiple questionnaires to a single Excel file
-  private async exportMultipleToExcel(questionnaires: any[], options: ExportOptions): Promise<Buffer> {
+  private async exportMultipleToExcel(questionnaires: any[], _options: ExportOptions): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'GigaChad GRC';
     workbook.created = new Date();

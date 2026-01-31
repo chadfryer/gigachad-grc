@@ -12,10 +12,9 @@ import {
   HttpStatus,
   UseGuards,
   Req,
-  Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { PortalService } from './portal.service';
 import {
   PortalLoginDto,

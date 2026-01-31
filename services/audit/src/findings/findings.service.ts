@@ -8,7 +8,7 @@ export class FindingsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createFindingDto: CreateFindingDto, identifiedBy: string) {
-    const { organizationId, auditId } = createFindingDto;
+    const { auditId } = createFindingDto;
 
     // Generate finding number
     const findingCount = await this.prisma.auditFinding.count({

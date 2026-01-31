@@ -100,7 +100,7 @@ export class RiskAssessmentService {
     vendorId: string,
     dto: CreateRiskAssessmentDto,
     userId: string,
-    organizationId: string,
+    _organizationId: string,
   ): Promise<RiskAssessmentResult> {
     // Verify vendor exists
     const vendor = await this.prisma.vendor.findUnique({

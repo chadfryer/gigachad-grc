@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { BaseConnector } from './base-connector';
-import axios from 'axios';
 
 /**
  * Generic connector for integrations that follow standard patterns
@@ -33,10 +32,10 @@ export interface GenericSyncResult {
 @Injectable()
 export class GenericConnector {
   // Kept for backward compatibility - individual connectors now extend BaseConnector
-  async testConnection(integrationType: string, config: GenericConfig, testEndpoint?: string): Promise<{ success: boolean; message: string; details?: any }> {
-    return { success: true, message: `${integrationType} configuration saved` };
+  async testConnection(_integrationType: string, _config: GenericConfig, _testEndpoint?: string): Promise<{ success: boolean; message: string; details?: any }> {
+    return { success: true, message: `Configuration saved` };
   }
-  async sync(integrationType: string, config: GenericConfig, endpoints: Array<{ name: string; path: string }>): Promise<GenericSyncResult> {
+  async sync(_integrationType: string, _config: GenericConfig, _endpoints: Array<{ name: string; path: string }>): Promise<GenericSyncResult> {
     return { data: {}, summary: { totalItems: 0 }, collectedAt: new Date().toISOString(), errors: [] };
   }
 }

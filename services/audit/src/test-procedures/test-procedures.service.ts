@@ -45,7 +45,7 @@ export class TestProceduresService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(organizationId: string, dto: CreateTestProcedureDto, userId: string) {
+  async create(organizationId: string, dto: CreateTestProcedureDto, _userId: string) {
     const audit = await this.prisma.audit.findFirst({
       where: { id: dto.auditId, organizationId },
     });

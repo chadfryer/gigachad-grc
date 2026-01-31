@@ -15,7 +15,6 @@ import {
   RiskWorkflowTaskPriority,
   RiskWorkflowStage,
   WORKFLOW_TASK_CONFIGS,
-  AutoCreateTaskConfig,
 } from './dto/risk-workflow-task.dto';
 
 @Injectable()
@@ -364,7 +363,7 @@ export class RiskWorkflowTasksService {
     taskId: string,
     organizationId: string,
     dto: UpdateRiskWorkflowTaskDto,
-    userId: string,
+    _userId: string,
   ): Promise<RiskWorkflowTaskResponseDto> {
     const task = await this.prisma.riskWorkflowTask.findFirst({
       where: { id: taskId, organizationId },
@@ -533,7 +532,7 @@ export class RiskWorkflowTasksService {
       throw new NotFoundException('New assignee not found');
     }
 
-    const previousAssigneeId = task.assigneeId;
+    const _previousAssigneeId = task.assigneeId;
 
     const updated = await this.prisma.riskWorkflowTask.update({
       where: { id: taskId },
@@ -680,7 +679,7 @@ export class RiskWorkflowTasksService {
       });
 
       // Default to enabled if no preferences set
-      const sendEmail = prefs?.riskTaskEmail ?? true;
+      const _sendEmail = prefs?.riskTaskEmail ?? true;
       const sendInApp = prefs?.riskTaskInApp ?? true;
       const sendSlack = prefs?.riskTaskSlack ?? false;
       const slackUserId = prefs?.slackUserId;

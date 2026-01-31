@@ -175,7 +175,7 @@ export class ComplianceScoreService {
       return 25; // Give benefit of doubt if no data
     }
 
-    const requiredTrainings = trainingRecords.filter(
+    const _requiredTrainings = trainingRecords.filter(
       (t) => t.courseType === 'required' || t.isRequired,
     );
     const allTrainings = trainingRecords;

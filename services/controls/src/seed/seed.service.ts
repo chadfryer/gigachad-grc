@@ -434,7 +434,7 @@ export class SeedDataService {
             });
             count++;
           }
-        } catch (e) {
+        } catch {
           // Skip duplicate mappings
         }
       }
@@ -531,7 +531,7 @@ export class SeedDataService {
             },
           });
           count++;
-        } catch (e) {
+        } catch {
           // Skip duplicates
         }
       }
@@ -992,8 +992,8 @@ export class SeedDataService {
   private async seedAuditLogEntries(organizationId: string, userId: string): Promise<number> {
     let count = 0;
     
-    const actions = ['created', 'updated', 'deleted', 'approved', 'rejected', 'uploaded', 'exported', 'synced'];
-    const entityTypes = ['control', 'evidence', 'policy', 'risk', 'vendor', 'framework', 'assessment', 'audit'];
+    const _actions = ['created', 'updated', 'deleted', 'approved', 'rejected', 'uploaded', 'exported', 'synced'];
+    const _entityTypes = ['control', 'evidence', 'policy', 'risk', 'vendor', 'framework', 'assessment', 'audit'];
     
     const logTemplates = [
       { entityType: 'control', action: 'created', description: 'Created new control' },
@@ -1055,7 +1055,7 @@ export class SeedDataService {
         { name: 'Internal Wiki', criticalityTier: 'tier_4_deferrable', rtoHours: 72, rpoHours: 48, department: 'IT' },
       ];
       
-      const processIds: string[] = [];
+      const _processIds: string[] = [];
       let processCounter = 1;
       
       for (const proc of processData) {

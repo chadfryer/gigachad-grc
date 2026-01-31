@@ -116,7 +116,7 @@ export function handleSummary(data) {
   };
 }
 
-function textSummary(data, options) {
+function textSummary(data, _options) {
   const { metrics } = data;
   const lines = [
     '\n========================================',

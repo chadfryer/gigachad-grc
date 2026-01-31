@@ -72,7 +72,7 @@ export class WorkspaceService {
   /**
    * Create a default workspace for an organization and migrate existing data
    */
-  async createDefaultWorkspace(organizationId: string, userId: string) {
+  async createDefaultWorkspace(organizationId: string, _userId: string) {
     // Create the default workspace
     const workspace = await this.prisma.workspace.create({
       data: {

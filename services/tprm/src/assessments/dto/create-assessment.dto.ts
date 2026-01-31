@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsInt, Min, Max, IsObject, IsJSON } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsInt, Min, Max, IsObject } from 'class-validator';
 
 export class CreateAssessmentDto {
   @IsString()

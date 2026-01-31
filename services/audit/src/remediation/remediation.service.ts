@@ -169,7 +169,7 @@ export class RemediationService {
     return this.prisma.remediationMilestone.delete({ where: { id } });
   }
 
-  async completePlan(id: string, organizationId: string, userId: string) {
+  async completePlan(id: string, organizationId: string, _userId: string) {
     await this.findOnePlan(id, organizationId);
 
     // Update plan

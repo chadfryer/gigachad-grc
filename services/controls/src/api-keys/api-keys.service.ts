@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { generateApiKey, verifyApiKey } from '@gigachad-grc/shared';
+import { generateApiKey } from '@gigachad-grc/shared';
 import {
   CreateApiKeyDto,
   UpdateApiKeyDto,

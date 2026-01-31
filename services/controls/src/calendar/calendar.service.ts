@@ -90,7 +90,7 @@ export class CalendarService {
     organizationId: string,
     startDate?: Date,
     endDate?: Date,
-    workspaceId?: string,
+    _workspaceId?: string,
   ): Promise<CalendarEventResponseDto[]> {
     const events: CalendarEventResponseDto[] = [];
     const now = new Date();

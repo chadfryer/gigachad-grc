@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  CATALOG_FRAMEWORKS,
   CatalogFramework,
   CatalogFrameworkMeta,
   listCatalogFrameworks,

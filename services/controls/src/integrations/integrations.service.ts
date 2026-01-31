@@ -91,7 +91,7 @@ export class IntegrationsService {
       decrypted += decipher.final('utf8');
       
       return decrypted;
-    } catch (error) {
+    } catch {
       this.logger.warn('Failed to decrypt value, returning as-is');
       return encryptedText;
     }
@@ -470,14 +470,13 @@ export class IntegrationsService {
     });
 
     try {
-      let syncResult: any;
       let itemsProcessed = 0;
       let evidenceCreated = 0;
 
       this.logger.log(`Starting sync for ${integration.type} integration ${id}`);
 
       // Use the ConnectorFactory to sync all integration types
-      syncResult = await this.connectorFactory.sync(integration.type, config);
+      const syncResult = await this.connectorFactory.sync(integration.type, config);
 
       // Calculate items processed from sync result
       if (syncResult.summary) {
@@ -833,7 +832,7 @@ export class IntegrationsService {
   /**
    * Generate evidence description based on integration type
    */
-  private generateEvidenceDescription(integrationType: string, syncResult: any): string {
+  private generateEvidenceDescription(integrationType: string, _syncResult: any): string {
     const summaries: Record<string, string> = {
       aws: `AWS security and compliance data including Security Hub findings, IAM users and roles, S3 bucket configurations, and AWS Config compliance status.`,
       okta: `Identity and access management data from Okta including user directory, MFA status, application assignments, and security event logs.`,

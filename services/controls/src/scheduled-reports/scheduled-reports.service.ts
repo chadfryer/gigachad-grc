@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateScheduledReportDto, UpdateScheduledReportDto } from './dto/scheduled-report.dto';
@@ -242,12 +242,12 @@ export class ScheduledReportsService {
     dayOfWeek?: number,
     dayOfMonth?: number,
     time = '09:00',
-    timezone = 'UTC',
+    _timezone = 'UTC',
   ): Date {
     const now = new Date();
     const [hours, minutes] = time.split(':').map(Number);
     
-    let next = new Date(now);
+    const next = new Date(now);
     next.setUTCHours(hours, minutes, 0, 0);
 
     // If the time today has passed, start from tomorrow
@@ -260,15 +260,16 @@ export class ScheduledReportsService {
         // Already set to next occurrence
         break;
       
-      case 'weekly':
+      case 'weekly': {
         // Move to the specified day of week
         const targetDay = dayOfWeek ?? 1; // Default to Monday
         while (next.getUTCDay() !== targetDay) {
           next.setDate(next.getDate() + 1);
         }
         break;
+      }
       
-      case 'monthly':
+      case 'monthly': {
         // Move to the specified day of month
         const targetDate = dayOfMonth ?? 1;
         next.setDate(targetDate);
@@ -277,8 +278,9 @@ export class ScheduledReportsService {
           next.setDate(targetDate);
         }
         break;
+      }
       
-      case 'quarterly':
+      case 'quarterly': {
         // Run on specified day of first month of each quarter
         const targetQuarterDate = dayOfMonth ?? 1;
         const currentMonth = next.getMonth();
@@ -290,6 +292,7 @@ export class ScheduledReportsService {
           next.setDate(targetQuarterDate);
         }
         break;
+      }
     }
 
     return next;

@@ -5,7 +5,7 @@ import {
   CreateExerciseTemplateDto,
   ExerciseTemplateFilterDto,
 } from './dto/bcdr.dto';
-import { EXERCISE_TEMPLATE_LIBRARY, ExerciseTemplateData } from './exercise-template-library';
+import { EXERCISE_TEMPLATE_LIBRARY } from './exercise-template-library';
 
 /**
  * Service for managing BC/DR exercise templates.

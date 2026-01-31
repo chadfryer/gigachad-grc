@@ -11,7 +11,6 @@ import {
   ActivateTeamDto,
   CloseIncidentDto,
   IncidentFilterDto,
-  IncidentStatus,
   TimelineEntryType,
 } from './dto/bcdr.dto';
 
@@ -387,8 +386,8 @@ export class BCDRIncidentsService {
     organizationId: string,
     userId: string,
     dto: ActivateTeamDto,
-    userEmail?: string,
-    userName?: string,
+    _userEmail?: string,
+    _userName?: string,
   ) {
     const incident = await this.findOne(id, organizationId);
 

@@ -1,4 +1,4 @@
-import { ConfigFormat, ResourceType } from '../dto/export-config.dto';
+import { ConfigFormat } from '../dto/export-config.dto';
 
 export interface ResourceData {
   controls?: any[];

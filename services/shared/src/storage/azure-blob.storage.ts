@@ -2,7 +2,6 @@ import { Readable } from 'stream';
 import {
   BlobServiceClient,
   ContainerClient,
-  BlobClient,
   StorageSharedKeyCredential,
   generateBlobSASQueryParameters,
   BlobSASPermissions,
@@ -202,7 +201,7 @@ export class AzureBlobStorage implements StorageProvider {
   }
 
   async copy(sourcePath: string, destPath: string): Promise<string> {
-    const sourceBlob = this.containerClient.getBlobClient(sourcePath);
+    const _sourceBlob = this.containerClient.getBlobClient(sourcePath);
     const destBlob = this.containerClient.getBlobClient(destPath);
 
     // Get a URL with SAS for the source (required for cross-container copies)
@@ -245,7 +244,7 @@ export class AzureBlobStorage implements StorageProvider {
         leaseState: properties.leaseState,
         metadata: properties.metadata as Record<string, string>,
       };
-    } catch (error) {
+    } catch {
       return { exists: false };
     }
   }

@@ -39,6 +39,7 @@ export interface CatalogFramework {
 }
 
 // Count total requirements including nested children
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function countRequirements(requirements: CatalogRequirement[]): number {
   let count = 0;
   for (const req of requirements) {

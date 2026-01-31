@@ -106,7 +106,7 @@ export class MockAIProvider extends BaseAIProvider {
   /**
    * Generate appropriate mock response based on prompt content
    */
-  private generateMockResponse(prompt: string, options: AICompletionOptions): string {
+  private generateMockResponse(prompt: string, _options: AICompletionOptions): string {
     const promptLower = prompt.toLowerCase();
 
     // Policy drafting
@@ -196,7 +196,7 @@ export class MockAIProvider extends BaseAIProvider {
     const descMatch = prompt.match(/description[:\s]+([^\n]+)/i);
 
     const riskTitle = titleMatch?.[1]?.trim() || 'Unspecified Risk';
-    const description = descMatch?.[1]?.trim() || '';
+    const _description = descMatch?.[1]?.trim() || '';
 
     // Generate contextual scores based on keywords
     let likelihood = 3;
@@ -317,7 +317,7 @@ export class MockAIProvider extends BaseAIProvider {
   /**
    * Generate mock control suggestions response
    */
-  private generateControlSuggestionsResponse(prompt: string): string {
+  private generateControlSuggestionsResponse(_prompt: string): string {
     const controls = [
       {
         title: 'Access Control Management',
@@ -384,7 +384,7 @@ export class MockAIProvider extends BaseAIProvider {
   /**
    * Generate mock search response
    */
-  private generateSearchResponse(prompt: string): string {
+  private generateSearchResponse(_prompt: string): string {
     const response = {
       results: [
         {
@@ -415,7 +415,7 @@ export class MockAIProvider extends BaseAIProvider {
   /**
    * Generate generic response for unrecognized prompts
    */
-  private generateGenericResponse(prompt: string): string {
+  private generateGenericResponse(_prompt: string): string {
     return JSON.stringify({
       message: 'This is a mock AI response. The mock provider is active because no AI API key is configured.',
       suggestion: 'To enable full AI capabilities, configure OPENAI_API_KEY or ANTHROPIC_API_KEY environment variables.',

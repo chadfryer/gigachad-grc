@@ -15,7 +15,6 @@ import {
   ApplyChangesResponseDto,
   ConfigFileVersionDto,
   ConflictResolution,
-  ConflictItemDto,
 } from './dto/config-file.dto';
 import { ConfigFileFormat } from './dto/config-file.dto';
 import { ConfigFormat, ResourceType } from './dto/export-config.dto';
@@ -1246,7 +1245,7 @@ export class ConfigFilesService {
     organizationId: string,
     userId: string,
     attrs: Record<string, any>,
-    workspaceId?: string,
+    _workspaceId?: string,
   ): Promise<{ created: boolean; updated: boolean; databaseId?: string }> {
     const controlId = attrs.control_id;
     if (!controlId) {

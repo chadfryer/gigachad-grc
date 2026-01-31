@@ -17,7 +17,7 @@ export class WorkdayConnector {
     return { success: true, message: `Connected to Workday tenant: ${config.tenantName}` };
   }
 
-  async sync(config: WorkdayConfig): Promise<WorkdaySyncResult> {
+  async sync(_config: WorkdayConfig): Promise<WorkdaySyncResult> {
     // Workday integration requires specific RAAS reports or API calls
     return {
       workers: { total: 0, active: 0, terminated: 0, byType: {}, items: [] },

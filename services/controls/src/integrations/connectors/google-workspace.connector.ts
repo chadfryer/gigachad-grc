@@ -160,7 +160,7 @@ export class GoogleWorkspaceConnector {
     }
   }
 
-  private createJWT(credentials: any, adminEmail: string): string {
+  private createJWT(_credentials: any, _adminEmail: string): string {
     // Simplified - use proper JWT library in production
     return 'jwt-token';
   }

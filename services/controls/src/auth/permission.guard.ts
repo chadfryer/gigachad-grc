@@ -12,7 +12,7 @@ import {
   PERMISSIONS_KEY,
   RequiredPermission,
 } from './decorators/require-permission.decorator';
-import { Resource, Action } from '../permissions/dto/permission.dto';
+import { Resource } from '../permissions/dto/permission.dto';
 
 @Injectable()
 export class PermissionGuard implements CanActivate {

@@ -205,11 +205,11 @@ export class SystemHealthService {
       '/opt/gigachad-grc/deploy/backup.sh', // Production path
     ];
     
-    let backupScriptPath = '';
+    let _backupScriptPath = '';
     let backupExists = false;
     for (const p of possibleBackupPaths) {
       if (fs.existsSync(p)) {
-        backupScriptPath = p;
+        _backupScriptPath = p;
         backupExists = true;
         break;
       }
@@ -538,7 +538,7 @@ export class SystemHealthService {
    */
   async getBackupStatus(): Promise<BackupStatusResponse> {
     const remoteEnabled = process.env.DR_REMOTE_BACKUP_ENABLED === 'true';
-    const remoteBucket = process.env.DR_REMOTE_BACKUP_S3_BUCKET;
+    const _remoteBucket = process.env.DR_REMOTE_BACKUP_S3_BUCKET;
     const retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10);
 
     // Try to read last backup from a status file (if implemented)

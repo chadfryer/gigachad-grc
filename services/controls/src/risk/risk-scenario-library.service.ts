@@ -26,7 +26,7 @@ export class RiskScenarioLibraryService implements OnModuleInit {
     this.logger.log('Checking risk scenario library...');
     
     let created = 0;
-    let updated = 0;
+    const updated = 0;
 
     for (const template of RISK_SCENARIO_LIBRARY) {
       try {

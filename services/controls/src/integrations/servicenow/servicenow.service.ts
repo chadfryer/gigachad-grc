@@ -637,16 +637,16 @@ export class ServiceNowService {
   }
 
   private async syncGrcToSnow(
-    organizationId: string,
-    mapping: any,
+    _organizationId: string,
+    _mapping: any,
   ): Promise<{ created: number; updated: number; failed: number; errors: string[] }> {
     // Implementation would query GRC entities and sync to ServiceNow
     return { created: 0, updated: 0, failed: 0, errors: [] };
   }
 
   private async syncSnowToGrc(
-    organizationId: string,
-    mapping: any,
+    _organizationId: string,
+    _mapping: any,
   ): Promise<{ updated: number; failed: number; errors: string[] }> {
     // Implementation would query ServiceNow records and sync to GRC
     return { updated: 0, failed: 0, errors: [] };

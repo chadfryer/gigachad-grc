@@ -20,7 +20,7 @@ import {
   GrcEntityType,
 } from './dto/jira.dto';
 
-interface JiraApiResponse<T> {
+interface _JiraApiResponse<T> {
   data?: T;
   error?: string;
 }
@@ -636,16 +636,16 @@ export class JiraService {
   }
 
   private async syncGrcToJira(
-    organizationId: string,
-    mapping: any,
+    _organizationId: string,
+    _mapping: any,
   ): Promise<{ created: number; updated: number; failed: number; errors: string[] }> {
     // Implementation would query GRC entities and sync to Jira
     return { created: 0, updated: 0, failed: 0, errors: [] };
   }
 
   private async syncJiraToGrc(
-    organizationId: string,
-    mapping: any,
+    _organizationId: string,
+    _mapping: any,
   ): Promise<{ updated: number; failed: number; errors: string[] }> {
     // Implementation would query Jira issues and sync to GRC
     return { updated: 0, failed: 0, errors: [] };

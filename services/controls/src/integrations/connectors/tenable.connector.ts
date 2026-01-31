@@ -24,7 +24,7 @@ export class TenableConnector {
 
   async sync(config: TenableConfig): Promise<TenableSyncResult> {
     const headers = { 'X-ApiKeys': `accessKey=${config.accessKey};secretKey=${config.secretKey}` };
-    const vulnsResp = await fetch(`${this.baseUrl}/workbenches/vulnerabilities?filter.0.filter=severity&filter.0.quality=eq&filter.0.value=4`, { headers }).catch(() => null);
+    const _vulnsResp = await fetch(`${this.baseUrl}/workbenches/vulnerabilities?filter.0.filter=severity&filter.0.quality=eq&filter.0.value=4`, { headers }).catch(() => null);
     return {
       vulnerabilities: { total: 0, critical: 0, high: 0, medium: 0, low: 0, items: [] },
       assets: { total: 0, scanned: 0 }, scans: { total: 0, running: 0 }, compliance: { passed: 0, failed: 0 },

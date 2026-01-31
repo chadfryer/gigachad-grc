@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsEnum, IsArray, IsObject, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsArray, IsObject, IsDateString } from 'class-validator';
 
 // ============================================
 // Connection DTOs

@@ -316,7 +316,7 @@ export class SnykConnector {
         items: targetOrgs.map(o => ({
           id: o.id,
           name: o.name,
-          projectCount: allProjects.filter(p => true).length, // Would need org ID on project
+          projectCount: allProjects.filter(_p => true).length, // Would need org ID on project
         })),
       },
       projects: {

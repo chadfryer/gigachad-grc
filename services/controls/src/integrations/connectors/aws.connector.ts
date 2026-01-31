@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Injectable, Logger } from '@nestjs/common';
 
 /**
@@ -18,7 +19,7 @@ export interface AWSConfig {
 /**
  * Result type with mock mode indicator
  */
-interface AWSResponseResult {
+interface _AWSResponseResult {
   data: any;
   isMockMode?: boolean;
   mockModeReason?: string;
@@ -561,7 +562,7 @@ export class AWSConnector {
    */
   private async callSTS(region: string, action: string, params: any, credentials: any): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');
       const client = new STSClient({ region, credentials });
       
@@ -587,7 +588,7 @@ export class AWSConnector {
    */
   private async callSecurityHub(region: string, action: string, params: any, credentials: any): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { SecurityHubClient, GetFindingsCommand } = require('@aws-sdk/client-securityhub');
       const client = new SecurityHubClient({ region, credentials });
       
@@ -609,7 +610,7 @@ export class AWSConnector {
    */
   private async callCloudTrail(region: string, action: string, params: any, credentials: any): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { CloudTrailClient, LookupEventsCommand } = require('@aws-sdk/client-cloudtrail');
       const client = new CloudTrailClient({ region, credentials });
       
@@ -631,7 +632,7 @@ export class AWSConnector {
    */
   private async callConfig(region: string, action: string, params: any, credentials: any): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { ConfigServiceClient, DescribeComplianceByConfigRuleCommand } = require('@aws-sdk/client-config-service');
       const client = new ConfigServiceClient({ region, credentials });
       
@@ -653,7 +654,7 @@ export class AWSConnector {
    */
   private async callIAM(action: string, params: any, credentials: any): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { 
         IAMClient, 
         ListUsersCommand, 
@@ -667,21 +668,26 @@ export class AWSConnector {
       const client = new IAMClient({ region: 'us-east-1', credentials });
       
       switch (action) {
-        case 'ListUsers':
+        case 'ListUsers': {
           const usersResponse = await client.send(new ListUsersCommand(params));
           return { Users: usersResponse.Users || [] };
-        case 'ListRoles':
+        }
+        case 'ListRoles': {
           const rolesResponse = await client.send(new ListRolesCommand(params));
           return { Roles: rolesResponse.Roles || [] };
-        case 'ListPolicies':
+        }
+        case 'ListPolicies': {
           const policiesResponse = await client.send(new ListPoliciesCommand(params));
           return { Policies: policiesResponse.Policies || [] };
-        case 'ListMFADevices':
+        }
+        case 'ListMFADevices': {
           const mfaResponse = await client.send(new ListMFADevicesCommand(params));
           return { MFADevices: mfaResponse.MFADevices || [] };
-        case 'ListAccessKeys':
+        }
+        case 'ListAccessKeys': {
           const keysResponse = await client.send(new ListAccessKeysCommand(params));
           return { AccessKeyMetadata: keysResponse.AccessKeyMetadata || [] };
+        }
         default:
           return {};
       }
@@ -698,7 +704,7 @@ export class AWSConnector {
    */
   private async callS3(region: string, action: string, params: any, credentials: any): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { 
         S3Client, 
         ListBucketsCommand,
@@ -711,21 +717,26 @@ export class AWSConnector {
       const client = new S3Client({ region, credentials });
       
       switch (action) {
-        case 'ListBuckets':
+        case 'ListBuckets': {
           const bucketsResponse = await client.send(new ListBucketsCommand(params));
           return { Buckets: bucketsResponse.Buckets || [] };
-        case 'GetPublicAccessBlock':
+        }
+        case 'GetPublicAccessBlock': {
           const publicResponse = await client.send(new GetPublicAccessBlockCommand(params));
           return { PublicAccessBlockConfiguration: publicResponse.PublicAccessBlockConfiguration };
-        case 'GetBucketEncryption':
+        }
+        case 'GetBucketEncryption': {
           const encResponse = await client.send(new GetBucketEncryptionCommand(params));
           return { ServerSideEncryptionConfiguration: encResponse.ServerSideEncryptionConfiguration };
-        case 'GetBucketVersioning':
+        }
+        case 'GetBucketVersioning': {
           const versResponse = await client.send(new GetBucketVersioningCommand(params));
           return { Status: versResponse.Status };
-        case 'GetBucketLogging':
+        }
+        case 'GetBucketLogging': {
           const logResponse = await client.send(new GetBucketLoggingCommand(params));
           return { LoggingEnabled: logResponse.LoggingEnabled };
+        }
         default:
           return {};
       }
@@ -742,7 +753,7 @@ export class AWSConnector {
    */
   private async callGuardDuty(region: string, action: string, params: any, credentials: any): Promise<any> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+       
       const { 
         GuardDutyClient, 
         ListDetectorsCommand,
@@ -753,15 +764,18 @@ export class AWSConnector {
       const client = new GuardDutyClient({ region, credentials });
       
       switch (action) {
-        case 'ListDetectors':
+        case 'ListDetectors': {
           const detectorsResponse = await client.send(new ListDetectorsCommand(params));
           return { DetectorIds: detectorsResponse.DetectorIds || [] };
-        case 'ListFindings':
+        }
+        case 'ListFindings': {
           const findingsListResponse = await client.send(new ListFindingsCommand(params));
           return { FindingIds: findingsListResponse.FindingIds || [] };
-        case 'GetFindings':
+        }
+        case 'GetFindings': {
           const findingsResponse = await client.send(new GetFindingsCommand(params));
           return { Findings: findingsResponse.Findings || [] };
+        }
         default:
           return {};
       }

@@ -183,7 +183,7 @@ export class RetentionService {
 
     try {
       switch (policy.entityType) {
-        case RetentionEntityType.AUDIT_LOGS:
+        case RetentionEntityType.AUDIT_LOGS: {
           const auditCount = await this.prisma.auditLog.count({
             where: {
               organizationId,
@@ -204,8 +204,9 @@ export class RetentionService {
             recordsProcessed = recordsFound;
           }
           break;
+        }
 
-        case RetentionEntityType.NOTIFICATIONS:
+        case RetentionEntityType.NOTIFICATIONS: {
           const notifCount = await this.prisma.notification.count({
             where: {
               organizationId,
@@ -226,8 +227,9 @@ export class RetentionService {
             recordsProcessed = recordsFound;
           }
           break;
+        }
 
-        case RetentionEntityType.TASKS:
+        case RetentionEntityType.TASKS: {
           const taskCount = await this.prisma.task.count({
             where: {
               organizationId,
@@ -265,8 +267,9 @@ export class RetentionService {
             recordsProcessed = recordsFound;
           }
           break;
+        }
 
-        case RetentionEntityType.EVIDENCE:
+        case RetentionEntityType.EVIDENCE: {
           // Handle evidence retention - only process expired or rejected evidence
           const evidenceCount = await this.prisma.evidence.count({
             where: {
@@ -329,8 +332,9 @@ export class RetentionService {
             recordsProcessed = recordsFound;
           }
           break;
+        }
 
-        case RetentionEntityType.POLICY_VERSIONS:
+        case RetentionEntityType.POLICY_VERSIONS: {
           // Handle policy version retention - delete old versions beyond retention period
           // Keep the most recent version for each policy
           
@@ -379,8 +383,9 @@ export class RetentionService {
             recordsProcessed = recordsFound;
           }
           break;
+        }
 
-        case RetentionEntityType.EXPORT_JOBS:
+        case RetentionEntityType.EXPORT_JOBS: {
           // Handle export job retention - clean up old export jobs and their files
           // Use raw SQL since ExportJob might be in-memory only
           try {
@@ -402,13 +407,14 @@ export class RetentionService {
             } else {
               recordsProcessed = recordsFound;
             }
-          } catch (error) {
+          } catch {
             // Export jobs might be stored in memory only
             this.logger.warn('Export jobs table not found - exports may be stored in memory only');
             recordsFound = 0;
             recordsProcessed = 0;
           }
           break;
+        }
 
         default:
           this.logger.warn(`Retention for ${policy.entityType} not supported`);

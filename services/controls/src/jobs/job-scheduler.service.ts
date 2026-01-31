@@ -320,7 +320,7 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
   /**
    * Send scheduled notifications
    */
-  private async sendScheduledNotifications(data: any): Promise<JobResult> {
+  private async sendScheduledNotifications(_data: any): Promise<JobResult> {
     this.logger.log('Running scheduled notifications');
 
     if (!this.scheduledNotificationsService) {
@@ -482,7 +482,7 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
   /**
    * Cleanup expired sessions
    */
-  private async cleanupExpiredSessions(data: any): Promise<JobResult> {
+  private async cleanupExpiredSessions(_data: any): Promise<JobResult> {
     this.logger.log('Running session cleanup');
 
     if (!this.sessionService) {
@@ -576,7 +576,7 @@ export class JobSchedulerService implements OnModuleInit, OnModuleDestroy {
    * Refresh search indexes (tsvector columns)
    */
   private async refreshSearchIndexes(data: any): Promise<JobResult> {
-    const { organizationId } = data;
+    const { organizationId: _organizationId } = data;
     this.logger.log('Refreshing search indexes');
 
     try {

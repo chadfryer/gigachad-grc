@@ -15,7 +15,6 @@ import {
 import { 
   parsePaginationParams, 
   createPaginatedResponse,
-  getPrismaSkipTake,
 } from '@gigachad-grc/shared';
 
 interface WebhookRecord {

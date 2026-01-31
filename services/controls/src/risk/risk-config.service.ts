@@ -106,7 +106,7 @@ export class RiskConfigService {
     userId: string,
   ): Promise<RiskConfigurationResponseDto> {
     // Ensure configuration exists
-    const existing = await this.getConfiguration(organizationId);
+    const _existing = await this.getConfiguration(organizationId);
 
     const updateData: any = {
       updatedBy: userId,

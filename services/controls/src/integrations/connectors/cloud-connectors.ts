@@ -42,8 +42,8 @@ export class OracleCloudConnector extends BaseConnector {
       return { success: true, message: 'Oracle Cloud connection configured (requires signature-based authentication)', details: {} };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: { tenancyOcid: string; userOcid: string; fingerprint: string; privateKey: string; region: string }): Promise<any> {
-    const compartments: any[] = []; const instances: any[] = []; const databases: any[] = []; const errors: string[] = [];
+  async sync(_config: { tenancyOcid: string; userOcid: string; fingerprint: string; privateKey: string; region: string }): Promise<any> {
+    const compartments: any[] = []; const instances: any[] = []; const databases: any[] = []; const _errors: string[] = [];
     try {
       // Oracle Cloud requires complex signature-based authentication
       return { compartments: { total: compartments.length, items: compartments }, instances: { total: instances.length, items: instances }, databases: { total: databases.length, items: databases }, collectedAt: new Date().toISOString(), errors: ['Oracle Cloud requires signature-based authentication'] };
@@ -95,8 +95,8 @@ export class AlibabaCloudConnector extends BaseConnector {
       return { success: true, message: 'Alibaba Cloud connection configured (requires signature-based authentication)', details: {} };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: { accessKeyId: string; accessKeySecret: string; region: string }): Promise<any> {
-    const instances: any[] = []; const databases: any[] = []; const storage: any[] = []; const errors: string[] = [];
+  async sync(_config: { accessKeyId: string; accessKeySecret: string; region: string }): Promise<any> {
+    const instances: any[] = []; const databases: any[] = []; const storage: any[] = []; const _errors: string[] = [];
     try {
       // Alibaba Cloud requires complex signature-based authentication
       return { instances: { total: instances.length, items: instances }, databases: { total: databases.length, items: databases }, storage: { total: storage.length, items: storage }, collectedAt: new Date().toISOString(), errors: ['Alibaba Cloud requires signature-based authentication'] };

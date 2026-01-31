@@ -267,7 +267,7 @@ export class JamfConnector {
           const errorJson = JSON.parse(responseText);
           const errorMsg = errorJson.error_description || errorJson.error || errorJson.message || `HTTP ${response.status}`;
           throw new Error(errorMsg);
-        } catch (parseError) {
+        } catch {
           // If we can't parse JSON, check for common HTML error pages
           if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
             throw new Error(`Server returned HTML instead of JSON - check if URL ${baseUrl} is correct`);

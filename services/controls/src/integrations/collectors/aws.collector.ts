@@ -235,7 +235,7 @@ export class AWSCollector extends BaseCollector {
     return { evidence, errors };
   }
 
-  private async collectConfigCompliance(config: CollectorConfig): Promise<{
+  private async collectConfigCompliance(_config: CollectorConfig): Promise<{
     evidence: CollectedEvidence[];
     errors: string[];
   }> {
@@ -274,7 +274,7 @@ export class AWSCollector extends BaseCollector {
     return { evidence, errors };
   }
 
-  private async collectIAMData(config: CollectorConfig): Promise<{
+  private async collectIAMData(_config: CollectorConfig): Promise<{
     evidence: CollectedEvidence[];
     errors: string[];
   }> {
@@ -333,7 +333,7 @@ export class AWSCollector extends BaseCollector {
     return { evidence, errors };
   }
 
-  private async collectSecurityHubFindings(config: CollectorConfig): Promise<{
+  private async collectSecurityHubFindings(_config: CollectorConfig): Promise<{
     evidence: CollectedEvidence[];
     warnings: string[];
   }> {

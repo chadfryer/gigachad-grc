@@ -114,7 +114,7 @@ export class TrustCenterService {
   }
 
   async updateContent(id: string, updateContentDto: UpdateTrustCenterContentDto, userId: string) {
-    const content = await this.getContentById(id);
+    const _content = await this.getContentById(id);
 
     const updated = await this.prisma.trustCenterContent.update({
       where: { id },

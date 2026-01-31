@@ -6,10 +6,10 @@ import { NotificationType, NotificationSeverity } from '../notifications/dto/not
 import { calculateRiskLevel, Likelihood, Impact } from './dto/risk.dto';
 import { RiskWorkflowTasksService } from './risk-workflow-tasks.service';
 import {
-  RiskLevel as PrismaRiskLevel,
-  RiskTreatmentStatus as PrismaRiskTreatmentStatus,
-  RiskIntakeStatus as PrismaRiskIntakeStatus,
-  RiskAssessmentStatus as PrismaRiskAssessmentStatus
+  RiskLevel as _PrismaRiskLevel,
+  RiskTreatmentStatus as _PrismaRiskTreatmentStatus,
+  RiskIntakeStatus as _PrismaRiskIntakeStatus,
+  RiskAssessmentStatus as _PrismaRiskAssessmentStatus
 } from '@prisma/client';
 
 // ===========================================
@@ -202,7 +202,7 @@ export class RiskWorkflowService {
     organizationId: string,
     dto: CreateRiskIntakeDto,
     reporterId: string,
-    userEmail?: string,
+    _userEmail?: string,
   ) {
     // Generate risk ID
     const count = await this.prisma.risk.count({ where: { organizationId } });
@@ -240,7 +240,7 @@ export class RiskWorkflowService {
     await this.auditService.log({
       organizationId,
       userId: reporterId,
-      userEmail,
+      userEmail: _userEmail,
       action: 'risk_intake_submitted',
       entityType: 'risk',
       entityId: risk.id,
@@ -573,7 +573,7 @@ export class RiskWorkflowService {
     organizationId: string,
     dto: GrcReviewDto,
     userId: string,
-    userEmail?: string,
+    _userEmail?: string,
   ) {
     const risk = await this.prisma.risk.findFirst({
       where: { id: riskId, organizationId },
@@ -690,7 +690,7 @@ export class RiskWorkflowService {
     organizationId: string,
     dto: SubmitAssessmentDto,
     userId: string,
-    userEmail?: string,
+    _userEmail?: string,
   ) {
     const risk = await this.prisma.risk.findFirst({
       where: { id: riskId, organizationId },
@@ -930,7 +930,7 @@ export class RiskWorkflowService {
     organizationId: string,
     dto: SetExecutiveApproverDto,
     userId: string,
-    userEmail?: string,
+    _userEmail?: string,
   ) {
     const risk = await this.prisma.risk.findFirst({
       where: { id: riskId, organizationId },
@@ -1000,7 +1000,7 @@ export class RiskWorkflowService {
     organizationId: string,
     dto: ExecutiveDecisionDto,
     userId: string,
-    userEmail?: string,
+    _userEmail?: string,
   ) {
     const risk = await this.prisma.risk.findFirst({
       where: { id: riskId, organizationId },

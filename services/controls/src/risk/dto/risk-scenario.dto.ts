@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsArray, IsNumber, IsEnum, Min, Max, IsUUID, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, IsNumber, IsEnum, Min, Max, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum ThreatActor {

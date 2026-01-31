@@ -9,9 +9,7 @@ import {
   DRTestFilterDto,
   RecordTestResultDto,
   CreateTestFindingDto,
-  TestStatus,
 } from './dto/bcdr.dto';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class DRTestsService {
@@ -295,7 +293,7 @@ export class DRTestsService {
   }
 
   async startTest(id: string, organizationId: string, userId: string) {
-    const test = await this.findOne(id, organizationId);
+    const _test = await this.findOne(id, organizationId);
 
     const result = await this.prisma.$queryRaw<any[]>`
       UPDATE bcdr.dr_tests

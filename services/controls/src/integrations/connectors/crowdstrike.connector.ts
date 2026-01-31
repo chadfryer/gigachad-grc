@@ -484,7 +484,7 @@ export class CrowdStrikeConnector {
 
       const detailsData = await detailsResponse.json();
       return detailsData.resources || [];
-    } catch (error) {
+    } catch {
       this.logger.warn('Spotlight vulnerabilities not available');
       return [];
     }

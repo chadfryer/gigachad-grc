@@ -1,4 +1,4 @@
-import { Injectable, Logger, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { createHash } from 'crypto';
 
@@ -668,7 +668,7 @@ export class ConfigStateService {
     return this.getFrameworkData(organizationId, name);
   }
 
-  private async getPolicyData(organizationId: string, id: string, workspaceId?: string): Promise<Record<string, any> | null> {
+  private async getPolicyData(organizationId: string, id: string, _workspaceId?: string): Promise<Record<string, any> | null> {
     const policy = await this.prisma.policy.findFirst({
       where: {
         organizationId,
@@ -689,11 +689,11 @@ export class ConfigStateService {
     };
   }
 
-  private async getPolicyDataByTitle(organizationId: string, title: string, workspaceId?: string): Promise<Record<string, any> | null> {
-    return this.getPolicyData(organizationId, title, workspaceId);
+  private async getPolicyDataByTitle(organizationId: string, title: string, _workspaceId?: string): Promise<Record<string, any> | null> {
+    return this.getPolicyData(organizationId, title, _workspaceId);
   }
 
-  private async getRiskData(organizationId: string, id: string, workspaceId?: string): Promise<Record<string, any> | null> {
+  private async getRiskData(organizationId: string, id: string, _workspaceId?: string): Promise<Record<string, any> | null> {
     const risk = await this.prisma.risk.findFirst({
       where: {
         organizationId,
@@ -840,7 +840,7 @@ export class ConfigStateService {
     organizationId: string,
     states: any[],
     report: DriftReport,
-    workspaceId?: string,
+    _workspaceId?: string,
   ): Promise<void> {
     // Track which resources are in state
     const trackedControls = new Set(

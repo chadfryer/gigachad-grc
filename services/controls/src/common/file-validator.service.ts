@@ -278,9 +278,10 @@ export class FileValidatorService {
    */
   sanitizeFilename(filename: string): string {
     // Remove path components
-    let sanitized = filename.replace(/^.*[\\\/]/, '');
+    let sanitized = filename.replace(/^.*[\\/]/, '');
     
     // Remove null bytes
+    // eslint-disable-next-line no-control-regex
     sanitized = sanitized.replace(/\x00/g, '');
     
     // Replace special characters

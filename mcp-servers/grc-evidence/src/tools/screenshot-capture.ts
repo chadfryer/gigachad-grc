@@ -71,7 +71,7 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
               Authorization: `Bearer ${authentication.credentials.token}`,
             });
             break;
-          case 'cookie':
+          case 'cookie': {
             const cookies = Object.entries(authentication.credentials).map(([name, value]) => ({
               name,
               value,
@@ -79,6 +79,7 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
             }));
             await page.setCookie(...cookies);
             break;
+          }
         }
       }
 
@@ -145,7 +146,7 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
     } finally {
       await browser.close();
     }
-  } catch (error) {
+  } catch {
     // Puppeteer not available or failed, return placeholder
     return {
       type: 'screenshot',

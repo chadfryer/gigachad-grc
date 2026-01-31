@@ -359,7 +359,7 @@ export class NotificationsService {
   async markAsRead(userId: string, dto: MarkReadDto): Promise<{ updated: number }> {
     const { notificationIds, markAll } = dto;
 
-    let where: any = { userId };
+    const where: any = { userId };
 
     if (markAll) {
       where.isRead = false;

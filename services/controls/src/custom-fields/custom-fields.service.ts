@@ -317,19 +317,21 @@ export class CustomFieldsService {
         }
         break;
 
-      case CustomFieldType.MULTISELECT:
+      case CustomFieldType.MULTISELECT: {
         const values = value.split(',').map(v => v.trim());
         if (field.options && !values.every(v => field.options!.includes(v))) {
           throw new BadRequestException(`Invalid option for field '${field.name}'`);
         }
         break;
+      }
 
-      case CustomFieldType.EMAIL:
+      case CustomFieldType.EMAIL: {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(value)) {
           throw new BadRequestException(`Field '${field.name}' must be a valid email`);
         }
         break;
+      }
 
       case CustomFieldType.URL:
         try {

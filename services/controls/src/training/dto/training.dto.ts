@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsEnum, IsBoolean, IsDateString, Min, Max, IsArray, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsInt, IsEnum, IsBoolean, IsDateString, Min, Max, IsArray } from 'class-validator';
 
 export enum TrainingStatus {
   not_started = 'not_started',

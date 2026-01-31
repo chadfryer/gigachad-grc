@@ -167,7 +167,7 @@ export class KnowledgeBaseService {
   }
 
   async update(id: string, updateKnowledgeBaseDto: UpdateKnowledgeBaseDto, userId: string) {
-    const entry = await this.findOne(id);
+    const _entry = await this.findOne(id);
 
     const { linkedControls, linkedEvidence, linkedPolicies, approvedBy, status, ...updateData } = updateKnowledgeBaseDto;
 
@@ -282,7 +282,7 @@ export class KnowledgeBaseService {
   }
 
   async approve(id: string, userId: string) {
-    const entry = await this.findOne(id);
+    const _entry = await this.findOne(id);
 
     const approved = await this.prisma.knowledgeBaseEntry.update({
       where: { id },

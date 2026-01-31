@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ControlImplementationStatus, EvidenceStatus, PolicyStatus } from '@prisma/client';
+import { ControlImplementationStatus, EvidenceStatus } from '@prisma/client';
 import { CacheService, CacheKeys } from '@gigachad-grc/shared';
 
 @Injectable()
@@ -466,7 +466,7 @@ export class DashboardService {
     return { overall, byFramework };
   }
 
-  async getComplianceTrend(organizationId: string, days = 30) {
+  async getComplianceTrend(organizationId: string, _days = 30) {
     // This would typically query a historical scores table
     // For now, return current score as single point
     const currentScore = await this.calculateComplianceScore(organizationId);

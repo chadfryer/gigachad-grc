@@ -269,7 +269,7 @@ export class JobProcessor implements OnModuleInit {
     this.logger.log(`Archiving audit logs older than ${data.daysOld} days`);
   }
 
-  private async handleCleanupTempFiles(data: any): Promise<void> {
+  private async handleCleanupTempFiles(_data: any): Promise<void> {
     this.logger.log('Cleaning up temporary files');
   }
 }

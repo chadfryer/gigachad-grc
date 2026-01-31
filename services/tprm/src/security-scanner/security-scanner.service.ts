@@ -186,7 +186,7 @@ export class SecurityScannerService {
       this.logger.error(`Security scan failed for ${vendorId}: ${error.message}`, error.stack);
       
       // Store failed assessment
-      const assessment = await this.prisma.vendorAssessment.create({
+      const _assessment = await this.prisma.vendorAssessment.create({
         data: {
           vendorId,
           organizationId: vendor.organizationId,
@@ -268,7 +268,7 @@ export class SecurityScannerService {
       if (typeof assessment.findings === 'string') {
         try {
           findings = JSON.parse(assessment.findings);
-        } catch (e) {
+        } catch {
           this.logger.warn(`Failed to parse findings JSON for assessment ${assessment.id}`);
           return null;
         }

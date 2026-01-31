@@ -1,4 +1,4 @@
-import { ArgumentMetadata, Logger } from '@nestjs/common';
+import { ArgumentMetadata } from '@nestjs/common';
 import { PaginationLimitPipe, PaginationPagePipe, DEFAULT_PAGINATION_LIMIT, MAX_PAGINATION_LIMIT } from './pagination.pipe';
 
 describe('PaginationLimitPipe', () => {

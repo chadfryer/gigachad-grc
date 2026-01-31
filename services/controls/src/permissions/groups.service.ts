@@ -470,7 +470,7 @@ export class GroupsService {
    * Seed default permission groups for an organization
    */
   async seedDefaultGroups(organizationId: string): Promise<void> {
-    for (const [key, group] of Object.entries(DEFAULT_PERMISSION_GROUPS)) {
+    for (const [_key, group] of Object.entries(DEFAULT_PERMISSION_GROUPS)) {
       const existing = await this.prisma.permissionGroup.findUnique({
         where: {
           organizationId_name: {

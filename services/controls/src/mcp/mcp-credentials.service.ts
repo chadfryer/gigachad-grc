@@ -155,7 +155,7 @@ export class MCPCredentialsService {
       this.credentialsCache.set(serverId, sensitiveEnv);
       
       this.logger.log(`Stored encrypted credentials for MCP server: ${serverId}`);
-    } catch (error) {
+    } catch {
       // If table doesn't exist, just cache in memory
       this.logger.warn('MCP credentials table not found, using in-memory storage only');
       this.credentialsCache.set(serverId, sensitiveEnv);
@@ -205,7 +205,7 @@ export class MCPCredentialsService {
         DELETE FROM mcp_credentials WHERE server_id = ${serverId}
       `;
       this.logger.log(`Deleted credentials for MCP server: ${serverId}`);
-    } catch (error) {
+    } catch {
       // Table might not exist
       this.logger.warn('Could not delete from mcp_credentials table');
     }

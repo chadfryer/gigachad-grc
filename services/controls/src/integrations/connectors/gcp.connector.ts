@@ -145,20 +145,20 @@ export class GCPConnector {
     }
   }
 
-  private createJWT(credentials: any): string {
+  private createJWT(_credentials: any): string {
     // Simplified - in production use proper JWT library
     return 'jwt-token';
   }
 
-  private async getSecurityFindings(token: string, projectId: string) {
+  private async getSecurityFindings(_token: string, _projectId: string) {
     return { findings: 0, critical: 0, high: 0, medium: 0, low: 0, sources: [] };
   }
 
-  private async getIAMData(token: string, projectId: string) {
+  private async getIAMData(_token: string, _projectId: string) {
     return { serviceAccounts: 0, roles: 0, bindings: 0, excessivePermissions: 0 };
   }
 
-  private async getComputeData(token: string, projectId: string) {
+  private async getComputeData(_token: string, _projectId: string) {
     return { total: 0, running: 0, withPublicIp: 0, withShieldedVm: 0 };
   }
 }

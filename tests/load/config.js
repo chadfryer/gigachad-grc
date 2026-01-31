@@ -1,3 +1,4 @@
+/* global __ENV */
 /**
  * k6 Load Testing Configuration for GigaChad GRC
  * 

@@ -31,7 +31,7 @@ export class AuditAIService {
   async categorizeFinding(
     organizationId: string,
     dto: CategorizeFindingDto,
-    userId: string,
+    _userId: string,
   ): Promise<FindingCategorizationResult> {
     this.logger.log(`Categorizing finding for org ${organizationId}`);
 
@@ -132,7 +132,7 @@ Provide categorization in the following JSON format:
   async analyzeGaps(
     organizationId: string,
     dto: AnalyzeGapsDto,
-    userId: string,
+    _userId: string,
   ): Promise<GapAnalysisResult> {
     this.logger.log(`Analyzing evidence gaps for audit ${dto.auditId}`);
 
@@ -255,7 +255,7 @@ Provide categorization in the following JSON format:
   async suggestRemediation(
     organizationId: string,
     dto: SuggestRemediationDto,
-    userId: string,
+    _userId: string,
   ): Promise<RemediationSuggestion> {
     this.logger.log(`Generating remediation suggestions for finding ${dto.findingId}`);
 
@@ -435,7 +435,7 @@ Provide a remediation plan in JSON format:
   async mapControls(
     organizationId: string,
     dto: MapControlsDto,
-    userId: string,
+    _userId: string,
   ): Promise<ControlMappingResult> {
     this.logger.log(`Mapping controls for request in org ${organizationId}`);
 
@@ -550,7 +550,7 @@ Suggest relevant controls in JSON format:
   async generateSummary(
     organizationId: string,
     dto: GenerateSummaryDto,
-    userId: string,
+    _userId: string,
   ): Promise<AuditSummary> {
     this.logger.log(`Generating summary for audit ${dto.auditId}`);
 
@@ -575,8 +575,8 @@ Suggest relevant controls in JSON format:
     const highFindings = audit.findings.filter(f => f.severity === 'high').length;
     const openFindings = audit.findings.filter(f => f.status === 'open' || f.status === 'acknowledged').length;
 
-    const totalRequests = audit.requests.length;
-    const completedRequests = audit.requests.filter(r => r.status === 'approved').length;
+    const _totalRequests = audit.requests.length;
+    const _completedRequests = audit.requests.filter(r => r.status === 'approved').length;
 
     const totalTests = audit.testResults.length;
     const passedTests = audit.testResults.filter(t => t.result === 'pass').length;

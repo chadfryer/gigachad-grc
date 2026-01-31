@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Put,
   Delete,
   Body,
@@ -18,7 +17,6 @@ import {
 } from '@nestjs/swagger';
 import { SessionsService } from './sessions.service';
 import {
-  SessionDto,
   SessionListQueryDto,
   InvalidateSessionDto,
   SessionStatsDto,

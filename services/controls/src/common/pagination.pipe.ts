@@ -1,4 +1,4 @@
-import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException, Logger } from '@nestjs/common';
+import { PipeTransform, Injectable, ArgumentMetadata, Logger } from '@nestjs/common';
 
 /**
  * Maximum allowed limit for any pagination request.

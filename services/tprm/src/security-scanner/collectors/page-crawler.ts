@@ -211,7 +211,7 @@ export class PageCrawler {
     return match ? match[1].trim().substring(0, 200) : undefined;
   }
 
-  private extractLinks(html: string, baseUrl: string, targetDomain: string): Array<{ url: string; text: string }> {
+  private extractLinks(html: string, baseUrl: string, _targetDomain: string): Array<{ url: string; text: string }> {
     const links: Array<{ url: string; text: string }> = [];
     const seen = new Set<string>();
 

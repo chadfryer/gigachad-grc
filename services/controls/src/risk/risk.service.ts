@@ -5,9 +5,6 @@ import { CacheService, CacheKeys } from '@gigachad-grc/shared';
 import { RiskWorkflowTasksService } from './risk-workflow-tasks.service';
 import {
   RiskLevel as PrismaRiskLevel,
-  RiskTreatmentStatus as PrismaRiskTreatmentStatus,
-  RiskIntakeStatus as PrismaRiskIntakeStatus,
-  RiskAssessmentStatus as PrismaRiskAssessmentStatus
 } from '@prisma/client';
 import {
   CreateRiskDto,
@@ -31,7 +28,6 @@ import {
   RiskDashboardDto,
   RiskHeatmapDto,
   calculateRiskLevel,
-  calculateALE,
   requiresExecutiveApproval,
   determineTreatmentOutcome,
   Likelihood,

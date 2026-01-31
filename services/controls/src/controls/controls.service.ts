@@ -611,7 +611,7 @@ export class ControlsService {
           )
         );
         result.updated = toUpdate.length;
-      } catch (error) {
+      } catch {
         // If batch update fails, try individual updates
         for (const { id, data } of toUpdate) {
           try {
@@ -920,7 +920,7 @@ export class ControlsService {
         const result = await this.calculateEffectivenessScore(organizationId, impl.controlId);
         totalScore += result.score;
         updated++;
-      } catch (error) {
+      } catch {
         // Skip errors for individual controls
       }
     }

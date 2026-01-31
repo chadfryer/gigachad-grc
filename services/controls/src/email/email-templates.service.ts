@@ -454,7 +454,7 @@ export class EmailTemplatesService {
     title: string,
     message: string,
     severity: NotificationSeverity,
-    metadata?: Record<string, any>,
+    _metadata?: Record<string, any>,
   ): EmailTemplate {
     return {
       subject: title,

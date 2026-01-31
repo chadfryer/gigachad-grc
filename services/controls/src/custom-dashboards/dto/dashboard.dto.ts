@@ -8,7 +8,6 @@ import {
   IsNumber,
   ValidateNested,
   IsEnum,
-  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { AssetType as PrismaAssetType, AssetStatus as PrismaAssetStatus, AssetCriticality as PrismaAssetCriticality } from '@prisma/client';
 
 // Local enums matching Prisma schema for class-validator compatibility

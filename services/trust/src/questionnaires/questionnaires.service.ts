@@ -103,7 +103,7 @@ export class QuestionnairesService {
   }
 
   async update(id: string, updateQuestionnaireDto: UpdateQuestionnaireDto, userId: string) {
-    const questionnaire = await this.findOne(id);
+    const _questionnaire = await this.findOne(id);
 
     const { status, priority, assignedTo, ...restDto } = updateQuestionnaireDto;
 
@@ -495,7 +495,7 @@ export class QuestionnairesService {
   /**
    * Uncached implementation of getDashboardQueue
    */
-  private async getDashboardQueueUncached(organizationId: string, userId?: string) {
+  private async getDashboardQueueUncached(organizationId: string, _userId?: string) {
     const now = new Date();
     const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);

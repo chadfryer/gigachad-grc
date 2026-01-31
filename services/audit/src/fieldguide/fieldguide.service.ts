@@ -14,9 +14,6 @@ import {
   FieldGuideAuditMappingDto,
   LinkAuditDto,
   FieldGuideAudit,
-  FieldGuideRequest,
-  FieldGuideEvidence,
-  FieldGuideFinding,
 } from './dto/fieldguide.dto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -515,7 +512,7 @@ export class FieldGuideService {
     direction: SyncDirection,
     specificAuditId?: string
   ): Promise<{ created: number; updated: number }> {
-    let created = 0;
+    const created = 0;
     let updated = 0;
 
     // Pull audits from FieldGuide
@@ -559,10 +556,10 @@ export class FieldGuideService {
   }
 
   private async syncRequests(
-    organizationId: string,
-    config: { apiKey: string; instanceUrl: string },
-    direction: SyncDirection,
-    specificAuditId?: string
+    _organizationId: string,
+    _config: { apiKey: string; instanceUrl: string },
+    _direction: SyncDirection,
+    _specificAuditId?: string
   ): Promise<{ created: number; updated: number }> {
     // Implementation for syncing requests
     // Similar pattern to syncAudits
@@ -570,20 +567,20 @@ export class FieldGuideService {
   }
 
   private async syncEvidence(
-    organizationId: string,
-    config: { apiKey: string; instanceUrl: string },
-    direction: SyncDirection,
-    specificAuditId?: string
+    _organizationId: string,
+    _config: { apiKey: string; instanceUrl: string },
+    _direction: SyncDirection,
+    _specificAuditId?: string
   ): Promise<{ created: number; updated: number }> {
     // Implementation for syncing evidence
     return { created: 0, updated: 0 };
   }
 
   private async syncFindings(
-    organizationId: string,
-    config: { apiKey: string; instanceUrl: string },
-    direction: SyncDirection,
-    specificAuditId?: string
+    _organizationId: string,
+    _config: { apiKey: string; instanceUrl: string },
+    _direction: SyncDirection,
+    _specificAuditId?: string
   ): Promise<{ created: number; updated: number }> {
     // Implementation for syncing findings
     return { created: 0, updated: 0 };
@@ -617,7 +614,7 @@ export class FieldGuideService {
         'GET',
         `/audits/${auditId}`
       );
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -665,17 +662,17 @@ export class FieldGuideService {
     }
   }
 
-  private async handleRequestWebhook(organizationId: string, data: Record<string, unknown>): Promise<void> {
+  private async handleRequestWebhook(organizationId: string, _data: Record<string, unknown>): Promise<void> {
     // Handle request webhook
     this.logger.log(`Received request webhook for org ${organizationId}`);
   }
 
-  private async handleEvidenceWebhook(organizationId: string, data: Record<string, unknown>): Promise<void> {
+  private async handleEvidenceWebhook(organizationId: string, _data: Record<string, unknown>): Promise<void> {
     // Handle evidence webhook
     this.logger.log(`Received evidence webhook for org ${organizationId}`);
   }
 
-  private async handleFindingWebhook(organizationId: string, data: Record<string, unknown>): Promise<void> {
+  private async handleFindingWebhook(organizationId: string, _data: Record<string, unknown>): Promise<void> {
     // Handle finding webhook
     this.logger.log(`Received finding webhook for org ${organizationId}`);
   }

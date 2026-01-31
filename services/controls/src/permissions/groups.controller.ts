@@ -179,7 +179,7 @@ export class PermissionsController {
   @Get('check')
   async checkPermission(
     @Headers('x-user-id') userId: string = 'default-user',
-    @Headers('x-organization-id') orgId: string = 'default',
+    @Headers('x-organization-id') _orgId: string = 'default',
     @Headers() headers: Record<string, string>,
   ) {
     const resource = headers['x-check-resource'] as Resource;

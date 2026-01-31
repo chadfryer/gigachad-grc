@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import {
@@ -26,7 +26,7 @@ export class ScimService {
     const count = Math.min(query.count || 100, 100);
     const skip = startIndex - 1;
 
-    let where: any = { organizationId };
+    const where: any = { organizationId };
 
     // Parse simple SCIM filter (userName eq "value")
     if (query.filter) {
@@ -205,7 +205,7 @@ export class ScimService {
     const count = Math.min(query.count || 100, 100);
     const skip = startIndex - 1;
 
-    let where: any = { organizationId };
+    const where: any = { organizationId };
 
     if (query.filter) {
       const filterMatch = query.filter.match(/displayName\s+eq\s+"([^"]+)"/i);

@@ -133,7 +133,7 @@ Provide your response in the following JSON format:
             reasoning: 'AI response did not include structured data',
           };
         }
-      } catch (parseError) {
+      } catch {
         parsedResult = {
           suggestedAnswer: aiResult.analysis || 'Unable to generate suggestion',
           confidence: 50,

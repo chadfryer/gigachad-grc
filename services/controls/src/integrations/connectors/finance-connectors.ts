@@ -365,7 +365,7 @@ export class NetSuiteConnector extends BaseConnector {
     }
   }
 
-  async sync(config: any): Promise<any> {
+  async sync(_config: any): Promise<any> {
     // Implementation would fetch customers, transactions, items
     return {
       customers: { total: 0, items: [] },
@@ -836,11 +836,11 @@ export class MixpanelConnector extends BaseConnector {
       return result.error ? { success: false, message: result.error } : { success: true, message: 'Connected to Mixpanel', details: result.data };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: any): Promise<any> {
-    const events: any[] = []; const funnels: any[] = []; const errors: string[] = [];
+  async sync(_config: any): Promise<any> {
+    const events: any[] = []; const funnels: any[] = []; const _errors: string[] = [];
     try {
       this.setBaseURL('https://mixpanel.com/api/2.0');
-      return { events: { total: events.length, items: events }, funnels: { total: funnels.length, items: funnels }, collectedAt: new Date().toISOString(), errors };
+      return { events: { total: events.length, items: events }, funnels: { total: funnels.length, items: funnels }, collectedAt: new Date().toISOString(), errors: [] };
     } catch (error: any) { return { events: { total: 0, items: [] }, funnels: { total: 0, items: [] }, collectedAt: new Date().toISOString(), errors: [error.message] }; }
   }
 }
@@ -1174,8 +1174,8 @@ export class SnowflakeConnector extends BaseConnector {
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' };
     }
   }
-  async sync(config: any): Promise<any> {
-    const databases: any[] = []; const warehouses: any[] = []; const users: any[] = []; const errors: string[] = [];
+  async sync(_config: any): Promise<any> {
+    const databases: any[] = []; const warehouses: any[] = []; const users: any[] = []; const _errors: string[] = [];
     try {
       // Snowflake typically requires SQL queries via JDBC/ODBC
       return { databases: { total: databases.length, items: databases }, warehouses: { total: warehouses.length, items: warehouses }, users: { total: users.length, items: users }, collectedAt: new Date().toISOString(), errors: ['Snowflake requires JDBC/ODBC connection for full sync'] };

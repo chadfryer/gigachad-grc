@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotificationsService } from './notifications.service';
 import { NotificationType, NotificationSeverity } from './dto/notification.dto';
-import { addDays, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { addDays, differenceInDays } from 'date-fns';
 
 interface DueItem {
   id: string;
@@ -256,7 +256,7 @@ export class ScheduledNotificationsService implements OnModuleInit {
           });
         }
       }
-    } catch (error) {
+    } catch {
       // BCDR module may not be enabled - silently skip
       this.logger.debug('DR test compliance check skipped (BCDR module not available)');
     }
@@ -286,7 +286,7 @@ export class ScheduledNotificationsService implements OnModuleInit {
             defaults.inAppEnabled ?? DEFAULT_SETTINGS.enableInAppNotifications,
         };
       }
-    } catch (error) {
+    } catch {
       this.logger.warn(`Failed to get notification settings for org ${organizationId}, using defaults`);
     }
 
@@ -439,7 +439,7 @@ export class ScheduledNotificationsService implements OnModuleInit {
           });
         }
       }
-    } catch (error) {
+    } catch {
       this.logger.warn('BC/DR module not available, skipping DR test notifications');
     }
 
@@ -471,7 +471,7 @@ export class ScheduledNotificationsService implements OnModuleInit {
           });
         }
       }
-    } catch (error) {
+    } catch {
       this.logger.warn('BC/DR module not available, skipping plan review notifications');
     }
 
@@ -503,7 +503,7 @@ export class ScheduledNotificationsService implements OnModuleInit {
           });
         }
       }
-    } catch (error) {
+    } catch {
       this.logger.warn('BC/DR module not available, skipping process review notifications');
     }
 

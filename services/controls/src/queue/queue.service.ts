@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
+import { Injectable, Logger, Inject, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Queue, Worker, Job, QueueEvents, JobsOptions } from 'bullmq';
 import { Counter, Histogram } from 'prom-client';
 
@@ -139,7 +139,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
           this.getOrCreateQueue(queueName);
         }
       }
-    } catch (error) {
+    } catch {
       this.isRedisAvailable = false;
       this.logger.warn(
         `Redis not available at ${this.options.redisUrl}. ` +

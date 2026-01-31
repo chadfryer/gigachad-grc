@@ -292,7 +292,7 @@ export class ExportsService {
           } : undefined,
         });
 
-      case ExportEntityType.FullOrg:
+      case ExportEntityType.FullOrg: {
         const [controls, policies, risks, evidence] = await Promise.all([
           this.prisma.control.findMany({
             where: { OR: [{ organizationId: null }, { organizationId }], deletedAt: null },
@@ -308,6 +308,7 @@ export class ExportsService {
           }),
         ]);
         return [{ controls, policies, risks, evidence }];
+      }
 
       default:
         throw new Error(`Unsupported entity type: ${entityType}`);
@@ -627,7 +628,7 @@ export class ExportsService {
 
         // Data
         doc.font('Helvetica');
-        flatData.forEach((row, rowIndex) => {
+        flatData.forEach((row, _rowIndex) => {
           yPos += 25;
           doc.fillColor('#4b5563');
           headers.forEach((header, i) => {

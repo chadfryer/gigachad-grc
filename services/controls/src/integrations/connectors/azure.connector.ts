@@ -130,16 +130,16 @@ export class AzureConnector {
     }
   }
 
-  private async getSecurityCenterData(token: string, subscriptionId?: string) {
+  private async getSecurityCenterData(_token: string, _subscriptionId?: string) {
     // Simulated - would call Azure Security Center API
     return { secureScore: 0, recommendations: 0, activeAlerts: 0, highSeverity: 0, mediumSeverity: 0, lowSeverity: 0 };
   }
 
-  private async getPolicyCompliance(token: string, subscriptionId?: string) {
+  private async getPolicyCompliance(_token: string, _subscriptionId?: string) {
     return { compliantResources: 0, nonCompliantResources: 0, compliancePercentage: 0, policies: [] };
   }
 
-  private async getResources(token: string, subscriptionId?: string) {
+  private async getResources(_token: string, _subscriptionId?: string) {
     return { total: 0, byType: {}, byLocation: {} };
   }
 }

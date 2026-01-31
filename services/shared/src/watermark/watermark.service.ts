@@ -6,7 +6,7 @@
  */
 
 import PDFDocument from 'pdfkit';
-import { Readable, Writable } from 'stream';
+import { Writable } from 'stream';
 
 export interface WatermarkOptions {
   text: string;

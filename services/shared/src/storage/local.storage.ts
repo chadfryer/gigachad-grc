@@ -37,7 +37,7 @@ export class LocalStorageProvider implements StorageProvider {
   async upload(
     file: Buffer | Readable,
     storagePath: string,
-    options?: UploadOptions
+    _options?: UploadOptions
   ): Promise<string> {
     const fullPath = this.getFullPath(storagePath);
     await this.ensureDir(fullPath);
@@ -90,7 +90,7 @@ export class LocalStorageProvider implements StorageProvider {
     }
   }
 
-  async getSignedUrl(storagePath: string, expiresIn?: number): Promise<string> {
+  async getSignedUrl(storagePath: string, _expiresIn?: number): Promise<string> {
     // Local storage doesn't support signed URLs
     // Return a simple URL path instead
     return `${this.baseUrl}/${storagePath}`;

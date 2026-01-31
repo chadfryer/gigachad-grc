@@ -201,7 +201,7 @@ export function handleSummary(data) {
   };
 }
 
-function generateTextReport(summary, metrics) {
+function generateTextReport(summary, _metrics) {
   return `
 ╔══════════════════════════════════════════════════════════════════════╗
 ║                     API LOAD TEST RESULTS                            ║

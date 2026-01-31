@@ -1,12 +1,10 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
   CreateRiskScenarioDto,
   UpdateRiskScenarioDto,
   ListRiskScenariosQueryDto,
-  ThreatActor,
-  AttackVector,
   Likelihood,
   Impact,
 } from './dto/risk-scenario.dto';

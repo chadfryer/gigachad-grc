@@ -163,12 +163,12 @@ export class WizConnector {
     return data.data?.issues?.nodes || [];
   }
 
-  private async getVulnerabilities(endpoint: string, token: string) {
+  private async getVulnerabilities(_endpoint: string, _token: string) {
     // Would use Wiz GraphQL API for vulnerabilities
     return { total: 0, critical: 0, high: 0, exploitable: 0, fixAvailable: 0 };
   }
 
-  private async getCloudResources(endpoint: string, token: string) {
+  private async getCloudResources(_endpoint: string, _token: string) {
     // Would use Wiz GraphQL API for cloud resources
     return { total: 0, byProvider: {}, byType: {} };
   }

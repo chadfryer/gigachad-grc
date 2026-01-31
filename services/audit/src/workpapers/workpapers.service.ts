@@ -112,7 +112,7 @@ export class WorkpapersService {
     });
   }
 
-  async submitForReview(id: string, organizationId: string, userId: string) {
+  async submitForReview(id: string, organizationId: string, _userId: string) {
     const workpaper = await this.findOne(id, organizationId);
     if (workpaper.status !== 'draft' && workpaper.status !== 'rejected') {
       throw new BadRequestException('Workpaper must be in draft or rejected status');

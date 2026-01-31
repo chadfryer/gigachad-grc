@@ -7,7 +7,6 @@ import {
   RequestAttestationDto,
   SubmitAttestationDto,
   AttestationFilterDto,
-  AttestationStatus,
 } from './dto/bcdr.dto';
 import { addMonths } from 'date-fns';
 

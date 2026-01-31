@@ -62,7 +62,7 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
    */
   protected async throwThrottlingException(
     context: ExecutionContext,
-    throttlerLimitDetail: any,
+    _throttlerLimitDetail: any,
   ): Promise<void> {
     const req = context.switchToHttp().getRequest();
     const tracker = await this.getTracker(req);

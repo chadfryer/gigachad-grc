@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  SecurityScanResult,
   SecurityFinding,
   SSLInfo,
   SecurityHeaders,
@@ -202,7 +201,7 @@ export class RiskAnalyzer {
   ): number {
     // Without external breach database integration, we provide a baseline score
     // In a full implementation, this would integrate with HaveIBeenPwned API or similar
-    let score = 80; // Baseline - no breach data available
+    const score = 80; // Baseline - no breach data available
 
     findings.push({
       id: 'BREACH-001',

@@ -537,13 +537,13 @@ export class GoogleMeetConnector extends BaseConnector {
     if (!config.serviceAccountKey) return { success: false, message: 'Service account key required' };
     try {
       // Google Meet uses Google Calendar API for meeting data
-      const serviceAccount = JSON.parse(config.serviceAccountKey);
+      const _serviceAccount = JSON.parse(config.serviceAccountKey);
       // OAuth2 flow would be implemented here
       return { success: true, message: 'Connected to Google Meet (requires OAuth2 setup)', details: {} };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: any): Promise<any> {
-    const meetings: any[] = []; const errors: string[] = [];
+  async sync(_config: any): Promise<any> {
+    const meetings: any[] = []; const _errors: string[] = [];
     try {
       return { meetings: { total: meetings.length, items: meetings }, collectedAt: new Date().toISOString(), errors: ['Google Meet requires OAuth2 authentication'] };
     } catch (error: any) { return { meetings: { total: 0, items: [] }, collectedAt: new Date().toISOString(), errors: [error.message] }; }
