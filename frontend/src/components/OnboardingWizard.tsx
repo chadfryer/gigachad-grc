@@ -65,8 +65,10 @@ export function OnboardingWizard({ onDismiss }: OnboardingWizardProps) {
   const hasFramework = (frameworks?.length || 0) > 0;
   const hasControls = (controls?.meta?.total || 0) > 0;
   // Handle both old (controlStats) and new (controls) property paths
-  const hasImplementations = (summary?.controls?.byStatus?.implemented || summary?.controlStats?.implemented || 0) > 0;
-  const hasEvidence = (summary?.evidence?.total || summary?.evidenceStats?.total || 0) > 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const summaryAny = summary as any;
+  const hasImplementations = (summary?.controls?.byStatus?.implemented || summaryAny?.controlStats?.implemented || 0) > 0;
+  const hasEvidence = (summary?.evidence?.total || summaryAny?.evidenceStats?.total || 0) > 0;
 
   const steps: OnboardingStep[] = [
     {

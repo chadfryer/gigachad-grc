@@ -53,8 +53,9 @@ function normalizeCategory(category: string): string {
 }
 
 // Map Anecdotes status to our status enum
-function normalizeStatus(status: string): string {
-  const statusMap: Record<string, string> = {
+// Note: Returns string type but compatible with ControlImplementationStatus enum values
+function normalizeStatus(status: string): 'implemented' | 'in_progress' | 'not_started' | 'not_applicable' {
+  const statusMap: Record<string, 'implemented' | 'in_progress' | 'not_started' | 'not_applicable'> = {
     'monitoring': 'implemented',
     'in progress': 'in_progress',
     'not started': 'not_started',
