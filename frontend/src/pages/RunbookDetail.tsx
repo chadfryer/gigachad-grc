@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -8,10 +8,8 @@ import {
   PencilIcon,
   TrashIcon,
   XMarkIcon,
-  BookOpenIcon,
   ClockIcon,
   ExclamationCircleIcon,
-  PlusIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { Button } from '@/components/Button';

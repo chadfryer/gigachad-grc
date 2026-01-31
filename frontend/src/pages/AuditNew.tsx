@@ -33,11 +33,11 @@ interface AuditFormData {
   name: string;
   auditType: string;
   status: string;
-  framework: string;
+  framework?: string;
   isExternal: boolean;
-  plannedStartDate: string;
-  plannedEndDate: string;
-  description: string;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  description?: string;
 }
 
 export default function AuditNew() {

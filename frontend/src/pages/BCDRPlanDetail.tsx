@@ -226,7 +226,7 @@ export default function BCDRPlanDetail() {
   }
 
   // For new plans, show the create form modal immediately
-  if (isNewPlan) {
+  if (isNewPlan || !plan) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-start gap-4">
