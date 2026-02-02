@@ -11,6 +11,7 @@ describe('LocalStorageProvider', () => {
     // Create a temporary directory for testing
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'storage-test-'));
     storage = new LocalStorageProvider({
+      type: 'local',
       localPath: tempDir,
       localBaseUrl: '/files',
     });
