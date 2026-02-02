@@ -3,21 +3,22 @@ import {
   CanActivate,
   ExecutionContext,
   createParamDecorator,
+  Logger,
 } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 // Use shared UserContext shape for consistency across services
 import type { UserContext } from '@gigachad-grc/shared';
+import { DEV_USER, ensureDevUserExists } from '@gigachad-grc/shared';
 export type { UserContext };
 
 /**
  * Custom decorator to extract user from request
  */
-export const User = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): UserContext => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user;
-  },
-);
+export const User = createParamDecorator((data: unknown, ctx: ExecutionContext): UserContext => {
+  const request = ctx.switchToHttp().getRequest();
+  return request.user;
+});
 
 /**
  * Development auth guard that bypasses JWT validation
@@ -25,27 +26,42 @@ export const User = createParamDecorator(
  *
  * WARNING: Only use in development mode
  * CRITICAL: This guard will throw an error in production
+ *
+ * AUTO-SYNC: Automatically ensures the mock user and organization
+ * exist in the database to prevent foreign key constraint errors.
  */
 @Injectable()
 export class DevAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  private readonly logger = new Logger(DevAuthGuard.name);
+  private devUserSynced = false;
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     // SECURITY: Prevent usage in production
     const nodeEnv = process.env.NODE_ENV || 'development';
     if (nodeEnv === 'production') {
       throw new Error(
         'SECURITY ERROR: DevAuthGuard is configured but NODE_ENV is set to production. ' +
-        'This is a critical security vulnerability. Please use proper JWT authentication in production.',
+          'This is a critical security vulnerability. Please use proper JWT authentication in production.'
       );
     }
 
     const request = context.switchToHttp().getRequest();
-    
+
+    // Auto-sync: Ensure mock user and organization exist in database
+    // Only runs once per guard instance to avoid repeated DB calls
+    if (!this.devUserSynced) {
+      await ensureDevUserExists(this.prisma, this.logger);
+      this.devUserSynced = true;
+    }
+
     // Mock user context for development
     const mockUser: UserContext = {
-      userId: '8f88a42b-e799-455c-b68a-308d7d2e9aa4', // John Doe from seeded users
-      keycloakId: 'john-doe-keycloak-id',
-      email: 'john.doe@example.com',
-      organizationId: '8924f0c1-7bb1-4be8-84ee-ad8725c712bf', // Default org UUID
+      userId: DEV_USER.userId,
+      keycloakId: DEV_USER.keycloakId,
+      email: DEV_USER.email,
+      organizationId: DEV_USER.organizationId,
       role: 'admin',
       permissions: [
         'controls:read',
@@ -112,4 +128,3 @@ export class DevAuthGuard implements CanActivate {
     return true;
   }
 }
-

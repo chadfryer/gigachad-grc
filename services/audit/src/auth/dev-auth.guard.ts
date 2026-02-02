@@ -1,4 +1,6 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { DEV_USER, ensureDevUserExists } from '@gigachad-grc/shared';
 
 /**
  * Development auth guard that bypasses JWT validation
@@ -6,27 +8,40 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
  *
  * WARNING: Only use in development mode
  * CRITICAL: This guard will throw an error in production
+ *
+ * AUTO-SYNC: Automatically ensures the mock user and organization
+ * exist in the database to prevent foreign key constraint errors.
  */
 @Injectable()
 export class DevAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  private readonly logger = new Logger(DevAuthGuard.name);
+  private devUserSynced = false;
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     // SECURITY: Prevent usage in production
     const nodeEnv = process.env.NODE_ENV || 'development';
     if (nodeEnv === 'production') {
       throw new Error(
         'SECURITY ERROR: DevAuthGuard is configured but NODE_ENV is set to production. ' +
-        'This is a critical security vulnerability. Please use proper JWT authentication in production.',
+          'This is a critical security vulnerability. Please use proper JWT authentication in production.'
       );
     }
 
     const request = context.switchToHttp().getRequest();
 
-    // Mock authentication from headers (for development and testing)
-    // Use consistent org ID with demo data from seed service
+    // Auto-sync: Ensure mock user and organization exist in database
+    if (!this.devUserSynced) {
+      await ensureDevUserExists(this.prisma, this.logger);
+      this.devUserSynced = true;
+    }
+
+    // Support header overrides for testing, with DEV_USER as fallback
     request.user = {
-      userId: request.headers['x-user-id'] || '8f88a42b-e799-455c-b68a-308d7d2e9aa4',
-      organizationId: request.headers['x-organization-id'] || '8924f0c1-7bb1-4be8-84ee-ad8725c712bf',
-      email: request.headers['x-user-email'] || 'john.doe@example.com',
+      userId: request.headers['x-user-id'] || DEV_USER.userId,
+      organizationId: request.headers['x-organization-id'] || DEV_USER.organizationId,
+      email: request.headers['x-user-email'] || DEV_USER.email,
       role: request.headers['x-user-role'] || 'admin',
     };
 
