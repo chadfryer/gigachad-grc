@@ -7,9 +7,13 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
+  // Enable CORS - use environment variable for consistency across services
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:3000'];
+  if (!process.env.CORS_ORIGINS && process.env.NODE_ENV === 'production') {
+    logger.warn('CORS_ORIGINS not set - using localhost defaults. Configure CORS_ORIGINS for production.');
+  }
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: corsOrigins,
     credentials: true,
   });
 

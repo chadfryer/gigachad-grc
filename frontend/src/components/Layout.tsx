@@ -326,6 +326,14 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-surface-950">
+      {/* Skip to main content link for keyboard users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:top-2 focus:left-2"
+      >
+        Skip to main content
+      </a>
+
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -336,6 +344,8 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside
+        role="navigation"
+        aria-label="Main navigation"
         className={clsx(
           'fixed inset-y-0 left-0 z-50 w-64 bg-surface-900 border-r border-surface-800 transform transition-transform duration-200 ease-in-out lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -430,7 +440,11 @@ export default function Layout() {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-[60] bg-surface-900/80 backdrop-blur-sm border-b border-surface-800">
+        <header 
+          role="banner"
+          aria-label="Site header"
+          className="sticky top-0 z-[60] bg-surface-900/80 backdrop-blur-sm border-b border-surface-800"
+        >
           <div className="flex items-center justify-between gap-4 px-4 py-3 lg:px-6">
             <div className="flex items-center gap-2">
               <button
@@ -478,7 +492,12 @@ export default function Layout() {
         </header>
 
         {/* Page content */}
-        <main className="p-4 lg:p-6">
+        <main 
+          id="main-content"
+          role="main"
+          aria-label="Main content"
+          className="p-4 lg:p-6"
+        >
           <Outlet />
         </main>
       </div>

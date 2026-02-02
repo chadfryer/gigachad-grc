@@ -187,11 +187,22 @@ export class CodeClimateConnector extends BaseConnector {
 @Injectable()
 export class CheckmarxConnector extends BaseConnector {
   constructor() { super('CheckmarxConnector'); }
-  async testConnection(config: { baseUrl: string; username: string; password: string }): Promise<{ success: boolean; message: string; details?: any }> {
+
+  /**
+   * Get the Checkmarx client secret from environment or config.
+   * IMPORTANT: The client_secret should be configured via environment variable CHECKMARX_CLIENT_SECRET.
+   */
+  private getClientSecret(config: { clientSecret?: string }): string {
+    return config.clientSecret || process.env.CHECKMARX_CLIENT_SECRET || '';
+  }
+
+  async testConnection(config: { baseUrl: string; username: string; password: string; clientSecret?: string }): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.baseUrl) return { success: false, message: 'Base URL required' };
+    const clientSecret = this.getClientSecret(config);
+    if (!clientSecret) return { success: false, message: 'Checkmarx client secret required. Set CHECKMARX_CLIENT_SECRET environment variable or provide clientSecret in config.' };
     try {
       const tokenResponse = await axios.post(`${config.baseUrl}/cxrestapi/auth/identity/connect/token`,
-        new URLSearchParams({ username: config.username, password: config.password, grant_type: 'password', scope: 'sast_rest_api', client_id: 'resource_owner_client', client_secret: '014DF517-39D1-4453-B7B3-9460D9B4C3C0' }),
+        new URLSearchParams({ username: config.username, password: config.password, grant_type: 'password', scope: 'sast_rest_api', client_id: 'resource_owner_client', client_secret: clientSecret }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
       const accessToken = tokenResponse.data?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to authenticate' };
@@ -201,11 +212,13 @@ export class CheckmarxConnector extends BaseConnector {
       return result.error ? { success: false, message: result.error } : { success: true, message: `Connected to Checkmarx. Found ${result.data?.length || 0} projects.`, details: result.data };
     } catch (error: any) { return { success: false, message: error.message || 'Connection test failed' }; }
   }
-  async sync(config: { baseUrl: string; username: string; password: string }): Promise<any> {
+  async sync(config: { baseUrl: string; username: string; password: string; clientSecret?: string }): Promise<any> {
     const projects: any[] = []; const scans: any[] = []; const vulnerabilities: any[] = []; const errors: string[] = [];
+    const clientSecret = this.getClientSecret(config);
+    if (!clientSecret) return { projects: { total: 0, items: [] }, scans: { total: 0, items: [] }, vulnerabilities: { total: 0, high: 0, medium: 0, low: 0, items: [] }, collectedAt: new Date().toISOString(), errors: ['Checkmarx client secret required. Set CHECKMARX_CLIENT_SECRET environment variable.'] };
     try {
       const tokenResponse = await axios.post(`${config.baseUrl}/cxrestapi/auth/identity/connect/token`,
-        new URLSearchParams({ username: config.username, password: config.password, grant_type: 'password', scope: 'sast_rest_api', client_id: 'resource_owner_client', client_secret: '014DF517-39D1-4453-B7B3-9460D9B4C3C0' }),
+        new URLSearchParams({ username: config.username, password: config.password, grant_type: 'password', scope: 'sast_rest_api', client_id: 'resource_owner_client', client_secret: clientSecret }),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
       const accessToken = tokenResponse.data?.access_token;
       if (!accessToken) return { projects: { total: 0, items: [] }, scans: { total: 0, items: [] }, vulnerabilities: { total: 0, high: 0, medium: 0, low: 0, items: [] }, collectedAt: new Date().toISOString(), errors: ['Failed to authenticate'] };

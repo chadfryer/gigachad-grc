@@ -1,27 +1,45 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsNumber, Min, IsIn } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsDateString, IsNumber, Min, IsIn, MaxLength } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+
+// Sanitization helper - strips HTML and trims
+const sanitizeString = ({ value }: { value: unknown }) => {
+  if (typeof value === 'string') {
+    return value.trim().replace(/<[^>]*>/g, '');
+  }
+  return value;
+};
 
 export class CreateAuditLogDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(100)
+  @Transform(sanitizeString)
   action: string;
 
   @ApiProperty()
   @IsString()
+  @MaxLength(100)
+  @Transform(sanitizeString)
   entityType: string;
 
   @ApiProperty()
   @IsString()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   entityId: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  @Transform(sanitizeString)
   entityName?: string;
 
   @ApiProperty()
   @IsString()
+  @MaxLength(2000)
+  @Transform(sanitizeString)
   description: string;
 
   @ApiPropertyOptional()
@@ -37,26 +55,36 @@ export class AuditLogFilterDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  @Transform(sanitizeString)
   entityType?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   entityId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  @Transform(sanitizeString)
   action?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   userId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  @Transform(sanitizeString)
   search?: string;
 
   @ApiPropertyOptional()

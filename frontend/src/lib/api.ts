@@ -3,9 +3,9 @@ import { secureStorage, STORAGE_KEYS, migrateLegacyStorage } from './secureStora
 
 // Migrate legacy storage on module load
 migrateLegacyStorage();
-import type {
-  // Common
-  PaginationParams,
+import {
+  isApiError,
+  type PaginationParams,
   // Users
   User,
   CreateUserData,
@@ -134,6 +134,9 @@ import type {
   // Risk Config
   UpdateRiskConfigData,
   RiskCategory,
+  // Dashboard Widgets
+  CreateWidgetData,
+  UpdateWidgetData,
 } from './apiTypes';
 
 // Re-export types commonly used in components
@@ -1963,9 +1966,9 @@ export const notificationsConfigApi = {
     try {
       const response = await api.get<{ success: boolean; data: EmailStatus }>('/api/notifications-config/email-status');
       return response.data.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Fallback if endpoint doesn't exist yet
-      if (error.response?.status === 404) {
+      if (isApiError(error) && error.response?.status === 404) {
         return {
           isConfigured: false,
           provider: 'unknown',
@@ -2140,10 +2143,10 @@ export const customDashboardsApi = {
     api.post(`/api/dashboards/${id}/set-default`),
 
   // Widget operations
-  addWidget: (dashboardId: string, widget: any) =>
+  addWidget: (dashboardId: string, widget: CreateWidgetData) =>
     api.post(`/api/dashboards/${dashboardId}/widgets`, widget),
 
-  updateWidget: (dashboardId: string, widgetId: string, data: any) =>
+  updateWidget: (dashboardId: string, widgetId: string, data: UpdateWidgetData) =>
     api.put(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, data),
 
   deleteWidget: (dashboardId: string, widgetId: string) =>
@@ -2604,9 +2607,9 @@ export const customReportsApi = {
     try {
       const response = await api.get<{ success: boolean; data: CustomReportConfig[] }>('/api/custom-reports');
       return response.data.data || [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Fallback to localStorage if API not available (demo mode)
-      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+      if (isApiError(error) && (error.response?.status === 404 || error.code === 'ERR_NETWORK')) {
         console.warn('Custom reports API not available - using localStorage fallback');
         const stored = localStorage.getItem('custom-reports');
         return stored ? JSON.parse(stored) : [];
@@ -2622,9 +2625,9 @@ export const customReportsApi = {
     try {
       const response = await api.get<{ success: boolean; data: CustomReportConfig }>(`/api/custom-reports/${id}`);
       return response.data.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Fallback to localStorage if API not available
-      if (error.response?.status === 404 || error.code === 'ERR_NETWORK') {
+      if (isApiError(error) && (error.response?.status === 404 || error.code === 'ERR_NETWORK')) {
         const reports = await customReportsApi.list();
         return reports.find(r => r.id === id) || null;
       }

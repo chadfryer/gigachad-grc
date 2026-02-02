@@ -113,41 +113,31 @@ export class BCDRIncidentsService {
     const { search, incidentType, status, severity, page = 1, limit = 25 } = filters;
     const offset = (page - 1) * limit;
 
-    const whereClauses = [`organization_id = '${organizationId}'::uuid`];
-
-    if (search) {
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`(title ILIKE '%${escapedSearch}%' OR incident_id ILIKE '%${escapedSearch}%')`);
-    }
-
-    if (incidentType) {
-      whereClauses.push(`incident_type = '${incidentType}'`);
-    }
-
-    if (status) {
-      whereClauses.push(`status = '${status}'`);
-    }
-
-    if (severity) {
-      whereClauses.push(`severity = '${severity}'`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
     const [incidents, total] = await Promise.all([
-      this.prisma.$queryRawUnsafe<BCDRIncidentRecord[]>(`
+      this.prisma.$queryRaw<BCDRIncidentRecord[]>`
         SELECT *,
                (SELECT COUNT(*) FROM bcdr_incident_timeline WHERE incident_id = bcdr_incidents.id) as timeline_count
         FROM bcdr_incidents
-        WHERE ${whereClause}
+        WHERE organization_id = ${organizationId}::uuid
+          AND (${searchPattern}::text IS NULL OR (title ILIKE ${searchPattern} OR incident_id ILIKE ${searchPattern}))
+          AND (${incidentType}::text IS NULL OR incident_type = ${incidentType})
+          AND (${status}::text IS NULL OR status = ${status})
+          AND (${severity}::text IS NULL OR severity = ${severity})
         ORDER BY declared_at DESC
         LIMIT ${limit} OFFSET ${offset}
-      `),
-      this.prisma.$queryRawUnsafe<[CountRecord]>(`
+      `,
+      this.prisma.$queryRaw<[CountRecord]>`
         SELECT COUNT(*) as count
         FROM bcdr_incidents
-        WHERE ${whereClause}
-      `),
+        WHERE organization_id = ${organizationId}::uuid
+          AND (${searchPattern}::text IS NULL OR (title ILIKE ${searchPattern} OR incident_id ILIKE ${searchPattern}))
+          AND (${incidentType}::text IS NULL OR incident_type = ${incidentType})
+          AND (${status}::text IS NULL OR status = ${status})
+          AND (${severity}::text IS NULL OR severity = ${severity})
+      `,
     ]);
 
     return {
@@ -221,29 +211,22 @@ export class BCDRIncidentsService {
       );
     }
 
-    // Build update
-    const updates: string[] = [
-      `status = '${dto.status}'`,
-      'updated_at = NOW()',
-    ];
+    // Use parameterized query to prevent SQL injection
+    const isRecovering = dto.status === 'recovering' && !incident.recovery_started_at;
+    const isResolved = dto.status === 'resolved';
+    const setOperationalAt = isResolved && incident.recovery_started_at;
 
-    if (dto.status === 'recovering' && !incident.recovery_started_at) {
-      updates.push('recovery_started_at = NOW()');
-    }
-
-    if (dto.status === 'resolved') {
-      updates.push('resolved_at = NOW()');
-      if (incident.recovery_started_at) {
-        updates.push(`operational_at = NOW()`);
-      }
-    }
-
-    const result = await this.prisma.$queryRawUnsafe<BCDRIncidentRecord[]>(`
+    const result = await this.prisma.$queryRaw<BCDRIncidentRecord[]>`
       UPDATE bcdr_incidents
-      SET ${updates.join(', ')}
-      WHERE id = '${id}'::uuid
+      SET 
+        status = ${dto.status},
+        updated_at = NOW(),
+        recovery_started_at = CASE WHEN ${isRecovering} THEN NOW() ELSE recovery_started_at END,
+        resolved_at = CASE WHEN ${isResolved} THEN NOW() ELSE resolved_at END,
+        operational_at = CASE WHEN ${setOperationalAt} THEN NOW() ELSE operational_at END
+      WHERE id = ${id}::uuid
       RETURNING *
-    `);
+    `;
 
     // Add timeline entry
     await this.addTimelineEntryInternal(

@@ -40,3 +40,11 @@ export * from './watermark';
 // Resilience (Circuit Breaker, Retry)
 export * from './resilience';
 
+// Decorators (sanitization, transforms)
+export * from './decorators';
+
+// Services (service registry)
+export * from './services';
+
+// Guards
+export * from './guards';

@@ -1,10 +1,86 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Logger } from '@nestjs/common';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 /**
- * Base connector class with common HTTP functionality
- * All integration connectors should extend this for consistent behavior
+ * HTTP request result type.
+ */
+export interface HttpResult<T> {
+  data?: T;
+  error?: string;
+  statusCode?: number;
+}
+
+/**
+ * Standard connection test result type.
+ */
+export interface ConnectionTestResult {
+  success: boolean;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Standard sync result type for entity collections.
+ */
+export interface SyncCollectionResult<T> {
+  total: number;
+  items: T[];
+}
+
+/**
+ * Standard sync response type.
+ */
+export interface SyncResult {
+  collectedAt: string;
+  errors: string[];
+  [key: string]: SyncCollectionResult<unknown> | string | string[];
+}
+
+/**
+ * Base configuration type for connectors.
+ */
+export interface BaseConnectorConfig {
+  baseUrl?: string;
+  apiKey?: string;
+  apiToken?: string;
+  username?: string;
+  password?: string;
+  organization?: string;
+  timeout?: number;
+}
+
+/**
+ * Extract error message from unknown error type.
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Request failed';
+}
+
+/**
+ * Base connector class with common HTTP functionality.
+ * All integration connectors should extend this for consistent behavior.
+ * 
+ * @example
+ * ```typescript
+ * @Injectable()
+ * export class MyConnector extends BaseConnector {
+ *   constructor() { super('MyConnector'); }
+ *   
+ *   async testConnection(config: MyConfig): Promise<ConnectionTestResult> {
+ *     // Implementation
+ *   }
+ *   
+ *   async sync(config: MyConfig): Promise<SyncResult> {
+ *     // Implementation
+ *   }
+ * }
+ * ```
  */
 export abstract class BaseConnector {
   protected readonly logger: Logger;
@@ -19,101 +95,101 @@ export abstract class BaseConnector {
   }
 
   /**
-   * Make an authenticated GET request
+   * Make an authenticated GET request.
    */
-  protected async get<T = any>(
+  protected async get<T = unknown>(
     url: string,
     config?: AxiosRequestConfig,
-  ): Promise<{ data?: T; error?: string }> {
+  ): Promise<HttpResult<T>> {
     try {
       const response = await this.axiosInstance.get<T>(url, config);
       if (response.status >= 400) {
         return {
           error: `HTTP ${response.status}: ${response.statusText}`,
+          statusCode: response.status,
         };
       }
-      return { data: response.data };
-    } catch (error: any) {
-      this.logger.error(`GET ${url} failed:`, error.message);
-      return {
-        error: error.message || 'Request failed',
-      };
+      return { data: response.data, statusCode: response.status };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      this.logger.error(`GET ${url} failed: ${message}`);
+      return { error: message };
     }
   }
 
   /**
-   * Make an authenticated POST request
+   * Make an authenticated POST request.
    */
-  protected async post<T = any>(
+  protected async post<T = unknown, D = unknown>(
     url: string,
-    data?: any,
+    data?: D,
     config?: AxiosRequestConfig,
-  ): Promise<{ data?: T; error?: string }> {
+  ): Promise<HttpResult<T>> {
     try {
       const response = await this.axiosInstance.post<T>(url, data, config);
       if (response.status >= 400) {
         return {
           error: `HTTP ${response.status}: ${response.statusText}`,
+          statusCode: response.status,
         };
       }
-      return { data: response.data };
-    } catch (error: any) {
-      this.logger.error(`POST ${url} failed:`, error.message);
-      return {
-        error: error.message || 'Request failed',
-      };
+      return { data: response.data, statusCode: response.status };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      this.logger.error(`POST ${url} failed: ${message}`);
+      return { error: message };
     }
   }
 
   /**
-   * Make an authenticated PUT request
+   * Make an authenticated PUT request.
    */
-  protected async put<T = any>(
+  protected async put<T = unknown, D = unknown>(
     url: string,
-    data?: any,
+    data?: D,
     config?: AxiosRequestConfig,
-  ): Promise<{ data?: T; error?: string }> {
+  ): Promise<HttpResult<T>> {
     try {
       const response = await this.axiosInstance.put<T>(url, data, config);
       if (response.status >= 400) {
         return {
           error: `HTTP ${response.status}: ${response.statusText}`,
+          statusCode: response.status,
         };
       }
-      return { data: response.data };
-    } catch (error: any) {
-      this.logger.error(`PUT ${url} failed:`, error.message);
-      return {
-        error: error.message || 'Request failed',
-      };
+      return { data: response.data, statusCode: response.status };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      this.logger.error(`PUT ${url} failed: ${message}`);
+      return { error: message };
     }
   }
 
   /**
-   * Make an authenticated DELETE request
+   * Make an authenticated DELETE request.
    */
-  protected async delete<T = any>(
+  protected async delete<T = unknown>(
     url: string,
     config?: AxiosRequestConfig,
-  ): Promise<{ data?: T; error?: string }> {
+  ): Promise<HttpResult<T>> {
     try {
       const response = await this.axiosInstance.delete<T>(url, config);
       if (response.status >= 400) {
         return {
           error: `HTTP ${response.status}: ${response.statusText}`,
+          statusCode: response.status,
         };
       }
-      return { data: response.data };
-    } catch (error: any) {
-      this.logger.error(`DELETE ${url} failed:`, error.message);
-      return {
-        error: error.message || 'Request failed',
-      };
+      return { data: response.data, statusCode: response.status };
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      this.logger.error(`DELETE ${url} failed: ${message}`);
+      return { error: message };
     }
   }
 
   /**
-   * Set default headers (Authorization, Content-Type, etc.)
+   * Set default headers (Authorization, Content-Type, etc.).
    */
   protected setHeaders(headers: Record<string, string>): void {
     this.axiosInstance.defaults.headers.common = {
@@ -123,21 +199,47 @@ export abstract class BaseConnector {
   }
 
   /**
-   * Set base URL for all requests
+   * Set base URL for all requests.
    */
   protected setBaseURL(baseURL: string): void {
     this.axiosInstance.defaults.baseURL = baseURL;
   }
 
   /**
-   * Abstract methods that must be implemented by subclasses
+   * Create a standard successful connection test result.
    */
-  abstract testConnection(config: any): Promise<{
-    success: boolean;
-    message: string;
-    details?: any;
-  }>;
+  protected successResult(message: string, details?: Record<string, unknown>): ConnectionTestResult {
+    return { success: true, message, details };
+  }
 
-  abstract sync(config: any): Promise<any>;
+  /**
+   * Create a standard failed connection test result.
+   */
+  protected failureResult(message: string, details?: Record<string, unknown>): ConnectionTestResult {
+    return { success: false, message, details };
+  }
+
+  /**
+   * Create an empty sync result with errors.
+   */
+  protected emptySyncResult(errors: string[]): SyncResult {
+    return {
+      collectedAt: new Date().toISOString(),
+      errors,
+    };
+  }
+
+  /**
+   * Create a collection result from items array.
+   */
+  protected toCollection<T>(items: T[]): SyncCollectionResult<T> {
+    return { total: items.length, items };
+  }
+
+  /**
+   * Abstract methods that must be implemented by subclasses.
+   */
+  abstract testConnection(config: BaseConnectorConfig): Promise<ConnectionTestResult>;
+  abstract sync(config: BaseConnectorConfig): Promise<SyncResult>;
 }
 

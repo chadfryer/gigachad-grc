@@ -103,40 +103,11 @@ export class BusinessProcessesService {
     const { search, criticalityTier, department, ownerId, isActive, page = 1, limit = 25 } = filters;
     const offset = (page - 1) * limit;
 
-    // Build WHERE conditions dynamically
-    const whereClauses = [
-      `bp.organization_id = '${organizationId}'::uuid`,
-      `bp.deleted_at IS NULL`,
-    ];
-
-    if (search) {
-      // Escape single quotes in search to prevent SQL injection
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`(bp.name ILIKE '%${escapedSearch}%' OR bp.process_id ILIKE '%${escapedSearch}%')`);
-    }
-
-    if (criticalityTier) {
-      const escapedTier = criticalityTier.replace(/'/g, "''");
-      whereClauses.push(`bp.criticality_tier = '${escapedTier}'`);
-    }
-
-    if (department) {
-      const escapedDept = department.replace(/'/g, "''");
-      whereClauses.push(`bp.department = '${escapedDept}'`);
-    }
-
-    if (ownerId) {
-      whereClauses.push(`bp.owner_id = '${ownerId}'::uuid`);
-    }
-
-    if (isActive !== undefined) {
-      whereClauses.push(`bp.is_active = ${isActive}`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
     const [processes, total] = await Promise.all([
-      this.prisma.$queryRawUnsafe<BusinessProcessRecord[]>(`
+      this.prisma.$queryRaw<BusinessProcessRecord[]>`
         SELECT bp.*, 
                u.display_name as owner_name, 
                u.email as owner_email,
@@ -144,7 +115,13 @@ export class BusinessProcessesService {
                (SELECT COUNT(*) FROM bcdr.process_assets WHERE process_id = bp.id) as asset_count
         FROM bcdr.business_processes bp
         LEFT JOIN public.users u ON bp.owner_id::text = u.id
-        WHERE ${whereClause}
+        WHERE bp.organization_id = ${organizationId}::uuid
+          AND bp.deleted_at IS NULL
+          AND (${searchPattern}::text IS NULL OR (bp.name ILIKE ${searchPattern} OR bp.process_id ILIKE ${searchPattern}))
+          AND (${criticalityTier}::text IS NULL OR bp.criticality_tier = ${criticalityTier})
+          AND (${department}::text IS NULL OR bp.department = ${department})
+          AND (${ownerId}::text IS NULL OR bp.owner_id = ${ownerId}::uuid)
+          AND (${isActive}::boolean IS NULL OR bp.is_active = ${isActive})
         ORDER BY 
           CASE bp.criticality_tier 
             WHEN 'tier_1_critical' THEN 1 
@@ -154,13 +131,13 @@ export class BusinessProcessesService {
           END,
           bp.name ASC
         LIMIT ${limit} OFFSET ${offset}
-      `),
-      this.prisma.$queryRawUnsafe<[CountRecord]>(`
+      `,
+      this.prisma.$queryRaw<[CountRecord]>`
         SELECT COUNT(*) as count
         FROM bcdr.business_processes
-        WHERE organization_id = '${organizationId}'::uuid
+        WHERE organization_id = ${organizationId}::uuid
           AND deleted_at IS NULL
-      `),
+      `,
     ]);
 
     return {
@@ -684,24 +661,23 @@ export class BusinessProcessesService {
     organizationId: string,
     dto: UpdateVendorDependencyDto,
   ) {
-    const updates: string[] = ['updated_at = NOW()'];
-
-    if (dto.dependencyType !== undefined) updates.push(`dependency_type = '${dto.dependencyType}'`);
-    if (dto.vendorRtoHours !== undefined) updates.push(`vendor_rto_hours = ${dto.vendorRtoHours}`);
-    if (dto.vendorRpoHours !== undefined) updates.push(`vendor_rpo_hours = ${dto.vendorRpoHours}`);
-    if (dto.vendorHasBCP !== undefined) updates.push(`vendor_has_bcp = ${dto.vendorHasBCP}`);
-    if (dto.gapAnalysis !== undefined) updates.push(`gap_analysis = '${(dto.gapAnalysis || '').replace(/'/g, "''")}'`);
-    if (dto.mitigationPlan !== undefined) updates.push(`mitigation_plan = '${(dto.mitigationPlan || '').replace(/'/g, "''")}'`);
-    if (dto.notes !== undefined) updates.push(`notes = '${(dto.notes || '').replace(/'/g, "''")}'`);
-
-    const result = await this.prisma.$queryRawUnsafe<VendorDependencyRecord[]>(`
+    // Use parameterized query to prevent SQL injection
+    const result = await this.prisma.$queryRaw<VendorDependencyRecord[]>`
       UPDATE bcdr_process_vendor_dependencies
-      SET ${updates.join(', ')}
-      WHERE id = '${dependencyId}'::uuid
-        AND process_id = '${processId}'::uuid
-        AND organization_id = '${organizationId}'::uuid
+      SET 
+        updated_at = NOW(),
+        dependency_type = COALESCE(${dto.dependencyType ?? null}, dependency_type),
+        vendor_rto_hours = COALESCE(${dto.vendorRtoHours ?? null}, vendor_rto_hours),
+        vendor_rpo_hours = COALESCE(${dto.vendorRpoHours ?? null}, vendor_rpo_hours),
+        vendor_has_bcp = COALESCE(${dto.vendorHasBCP ?? null}, vendor_has_bcp),
+        gap_analysis = CASE WHEN ${dto.gapAnalysis !== undefined} THEN ${dto.gapAnalysis ?? null} ELSE gap_analysis END,
+        mitigation_plan = CASE WHEN ${dto.mitigationPlan !== undefined} THEN ${dto.mitigationPlan ?? null} ELSE mitigation_plan END,
+        notes = CASE WHEN ${dto.notes !== undefined} THEN ${dto.notes ?? null} ELSE notes END
+      WHERE id = ${dependencyId}::uuid
+        AND process_id = ${processId}::uuid
+        AND organization_id = ${organizationId}::uuid
       RETURNING *
-    `);
+    `;
 
     return result[0];
   }

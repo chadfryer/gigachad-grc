@@ -26,6 +26,40 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+/**
+ * Standard API error response structure
+ */
+export interface ApiErrorResponse {
+  message: string;
+  statusCode?: number;
+  error?: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Type guard to check if an error is an Axios error with a response
+ */
+export function isApiError(error: unknown): error is { response?: { status: number; data?: ApiErrorResponse }; code?: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    ('response' in error || 'code' in error)
+  );
+}
+
+/**
+ * Get error message from an API error
+ */
+export function getApiErrorMessage(error: unknown, defaultMessage = 'An error occurred'): string {
+  if (isApiError(error)) {
+    return error.response?.data?.message || defaultMessage;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return defaultMessage;
+}
+
 export type SortOrder = 'asc' | 'desc';
 
 // ===========================================
@@ -1878,6 +1912,74 @@ export interface UpdateRiskConfigData {
   riskLevelThresholds?: RiskThresholds;
   workflowSettings?: WorkflowSettings;
   riskAppetite?: RiskAppetiteLevel[];
+}
+
+// ===========================================
+// Dashboard Widget Types
+// ===========================================
+
+export type WidgetType = 
+  | 'stat'
+  | 'chart'
+  | 'list'
+  | 'table'
+  | 'progress'
+  | 'heatmap'
+  | 'gauge';
+
+export type WidgetDataSource = 
+  | 'risks'
+  | 'controls'
+  | 'evidence'
+  | 'vendors'
+  | 'audits'
+  | 'policies'
+  | 'compliance';
+
+export interface DashboardWidget {
+  id: string;
+  type: WidgetType;
+  title: string;
+  description?: string;
+  dataSource: WidgetDataSource;
+  config: WidgetConfig;
+  position: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
+}
+
+export interface WidgetConfig {
+  chartType?: 'bar' | 'line' | 'pie' | 'doughnut' | 'area';
+  metric?: string;
+  groupBy?: string;
+  filter?: Record<string, unknown>;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: SortOrder;
+  colors?: string[];
+  showLegend?: boolean;
+  showLabels?: boolean;
+}
+
+export interface CreateWidgetData {
+  type: WidgetType;
+  title: string;
+  description?: string;
+  dataSource: WidgetDataSource;
+  config: WidgetConfig;
+  position?: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
+}
+
+export interface UpdateWidgetData extends Partial<CreateWidgetData> {
+  id?: string;
 }
 
 // ===========================================

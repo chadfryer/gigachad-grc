@@ -25,34 +25,10 @@ export class DRTestsService {
     const { search, testType, status, planId, page = 1, limit = 25 } = filters;
     const offset = (page - 1) * limit;
 
-    // Build WHERE conditions dynamically
-    const whereClauses = [
-      `dt.organization_id = '${organizationId}'::uuid`,
-      `dt.deleted_at IS NULL`,
-    ];
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
-    if (search) {
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`(dt.name ILIKE '%${escapedSearch}%' OR dt.test_id ILIKE '%${escapedSearch}%')`);
-    }
-
-    if (testType) {
-      const escapedType = testType.replace(/'/g, "''");
-      whereClauses.push(`dt.test_type = '${escapedType}'`);
-    }
-
-    if (status) {
-      const escapedStatus = status.replace(/'/g, "''");
-      whereClauses.push(`dt.status = '${escapedStatus}'`);
-    }
-
-    if (planId) {
-      whereClauses.push(`dt.plan_id = '${planId}'::uuid`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
-
-    const tests = await this.prisma.$queryRawUnsafe<any[]>(`
+    const tests = await this.prisma.$queryRaw<any[]>`
       SELECT dt.*, 
              u.display_name as coordinator_name,
              bp.title as plan_title,
@@ -60,17 +36,22 @@ export class DRTestsService {
       FROM bcdr.dr_tests dt
       LEFT JOIN public.users u ON dt.coordinator_id::text = u.id
       LEFT JOIN bcdr.bcdr_plans bp ON dt.plan_id = bp.id
-      WHERE ${whereClause}
+      WHERE dt.organization_id = ${organizationId}::uuid
+        AND dt.deleted_at IS NULL
+        AND (${searchPattern}::text IS NULL OR (dt.name ILIKE ${searchPattern} OR dt.test_id ILIKE ${searchPattern}))
+        AND (${testType}::text IS NULL OR dt.test_type = ${testType})
+        AND (${status}::text IS NULL OR dt.status = ${status})
+        AND (${planId}::text IS NULL OR dt.plan_id = ${planId}::uuid)
       ORDER BY dt.scheduled_date DESC NULLS LAST, dt.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
-    `);
+    `;
 
-    const total = await this.prisma.$queryRawUnsafe<[{ count: bigint }]>(`
+    const total = await this.prisma.$queryRaw<[{ count: bigint }]>`
       SELECT COUNT(*) as count
       FROM bcdr.dr_tests
-      WHERE organization_id = '${organizationId}'::uuid
+      WHERE organization_id = ${organizationId}::uuid
         AND deleted_at IS NULL
-    `);
+    `;
 
     return {
       data: tests,

@@ -17,31 +17,10 @@ export class RunbooksService {
   async findAll(organizationId: string, filters?: { search?: string; category?: string; status?: RunbookStatus; processId?: string }) {
     const { search, category, status, processId } = filters || {};
 
-    // Build WHERE clauses dynamically
-    const whereClauses = [
-      `r.organization_id = '${organizationId}'::uuid`,
-      `r.deleted_at IS NULL`,
-    ];
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
-    if (search) {
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`(r.title ILIKE '%${escapedSearch}%' OR r.runbook_id ILIKE '%${escapedSearch}%')`);
-    }
-    if (category) {
-      const escapedCategory = category.replace(/'/g, "''");
-      whereClauses.push(`r.category = '${escapedCategory}'`);
-    }
-    if (status) {
-      const escapedStatus = status.replace(/'/g, "''");
-      whereClauses.push(`r.status = '${escapedStatus}'::bcdr.runbook_status`);
-    }
-    if (processId) {
-      whereClauses.push(`r.process_id = '${processId}'::uuid`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
-
-    const runbooks = await this.prisma.$queryRawUnsafe<any[]>(`
+    const runbooks = await this.prisma.$queryRaw<any[]>`
       SELECT r.*, 
              u.display_name as owner_name,
              bp.name as process_name,
@@ -49,9 +28,14 @@ export class RunbooksService {
       FROM bcdr.runbooks r
       LEFT JOIN public.users u ON r.owner_id::text = u.id
       LEFT JOIN bcdr.business_processes bp ON r.process_id = bp.id
-      WHERE ${whereClause}
+      WHERE r.organization_id = ${organizationId}::uuid
+        AND r.deleted_at IS NULL
+        AND (${searchPattern}::text IS NULL OR (r.title ILIKE ${searchPattern} OR r.runbook_id ILIKE ${searchPattern}))
+        AND (${category}::text IS NULL OR r.category = ${category})
+        AND (${status}::text IS NULL OR r.status = ${status}::bcdr.runbook_status)
+        AND (${processId}::text IS NULL OR r.process_id = ${processId}::uuid)
       ORDER BY r.title ASC
-    `);
+    `;
 
     // Convert any BigInt values to numbers for JSON serialization
     return runbooks.map(r => ({

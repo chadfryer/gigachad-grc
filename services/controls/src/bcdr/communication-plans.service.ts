@@ -16,35 +16,22 @@ export class CommunicationPlansService {
   async findAll(organizationId: string, filters?: { search?: string; planType?: string; bcdrPlanId?: string }) {
     const { search, planType, bcdrPlanId } = filters || {};
 
-    // Build WHERE clauses dynamically
-    const whereClauses = [
-      `cp.organization_id = '${organizationId}'::uuid`,
-      `cp.deleted_at IS NULL`,
-    ];
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
-    if (search) {
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`cp.name ILIKE '%${escapedSearch}%'`);
-    }
-    if (planType) {
-      const escapedPlanType = planType.replace(/'/g, "''");
-      whereClauses.push(`cp.plan_type = '${escapedPlanType}'`);
-    }
-    if (bcdrPlanId) {
-      whereClauses.push(`cp.bcdr_plan_id = '${bcdrPlanId}'::uuid`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
-
-    const plans = await this.prisma.$queryRawUnsafe<CommunicationPlanRecord[]>(`
+    const plans = await this.prisma.$queryRaw<CommunicationPlanRecord[]>`
       SELECT cp.*, 
              bp.title as bcdr_plan_title,
              (SELECT COUNT(*) FROM bcdr.communication_contacts WHERE communication_plan_id = cp.id) as contact_count
       FROM bcdr.communication_plans cp
       LEFT JOIN bcdr.bcdr_plans bp ON cp.bcdr_plan_id = bp.id
-      WHERE ${whereClause}
+      WHERE cp.organization_id = ${organizationId}::uuid
+        AND cp.deleted_at IS NULL
+        AND (${searchPattern}::text IS NULL OR cp.name ILIKE ${searchPattern})
+        AND (${planType}::text IS NULL OR cp.plan_type = ${planType})
+        AND (${bcdrPlanId}::text IS NULL OR cp.bcdr_plan_id = ${bcdrPlanId}::uuid)
       ORDER BY cp.name ASC
-    `);
+    `;
 
     return plans;
   }
@@ -364,26 +351,17 @@ export class CommunicationPlansService {
 
   // Get contacts by escalation level
   async getContactsByEscalation(organizationId: string, planId?: string) {
-    // Build WHERE clauses dynamically
-    const whereClauses = [
-      `cp.organization_id = '${organizationId}'::uuid`,
-      `cp.is_active = true`,
-      `c.is_active = true`,
-    ];
-
-    if (planId) {
-      whereClauses.push(`cp.id = '${planId}'::uuid`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
-
-    const contacts = await this.prisma.$queryRawUnsafe<(CommunicationContactRecord & { plan_name?: string })[]>(`
+    // Use parameterized queries to prevent SQL injection
+    const contacts = await this.prisma.$queryRaw<(CommunicationContactRecord & { plan_name?: string })[]>`
       SELECT c.*, cp.name as plan_name
       FROM bcdr.communication_contacts c
       JOIN bcdr.communication_plans cp ON c.communication_plan_id = cp.id
-      WHERE ${whereClause}
+      WHERE cp.organization_id = ${organizationId}::uuid
+        AND cp.is_active = true
+        AND c.is_active = true
+        AND (${planId}::text IS NULL OR cp.id = ${planId}::uuid)
       ORDER BY c.escalation_level ASC, c.sort_order ASC
-    `);
+    `;
 
     // Group by escalation level
     const grouped = contacts.reduce((acc: Record<number, (CommunicationContactRecord & { plan_name?: string })[]>, contact) => {

@@ -56,8 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await kc.loadUserProfile();
       const tokenParsed = kc.tokenParsed as any;
 
-      console.log('Token parsed:', tokenParsed);
-      console.log('Profile:', profile);
+      // Token and profile logged only in development for debugging
+      if (import.meta.env.DEV) {
+        console.debug('Auth profile loaded for user:', profile.email);
+      }
 
       const role = tokenParsed?.roles?.[0] || 
         tokenParsed?.realm_access?.roles?.find(

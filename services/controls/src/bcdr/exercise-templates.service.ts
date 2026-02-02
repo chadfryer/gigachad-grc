@@ -29,43 +29,36 @@ export class ExerciseTemplatesService {
     const { search, category, scenarioType, includeGlobal = true, page = 1, limit = 25 } = filters;
     const offset = (page - 1) * limit;
 
-    const whereClauses = ['is_active = true'];
-    
-    // Include org-specific and optionally global templates
-    if (includeGlobal) {
-      whereClauses.push(`(organization_id = '${organizationId}'::uuid OR is_global = true)`);
-    } else {
-      whereClauses.push(`organization_id = '${organizationId}'::uuid`);
-    }
-
-    if (search) {
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`(title ILIKE '%${escapedSearch}%' OR description ILIKE '%${escapedSearch}%')`);
-    }
-
-    if (category) {
-      whereClauses.push(`category = '${category}'`);
-    }
-
-    if (scenarioType) {
-      whereClauses.push(`scenario_type = '${scenarioType}'`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
     const [templates, total] = await Promise.all([
-      this.prisma.$queryRawUnsafe<any[]>(`
+      this.prisma.$queryRaw<any[]>`
         SELECT *
         FROM bcdr_exercise_templates
-        WHERE ${whereClause}
+        WHERE is_active = true
+          AND (
+            (${includeGlobal} = true AND (organization_id = ${organizationId}::uuid OR is_global = true))
+            OR (${includeGlobal} = false AND organization_id = ${organizationId}::uuid)
+          )
+          AND (${searchPattern}::text IS NULL OR (title ILIKE ${searchPattern} OR description ILIKE ${searchPattern}))
+          AND (${category}::text IS NULL OR category = ${category})
+          AND (${scenarioType}::text IS NULL OR scenario_type = ${scenarioType})
         ORDER BY is_global DESC, usage_count DESC, title ASC
         LIMIT ${limit} OFFSET ${offset}
-      `),
-      this.prisma.$queryRawUnsafe<[{ count: bigint }]>(`
+      `,
+      this.prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count
         FROM bcdr_exercise_templates
-        WHERE ${whereClause}
-      `),
+        WHERE is_active = true
+          AND (
+            (${includeGlobal} = true AND (organization_id = ${organizationId}::uuid OR is_global = true))
+            OR (${includeGlobal} = false AND organization_id = ${organizationId}::uuid)
+          )
+          AND (${searchPattern}::text IS NULL OR (title ILIKE ${searchPattern} OR description ILIKE ${searchPattern}))
+          AND (${category}::text IS NULL OR category = ${category})
+          AND (${scenarioType}::text IS NULL OR scenario_type = ${scenarioType})
+      `,
     ]);
 
     return {
@@ -296,23 +289,21 @@ export class ExerciseTemplatesService {
       throw new NotFoundException(`Template ${id} not found`);
     }
 
-    // Build update
-    const updates: string[] = ['updated_at = NOW()'];
-    
-    if (dto.title) updates.push(`title = '${dto.title.replace(/'/g, "''")}'`);
-    if (dto.description !== undefined) updates.push(`description = '${(dto.description || '').replace(/'/g, "''")}'`);
-    if (dto.scenarioNarrative) updates.push(`scenario_narrative = '${dto.scenarioNarrative.replace(/'/g, "''")}'`);
-    if (dto.discussionQuestions) updates.push(`discussion_questions = '${JSON.stringify(dto.discussionQuestions)}'::jsonb`);
-    if (dto.facilitatorNotes !== undefined) updates.push(`facilitator_notes = '${(dto.facilitatorNotes || '').replace(/'/g, "''")}'`);
-    if (dto.estimatedDuration) updates.push(`estimated_duration_minutes = ${dto.estimatedDuration}`);
-    if (dto.tags) updates.push(`tags = ARRAY[${dto.tags.map(t => `'${t}'`).join(',')}]::text[]`);
-
-    const result = await this.prisma.$queryRawUnsafe<any[]>(`
+    // Use parameterized query to prevent SQL injection
+    const result = await this.prisma.$queryRaw<any[]>`
       UPDATE bcdr_exercise_templates
-      SET ${updates.join(', ')}
-      WHERE id = '${id}'::uuid
+      SET 
+        updated_at = NOW(),
+        title = COALESCE(${dto.title ?? null}, title),
+        description = CASE WHEN ${dto.description !== undefined} THEN ${dto.description ?? null} ELSE description END,
+        scenario_narrative = COALESCE(${dto.scenarioNarrative ?? null}, scenario_narrative),
+        discussion_questions = CASE WHEN ${dto.discussionQuestions !== undefined} THEN ${dto.discussionQuestions ? JSON.stringify(dto.discussionQuestions) : null}::jsonb ELSE discussion_questions END,
+        facilitator_notes = CASE WHEN ${dto.facilitatorNotes !== undefined} THEN ${dto.facilitatorNotes ?? null} ELSE facilitator_notes END,
+        estimated_duration_minutes = COALESCE(${dto.estimatedDuration ?? null}, estimated_duration_minutes),
+        tags = COALESCE(${dto.tags ?? null}::text[], tags)
+      WHERE id = ${id}::uuid
       RETURNING *
-    `);
+    `;
 
     await this.auditService.log({
       organizationId,

@@ -1,4 +1,5 @@
 export * from './common';
+export * from './common.types';
 export * from './organization';
 export * from './user';
 export * from './control';

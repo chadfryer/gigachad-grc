@@ -31,41 +31,32 @@ export class RecoveryTeamsService {
     const { search, teamType, isActive, page = 1, limit = 25 } = filters;
     const offset = (page - 1) * limit;
 
-    const whereClauses = [
-      `t.organization_id = '${organizationId}'::uuid`,
-      `t.deleted_at IS NULL`,
-    ];
-
-    if (search) {
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`(t.name ILIKE '%${escapedSearch}%' OR t.description ILIKE '%${escapedSearch}%')`);
-    }
-
-    if (teamType) {
-      whereClauses.push(`t.team_type = '${teamType}'`);
-    }
-
-    if (isActive !== undefined) {
-      whereClauses.push(`t.is_active = ${isActive}`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
     const [teams, total] = await Promise.all([
-      this.prisma.$queryRawUnsafe<any[]>(`
+      this.prisma.$queryRaw<any[]>`
         SELECT t.*,
                (SELECT COUNT(*) FROM bcdr_recovery_team_members WHERE team_id = t.id) as member_count,
                (SELECT COUNT(*) FROM bcdr_recovery_team_plan_links WHERE team_id = t.id) as plan_count
         FROM bcdr_recovery_teams t
-        WHERE ${whereClause}
+        WHERE t.organization_id = ${organizationId}::uuid
+          AND t.deleted_at IS NULL
+          AND (${searchPattern}::text IS NULL OR (t.name ILIKE ${searchPattern} OR t.description ILIKE ${searchPattern}))
+          AND (${teamType}::text IS NULL OR t.team_type = ${teamType})
+          AND (${isActive}::boolean IS NULL OR t.is_active = ${isActive})
         ORDER BY t.name ASC
         LIMIT ${limit} OFFSET ${offset}
-      `),
-      this.prisma.$queryRawUnsafe<[{ count: bigint }]>(`
+      `,
+      this.prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(*) as count
         FROM bcdr_recovery_teams t
-        WHERE ${whereClause}
-      `),
+        WHERE t.organization_id = ${organizationId}::uuid
+          AND t.deleted_at IS NULL
+          AND (${searchPattern}::text IS NULL OR (t.name ILIKE ${searchPattern} OR t.description ILIKE ${searchPattern}))
+          AND (${teamType}::text IS NULL OR t.team_type = ${teamType})
+          AND (${isActive}::boolean IS NULL OR t.is_active = ${isActive})
+      `,
     ]);
 
     return {
@@ -174,22 +165,21 @@ export class RecoveryTeamsService {
   ) {
     await this.findOne(id, organizationId);
 
-    const updates: string[] = ['updated_at = NOW()'];
-
-    if (dto.name !== undefined) updates.push(`name = '${dto.name.replace(/'/g, "''")}'`);
-    if (dto.description !== undefined) updates.push(`description = '${(dto.description || '').replace(/'/g, "''")}'`);
-    if (dto.teamType !== undefined) updates.push(`team_type = '${dto.teamType}'`);
-    if (dto.activationCriteria !== undefined) updates.push(`activation_criteria = '${(dto.activationCriteria || '').replace(/'/g, "''")}'`);
-    if (dto.assemblyLocation !== undefined) updates.push(`assembly_location = '${(dto.assemblyLocation || '').replace(/'/g, "''")}'`);
-    if (dto.communicationChannel !== undefined) updates.push(`communication_channel = '${(dto.communicationChannel || '').replace(/'/g, "''")}'`);
-    if (dto.isActive !== undefined) updates.push(`is_active = ${dto.isActive}`);
-
-    const result = await this.prisma.$queryRawUnsafe<any[]>(`
+    // Use parameterized query to prevent SQL injection
+    const result = await this.prisma.$queryRaw<any[]>`
       UPDATE bcdr_recovery_teams
-      SET ${updates.join(', ')}
-      WHERE id = '${id}'::uuid
+      SET 
+        updated_at = NOW(),
+        name = COALESCE(${dto.name ?? null}, name),
+        description = CASE WHEN ${dto.description !== undefined} THEN ${dto.description ?? null} ELSE description END,
+        team_type = COALESCE(${dto.teamType ?? null}, team_type),
+        activation_criteria = CASE WHEN ${dto.activationCriteria !== undefined} THEN ${dto.activationCriteria ?? null} ELSE activation_criteria END,
+        assembly_location = CASE WHEN ${dto.assemblyLocation !== undefined} THEN ${dto.assemblyLocation ?? null} ELSE assembly_location END,
+        communication_channel = CASE WHEN ${dto.communicationChannel !== undefined} THEN ${dto.communicationChannel ?? null} ELSE communication_channel END,
+        is_active = COALESCE(${dto.isActive ?? null}, is_active)
+      WHERE id = ${id}::uuid
       RETURNING *
-    `);
+    `;
 
     await this.auditService.log({
       organizationId,
@@ -299,19 +289,18 @@ export class RecoveryTeamsService {
   ) {
     await this.findOne(teamId, organizationId);
 
-    const updates: string[] = ['updated_at = NOW()'];
-
-    if (dto.role !== undefined) updates.push(`role = '${dto.role}'`);
-    if (dto.responsibilities !== undefined) updates.push(`responsibilities = '${(dto.responsibilities || '').replace(/'/g, "''")}'`);
-    if (dto.isPrimary !== undefined) updates.push(`is_primary = ${dto.isPrimary}`);
-    if (dto.alternateFor !== undefined) updates.push(`alternate_for = ${dto.alternateFor ? `'${dto.alternateFor}'::uuid` : 'NULL'}`);
-
-    const result = await this.prisma.$queryRawUnsafe<any[]>(`
+    // Use parameterized query to prevent SQL injection
+    const result = await this.prisma.$queryRaw<any[]>`
       UPDATE bcdr_recovery_team_members
-      SET ${updates.join(', ')}
-      WHERE id = '${memberId}'::uuid AND team_id = '${teamId}'::uuid
+      SET 
+        updated_at = NOW(),
+        role = COALESCE(${dto.role ?? null}, role),
+        responsibilities = CASE WHEN ${dto.responsibilities !== undefined} THEN ${dto.responsibilities ?? null} ELSE responsibilities END,
+        is_primary = COALESCE(${dto.isPrimary ?? null}, is_primary),
+        alternate_for = CASE WHEN ${dto.alternateFor !== undefined} THEN ${dto.alternateFor ?? null}::uuid ELSE alternate_for END
+      WHERE id = ${memberId}::uuid AND team_id = ${teamId}::uuid
       RETURNING *
-    `);
+    `;
 
     return result[0];
   }

@@ -1,57 +1,86 @@
-import { IsString, IsOptional, IsArray, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsNumber, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 // Re-export Prisma enums for convenience
 export { AssetType, AssetStatus, AssetCriticality } from '@prisma/client';
 
+// Sanitization helper - strips HTML and trims
+const sanitizeString = ({ value }: { value: unknown }) => {
+  if (typeof value === 'string') {
+    return value.trim().replace(/<[^>]*>/g, '');
+  }
+  return value;
+};
+
 export class CreateAssetDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   name: string;
 
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   externalId?: string;
 
   @ApiPropertyOptional({ default: 'manual' })
   @IsString()
   @IsOptional()
+  @MaxLength(50)
+  @Transform(sanitizeString)
   source?: string;
 
   @ApiPropertyOptional({ enum: ['server', 'workstation', 'laptop', 'mobile', 'network', 'storage', 'cloud', 'application', 'database', 'other'] })
   @IsString()
   @IsOptional()
+  @MaxLength(50)
+  @Transform(sanitizeString)
   type?: string;
 
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  @MaxLength(100)
+  @Transform(sanitizeString)
   category?: string;
 
   @ApiPropertyOptional({ enum: ['active', 'inactive', 'retired', 'disposed', 'lost', 'stolen'] })
   @IsString()
   @IsOptional()
+  @MaxLength(50)
+  @Transform(sanitizeString)
   status?: string;
 
   @ApiPropertyOptional({ enum: ['critical', 'high', 'medium', 'low'] })
   @IsString()
   @IsOptional()
+  @MaxLength(50)
+  @Transform(sanitizeString)
   criticality?: string;
 
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   owner?: string;
 
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   location?: string;
 
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  @MaxLength(100)
+  @Transform(sanitizeString)
   department?: string;
 
   @ApiPropertyOptional()
@@ -61,6 +90,8 @@ export class CreateAssetDto {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  @MaxLength(255)
+  @Transform(sanitizeString)
   workspaceId?: string;
 }
 

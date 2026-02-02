@@ -33,46 +33,30 @@ export class BCDRPlansService {
     const { search, planType, status, page = 1, limit = 25 } = filters;
     const offset = (page - 1) * limit;
 
-    // Build WHERE conditions dynamically
-    const whereClauses = [
-      `bp.organization_id = '${organizationId}'::uuid`,
-      `bp.deleted_at IS NULL`,
-    ];
-
-    if (search) {
-      const escapedSearch = search.replace(/'/g, "''");
-      whereClauses.push(`(bp.title ILIKE '%${escapedSearch}%' OR bp.plan_id ILIKE '%${escapedSearch}%')`);
-    }
-
-    if (planType) {
-      const escapedType = planType.replace(/'/g, "''");
-      whereClauses.push(`bp.plan_type = '${escapedType}'`);
-    }
-
-    if (status) {
-      const escapedStatus = status.replace(/'/g, "''");
-      whereClauses.push(`bp.status = '${escapedStatus}'`);
-    }
-
-    const whereClause = whereClauses.join(' AND ');
+    // Use parameterized queries to prevent SQL injection
+    const searchPattern = search ? `%${search}%` : null;
 
     const [plans, total] = await Promise.all([
-      this.prisma.$queryRawUnsafe<BCDRPlanRecord[]>(`
+      this.prisma.$queryRaw<BCDRPlanRecord[]>`
         SELECT bp.*, 
                u.display_name as owner_name,
                (SELECT COUNT(*) FROM bcdr.plan_controls WHERE plan_id = bp.id) as control_count
         FROM bcdr.bcdr_plans bp
         LEFT JOIN public.users u ON bp.owner_id::text = u.id
-        WHERE ${whereClause}
+        WHERE bp.organization_id = ${organizationId}::uuid
+          AND bp.deleted_at IS NULL
+          AND (${searchPattern}::text IS NULL OR (bp.title ILIKE ${searchPattern} OR bp.plan_id ILIKE ${searchPattern}))
+          AND (${planType}::text IS NULL OR bp.plan_type = ${planType})
+          AND (${status}::text IS NULL OR bp.status = ${status})
         ORDER BY bp.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
-      `),
-      this.prisma.$queryRawUnsafe<[CountRecord]>(`
+      `,
+      this.prisma.$queryRaw<[CountRecord]>`
         SELECT COUNT(*) as count
         FROM bcdr.bcdr_plans
-        WHERE organization_id = '${organizationId}'::uuid
+        WHERE organization_id = ${organizationId}::uuid
           AND deleted_at IS NULL
-      `),
+      `,
     ]);
 
     // Convert BigInt fields to numbers for JSON serialization
