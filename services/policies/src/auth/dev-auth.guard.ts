@@ -1,8 +1,6 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { DEV_USER, ensureDevUserExists } from '@gigachad-grc/shared';
 
 /**
  * Development auth guard that bypasses JWT validation
@@ -10,38 +8,44 @@ import {
  *
  * WARNING: Only use in development mode
  * CRITICAL: This guard will throw an error in production
+ *
+ * AUTO-SYNC: Automatically ensures the mock user and organization
+ * exist in the database to prevent foreign key constraint errors.
  */
 @Injectable()
 export class DevAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  private readonly logger = new Logger(DevAuthGuard.name);
+  private devUserSynced = false;
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     // SECURITY: Prevent usage in production
     const nodeEnv = process.env.NODE_ENV || 'development';
     if (nodeEnv === 'production') {
       throw new Error(
         'SECURITY ERROR: DevAuthGuard is configured but NODE_ENV is set to production. ' +
-        'This is a critical security vulnerability. Please use proper JWT authentication in production.',
+          'This is a critical security vulnerability. Please use proper JWT authentication in production.'
       );
     }
 
     const request = context.switchToHttp().getRequest();
-    
+
+    // Auto-sync: Ensure mock user and organization exist in database
+    if (!this.devUserSynced) {
+      await ensureDevUserExists(this.prisma, this.logger);
+      this.devUserSynced = true;
+    }
+
     request.user = {
-      userId: '8f88a42b-e799-455c-b68a-308d7d2e9aa4',
-      keycloakId: 'dev-user',
-      email: 'dev@gigachad-grc.local',
-      organizationId: '8924f0c1-7bb1-4be8-84ee-ad8725c712bf',
+      userId: DEV_USER.userId,
+      keycloakId: DEV_USER.keycloakId,
+      email: DEV_USER.email,
+      organizationId: DEV_USER.organizationId,
       role: 'admin',
-      permissions: [
-        'policies:read',
-        'policies:write',
-        'policies:delete',
-        'policies:approve',
-      ],
+      permissions: ['policies:read', 'policies:write', 'policies:delete', 'policies:approve'],
     };
 
     return true;
   }
 }
-
-
-
