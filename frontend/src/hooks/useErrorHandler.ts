@@ -5,8 +5,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { useToast } from '@/components/Toast';
-import { trackError } from '@/lib/errorTracking';
+import { useToast } from '@/hooks/useToast';
+import { captureError as trackError } from '@/lib/errorTracking';
 import type { AxiosError } from 'axios';
 
 export interface ApiError {
@@ -113,7 +113,7 @@ export function useErrorHandler(options: ErrorHandlerOptions = {}): ErrorHandler
     onError,
   } = options;
 
-  const { showToast: displayToast } = useToast();
+  const toast = useToast();
   const [error, setError] = useState<ApiError | null>(null);
 
   /**
@@ -131,19 +131,17 @@ export function useErrorHandler(options: ErrorHandlerOptions = {}): ErrorHandler
 
       // Show toast notification
       if (showToast) {
-        displayToast({
-          title: 'Error',
-          message: finalError.message,
-          type: 'error',
-        });
+        toast.error(finalError.message);
       }
 
       // Track error for monitoring
       if (trackErrors) {
         trackError(rawError instanceof Error ? rawError : new Error(finalError.message), {
-          context,
-          code: finalError.code,
-          correlationId: finalError.correlationId,
+          tags: context ? { context } : undefined,
+          extra: {
+            code: finalError.code,
+            correlationId: finalError.correlationId,
+          },
         });
       }
 
@@ -154,7 +152,7 @@ export function useErrorHandler(options: ErrorHandlerOptions = {}): ErrorHandler
 
       return finalError;
     },
-    [defaultMessage, showToast, trackErrors, context, onError, displayToast]
+    [defaultMessage, showToast, trackErrors, context, onError, toast]
   );
 
   /**
@@ -179,11 +177,7 @@ export function useErrorHandler(options: ErrorHandlerOptions = {}): ErrorHandler
         
         // Show success toast if provided
         if (fnOptions?.successMessage) {
-          displayToast({
-            title: 'Success',
-            message: fnOptions.successMessage,
-            type: 'success',
-          });
+          toast.success(fnOptions.successMessage);
         }
         
         return result;
@@ -192,7 +186,7 @@ export function useErrorHandler(options: ErrorHandlerOptions = {}): ErrorHandler
         return null;
       }
     },
-    [handleError, clearError, displayToast]
+    [handleError, clearError, toast]
   );
 
   return {

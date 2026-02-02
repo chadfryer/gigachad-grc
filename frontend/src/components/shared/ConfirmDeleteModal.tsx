@@ -5,7 +5,7 @@
  */
 
 import { memo, useCallback } from 'react';
-import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 interface ConfirmDeleteModalProps {
   isOpen: boolean;

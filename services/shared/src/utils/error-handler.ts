@@ -168,7 +168,7 @@ export function handleError(
     ? `${context}: ${errorDetails.message}`
     : errorDetails.message;
 
-  if (errorDetails.statusCode >= 500) {
+  if ((errorDetails.statusCode ?? 500) >= 500) {
     logger.error(logMessage, isError(error) ? error.stack : undefined);
   } else {
     logger.warn(logMessage);
