@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, NotFoundException, ForbiddenExceptio
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditPortalUser } from '@prisma/client';
 import * as crypto from 'crypto';
+import { maskEmail } from '@gigachad-grc/shared';
 import {
   PortalLoginDto,
   PortalSessionDto,
@@ -223,7 +224,7 @@ export class PortalService {
       },
     });
 
-    this.logger.log(`Created portal user: ${portalUser.email} for audit ${auditId}`);
+    this.logger.log(`Created portal user: ${maskEmail(portalUser.email)} for audit ${auditId}`);
 
     // Enable portal on audit if not already enabled
     if (!audit.auditPortalEnabled) {
@@ -299,7 +300,7 @@ export class PortalService {
       },
     });
 
-    this.logger.log(`Updated portal user: ${updated.email}`);
+    this.logger.log(`Updated portal user: ${maskEmail(updated.email)}`);
 
     return this.toPortalUserResponseDto(updated, false);
   }
@@ -332,7 +333,7 @@ export class PortalService {
       where: { id: userId },
     });
 
-    this.logger.log(`Deleted portal user: ${existing.email}`);
+    this.logger.log(`Deleted portal user: ${maskEmail(existing.email)}`);
   }
 
   /**

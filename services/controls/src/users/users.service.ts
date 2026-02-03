@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { GroupsService } from '../permissions/groups.service';
 import { UserStatus, UserRole } from '@prisma/client';
+import { maskEmail } from '@gigachad-grc/shared';
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -156,7 +157,7 @@ export class UsersService {
         },
       });
 
-      this.logger.log(`Synced existing user: ${user.email}`);
+      this.logger.log(`Synced existing user: ${maskEmail(user.email)}`);
     } else {
       // Create new user
       user = await this.prisma.user.create({
@@ -184,10 +185,10 @@ export class UsersService {
         }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.warn(`Failed to assign default group for user ${user.email}: ${errorMessage}`);
+        this.logger.warn(`Failed to assign default group for user ${maskEmail(user.email)}: ${errorMessage}`);
       }
 
-      this.logger.log(`Created new user from Keycloak: ${user.email}`);
+      this.logger.log(`Created new user from Keycloak: ${maskEmail(user.email)}`);
 
       // Audit log
       await this.auditService.log({

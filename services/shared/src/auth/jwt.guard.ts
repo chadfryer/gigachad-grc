@@ -4,6 +4,8 @@ import {
   ExecutionContext,
   UnauthorizedException,
   ForbiddenException,
+  Inject,
+  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
@@ -11,6 +13,7 @@ import * as jwt from 'jsonwebtoken';
 import jwksRsa from 'jwks-rsa';
 import { UserContext, UserRole, RolePermissions } from '../types';
 import { ROLES_KEY } from './roles.decorator';
+import { TokenBlacklistService } from './token-blacklist.service';
 
 export interface JwtPayload {
   sub: string;
@@ -24,6 +27,7 @@ export interface JwtPayload {
     roles: string[];
   };
   organization_id?: string;
+  jti?: string;
   exp: number;
   iat: number;
   iss: string;
@@ -33,7 +37,10 @@ export interface JwtPayload {
 export class JwtAuthGuard implements CanActivate {
   private jwksClient: jwksRsa.JwksClient;
 
-  constructor(private reflector: Reflector) {
+  constructor(
+    private reflector: Reflector,
+    @Optional() @Inject(TokenBlacklistService) private tokenBlacklistService?: TokenBlacklistService,
+  ) {
     const keycloakUrl = process.env.KEYCLOAK_URL || 'http://localhost:8080';
     const realm = process.env.KEYCLOAK_REALM || 'gigachad-grc';
 
@@ -55,10 +62,21 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const decoded = await this.verifyToken(token);
+      
+      // Check if token is revoked (if blacklist service is available)
+      if (this.tokenBlacklistService && decoded.jti) {
+        const isRevoked = await this.tokenBlacklistService.isTokenRevoked(decoded.jti);
+        if (isRevoked) {
+          throw new UnauthorizedException('Token has been revoked');
+        }
+      }
+      
       const userContext = this.buildUserContext(decoded);
       
-      // Attach user context to request
+      // Attach user context and token info to request
       request.user = userContext;
+      request.tokenJti = decoded.jti;
+      request.tokenExp = decoded.exp;
 
       // Check role requirements
       const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
@@ -76,6 +94,9 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     } catch (error) {
       if (error instanceof ForbiddenException) {
+        throw error;
+      }
+      if (error instanceof UnauthorizedException) {
         throw error;
       }
       throw new UnauthorizedException('Invalid token');

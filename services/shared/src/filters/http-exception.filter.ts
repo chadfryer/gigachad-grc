@@ -106,7 +106,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       path: request.url,
     };
 
-    // Add debugging info in development
+    // Add debugging info in development only
+    // SECURITY: Stack traces are never included in production responses
     if (!this.isProduction) {
       errorResponse.details = this.getDetailedMessage(exception);
       if (exception instanceof Error) {
@@ -267,11 +268,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     };
 
     if (status >= 500) {
-      // Server errors - log with full details
-      this.logger.error(
-        `${method} ${url} - ${status}`,
-        exception instanceof Error ? exception.stack : String(exception),
-      );
+      // Server errors - log error message only in production, include stack in development
+      const errorMessage = exception instanceof Error ? exception.message : String(exception);
+      if (this.isProduction) {
+        // SECURITY: Don't log full stack traces in production
+        this.logger.error(`${method} ${url} - ${status}: ${errorMessage}`);
+      } else {
+        this.logger.error(
+          `${method} ${url} - ${status}`,
+          exception instanceof Error ? exception.stack : String(exception),
+        );
+      }
     } else if (status >= 400) {
       // Client errors - warn level
       this.logger.warn(`${method} ${url} - ${status}`, JSON.stringify(logContext));

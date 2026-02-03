@@ -28,6 +28,9 @@ export {
   DevUser,
   ensureDevUserExists,
   DevAuthGuard,
+  // Token blacklist
+  TokenBlacklistService,
+  RevokedToken,
   // Note: User decorator is renamed to avoid conflict with User type
   User as UserDecorator,
   // Note: UserContext from auth is renamed - use type from ./types instead
@@ -120,6 +123,11 @@ export {
   Logger,
   // Renamed to avoid conflict with types
   AuditLogEntry as LoggerAuditLogEntry,
+  // Sanitizer utilities for safe logging
+  sanitizeForLogging,
+  sanitizeError,
+  maskEmail,
+  safeUserId,
 } from './logger';
 
 // Health checks
@@ -151,3 +159,9 @@ export * from './services';
 
 // Guards
 export * from './guards';
+
+// Session
+export * from './session';
+
+// Security (Rate Limiting and SSRF protection)
+export * from './security';

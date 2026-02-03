@@ -4,6 +4,7 @@ import { EmailService } from '../../email/email.service';
 import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { maskEmail } from '@gigachad-grc/shared';
 import {
   CampaignStatus,
   PhishingTemplateType,
@@ -680,10 +681,10 @@ export class PhishingService {
         target.status = TargetStatus.SENT;
         (campaign.sentCount as number)++;
 
-        this.logger.log(`Sent phishing email to ${target.email} for campaign ${campaign.id}`);
+        this.logger.log(`Sent phishing email to ${maskEmail(target.email)} for campaign ${campaign.id}`);
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.error(`Failed to send phishing email to ${target.email}: ${errorMessage}`);
+        this.logger.error(`Failed to send phishing email to ${maskEmail(target.email)}: ${errorMessage}`);
         target.status = TargetStatus.BOUNCED;
       }
     }

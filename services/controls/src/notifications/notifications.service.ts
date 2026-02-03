@@ -3,6 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { EmailTemplatesService } from '../email/email-templates.service';
+import { maskEmail } from '@gigachad-grc/shared';
 import {
   CreateNotificationDto,
   BulkCreateNotificationDto,
@@ -525,9 +526,9 @@ export class NotificationsService {
       });
 
       if (sent) {
-        this.logger.log(`Email sent successfully to ${user.email} (User: ${userId})`);
+        this.logger.log(`Email sent successfully to ${maskEmail(user.email)} (User: ${userId})`);
       } else {
-        this.logger.error(`Failed to send email to ${user.email} (User: ${userId})`);
+        this.logger.error(`Failed to send email to ${maskEmail(user.email)} (User: ${userId})`);
       }
     } catch (error) {
       this.logger.error(`Error sending email to user ${userId}:`, error.message);

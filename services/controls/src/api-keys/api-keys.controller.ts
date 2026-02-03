@@ -24,6 +24,7 @@ import { DevAuthGuard } from '../auth/dev-auth.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
 import { PaginationLimitPipe, PaginationPagePipe } from '../common/pagination.pipe';
+import { EndpointRateLimit, ENDPOINT_RATE_LIMITS } from '@gigachad-grc/shared';
 
 @Controller('api/api-keys')
 @UseGuards(DevAuthGuard, PermissionGuard)
@@ -83,6 +84,7 @@ export class ApiKeysController {
    * The full key is only returned once - store it securely
    */
   @Post()
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.API_KEY)
   @RequirePermission(Resource.SETTINGS, Action.CREATE)
   async createApiKey(
     @Body() dto: CreateApiKeyDto,
@@ -129,6 +131,7 @@ export class ApiKeysController {
    * The new key is only returned once
    */
   @Post(':id/regenerate')
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.API_KEY)
   @RequirePermission(Resource.SETTINGS, Action.UPDATE)
   async regenerateApiKey(
     @Param('id') id: string,

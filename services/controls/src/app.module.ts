@@ -49,6 +49,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { CustomReportsModule } from './custom-reports/custom-reports.module';
 import { ScheduledReportsModule } from './scheduled-reports/scheduled-reports.module';
+import { LogoutModule } from './auth/logout.module';
 import { ModulesController } from './modules/modules.controller';
 import { CustomThrottlerGuard } from './auth/throttler.guard';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
@@ -135,6 +136,7 @@ import { StorageModule, EventsModule, CacheModule, HealthModule } from '@gigacha
     CalendarModule,
     CustomReportsModule,
     ScheduledReportsModule,
+    LogoutModule,
   ],
   controllers: [ModulesController],
   providers: [
