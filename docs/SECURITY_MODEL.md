@@ -11,8 +11,21 @@ This document provides a comprehensive overview of the security architecture, au
 5. [Tenant Isolation](#tenant-isolation)
 6. [Audit Logging](#audit-logging)
 7. [Frontend Security](#frontend-security)
-8. [Deployment Hardening](#deployment-hardening)
-9. [Production Readiness Checklist](#production-readiness-checklist)
+8. [File Upload Security](#file-upload-security-v110)
+9. [SSRF Protection](#ssrf-protection-v120)
+10. [Rate Limiting](#rate-limiting-v120)
+11. [Log Sanitization](#log-sanitization-v120)
+12. [Encryption Security](#encryption-security-v110)
+13. [AI & Integration Security](#ai--integration-security)
+14. [Custom Code Execution Security](#custom-code-execution-security-v130)
+15. [Command Injection Prevention](#command-injection-prevention-v130)
+16. [Input Validation Enhancements](#input-validation-enhancements-v130)
+17. [Docker Security Hardening](#docker-security-hardening-v130)
+18. [Nginx Security Headers](#nginx-security-headers-v130)
+19. [Symlink Protection](#symlink-protection-v130)
+20. [Content-Disposition Header Security](#content-disposition-header-security-v130)
+21. [Deployment Hardening](#deployment-hardening)
+22. [Production Readiness Checklist](#production-readiness-checklist)
 
 ---
 
@@ -736,6 +749,233 @@ app.use(rateLimit({
 - [ ] Incident response plan defined
 - [ ] Data retention policies configured
 - [ ] Access reviews scheduled
+
+---
+
+## Custom Code Execution Security (v1.3.0+)
+
+Custom integrations can optionally execute user-provided code for data transformation. This feature is **disabled by default** due to security risks.
+
+### Configuration
+
+```bash
+# .env - DO NOT enable in production without careful consideration
+ENABLE_CUSTOM_CODE_EXECUTION=false  # Default: false
+```
+
+### Security Controls
+
+When enabled, custom code execution includes:
+
+1. **Blocklist validation**: Dangerous patterns are blocked:
+   - `eval`, `Function`, `require`, `import`
+   - Process/child_process access
+   - File system access (`fs.`, `readFile`, `writeFile`)
+   - Network access (`fetch`, `XMLHttpRequest`, `http.`)
+   - Unicode/hex escapes for bypass prevention
+
+2. **Rate limiting**: 10 executions per minute per organization
+
+3. **Logging**: All execution attempts are logged for audit
+
+4. **Sandbox (future)**: Consider `isolated-vm` for true sandboxing
+
+### Recommendation
+
+For production environments, we recommend:
+- Keep `ENABLE_CUSTOM_CODE_EXECUTION=false`
+- Use visual mode transformations instead
+- Review and approve custom code before enabling
+
+---
+
+## Command Injection Prevention (v1.3.0+)
+
+External process spawning (e.g., MCP servers) is protected against command injection.
+
+### Allowed Commands
+
+Only whitelisted commands can be executed:
+
+```typescript
+const ALLOWED_MCP_COMMANDS = ['node', 'npx', 'python3', 'python', 'deno', 'bun'];
+```
+
+### Argument Validation
+
+Command arguments are validated to block shell metacharacters:
+
+```typescript
+// Blocked characters: ; & | ` $ ( ) { } [ ] < >
+const dangerousChars = /[;&|`$(){}[\]<>]/;
+```
+
+### Usage
+
+```typescript
+// MCP server configuration
+{
+  "command": "node",  // Must be in whitelist
+  "args": ["server.js", "--port", "3000"]  // No shell metacharacters
+}
+```
+
+---
+
+## Input Validation Enhancements (v1.3.0+)
+
+### UUID Path Parameters
+
+All path parameters that expect UUIDs are validated:
+
+```typescript
+@Get(':id')
+async findOne(@Param('id', ParseUUIDPipe) id: string) {
+  // Invalid UUIDs return 400 Bad Request
+}
+```
+
+### DTO Validation
+
+DTOs include comprehensive validation:
+
+```typescript
+export class CreateVendorDto {
+  @IsString()
+  @MaxLength(255)
+  name: string;
+
+  @IsOptional()
+  @IsUrl()
+  @MaxLength(500)
+  website?: string;
+
+  @IsOptional()
+  @IsPhoneNumber()
+  @MaxLength(50)
+  phone?: string;
+}
+```
+
+### SCIM Filter Sanitization
+
+SCIM filters are restricted to safe characters:
+
+```typescript
+@IsOptional()
+@MaxLength(500)
+@Matches(/^[a-zA-Z0-9\s\.\[\]"'=<>!@\-_,()]+$/)
+filter?: string;
+```
+
+---
+
+## Docker Security Hardening (v1.3.0+)
+
+### Non-Root User
+
+Dev Dockerfiles run as non-root:
+
+```dockerfile
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
+```
+
+### Security Contexts
+
+Docker Compose services include security contexts:
+
+```yaml
+security_opt:
+  - no-new-privileges:true
+```
+
+### Healthchecks
+
+All services include health checks:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget -q --spider http://localhost:3001/health || exit 1
+```
+
+### Resource Limits
+
+Production deployments should include resource limits:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '1'
+      memory: 512M
+```
+
+---
+
+## Nginx Security Headers (v1.3.0+)
+
+The frontend nginx configuration includes comprehensive security headers:
+
+```nginx
+# Content Security Policy
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss:; frame-ancestors 'self';" always;
+
+# HTTP Strict Transport Security
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+# Other security headers
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-XSS-Protection "1; mode=block" always;
+```
+
+### Rate Limiting
+
+API requests are rate limited at the nginx level:
+
+```nginx
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+location /api/ {
+  limit_req zone=api burst=20 nodelay;
+  # ...
+}
+```
+
+---
+
+## Symlink Protection (v1.3.0+)
+
+File storage operations are protected against symlink attacks:
+
+```typescript
+// Before any file operation
+const stats = await lstat(fullPath);
+if (stats.isSymbolicLink()) {
+  throw new Error('SECURITY: Symlink access denied');
+}
+```
+
+This prevents attackers from creating symlinks to escape the storage directory.
+
+---
+
+## Content-Disposition Header Security (v1.3.0+)
+
+Download endpoints sanitize filenames to prevent header injection:
+
+```typescript
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[\r\n\x00-\x1f\x7f]/g, '')  // Remove control chars
+    .replace(/["\\/]/g, '_');              // Replace problematic chars
+}
+
+// Usage
+res.setHeader('Content-Disposition', 
+  `attachment; filename="${sanitizeFilename(file.name)}"`);
+```
 
 ---
 
