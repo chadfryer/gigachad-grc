@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsArray, IsObject, ValidateNested, IsBoolean, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsArray, IsObject, ValidateNested, IsBoolean, IsNumber, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Transport types for MCP servers
@@ -428,5 +428,31 @@ export class MCPEventDto {
   @IsObject()
   @IsOptional()
   data?: Record<string, unknown>;
+}
+
+// DTOs for MCP Controller endpoints
+export class CallToolDto {
+  @IsString()
+  @MaxLength(255)
+  toolName: string;
+
+  @IsObject()
+  params: Record<string, unknown>;
+}
+
+export class GetPromptDto {
+  @IsString()
+  @MaxLength(255)
+  name: string;
+
+  @IsObject()
+  @IsOptional()
+  args?: Record<string, unknown>;
+}
+
+export class ReadResourceDto {
+  @IsString()
+  @MaxLength(2000)
+  uri: string;
 }
 

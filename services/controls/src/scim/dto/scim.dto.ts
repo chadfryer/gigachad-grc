@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsArray, ValidateNested, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, ValidateNested, IsEmail, MaxLength, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // SCIM 2.0 Standard DTOs - RFC 7643 & RFC 7644
@@ -273,6 +273,10 @@ export class ScimQueryDto {
   @ApiPropertyOptional({ description: 'SCIM filter expression' })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
+  @Matches(/^[a-zA-Z0-9\s\-_.,@"'()[\]{}:=<>!&|*+/\\^%$#~`]*$/, {
+    message: 'filter contains invalid characters',
+  })
   filter?: string;
 
   @ApiPropertyOptional({ default: 1 })
@@ -286,6 +290,7 @@ export class ScimQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   sortBy?: string;
 
   @ApiPropertyOptional({ enum: ['ascending', 'descending'] })

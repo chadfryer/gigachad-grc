@@ -64,6 +64,15 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    # Resource limits - example configuration for development
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-grc} -d ${POSTGRES_DB:-gigachad_grc}']
       interval: 10s
@@ -86,6 +95,15 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    # Resource limits - example configuration for development
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     healthcheck:
       test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
       interval: 10s
@@ -163,6 +181,8 @@ services:
       context: .
       dockerfile: services/controls/Dockerfile
     container_name: grc-controls
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3001
@@ -170,13 +190,13 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
       S3_ENDPOINT: rustfs
       S3_PORT: 9000
-      S3_USE_SSL: ${MINIO_USE_SSL:-false}
+      S3_USE_SSL: ${MINIO_USE_SSL:-true}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       # Legacy MinIO env vars (for backwards compatibility)
       MINIO_ENDPOINT: rustfs
       MINIO_PORT: 9000
-      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-true}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
@@ -217,6 +237,15 @@ services:
       - 'traefik.http.routers.controls-bcdr.rule=PathPrefix(`/api/bcdr`)'
       - 'traefik.http.services.controls.loadbalancer.server.port=3001'
     restart: unless-stopped
+    # Resource limits - example configuration for development
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   # ===========================================
   # Frameworks Service - Compliance Frameworks
@@ -227,18 +256,18 @@ services:
       dockerfile: services/frameworks/Dockerfile
     container_name: grc-frameworks
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3002
       DATABASE_URL: postgresql://${POSTGRES_USER:-grc}:${POSTGRES_PASSWORD:-grc_secret}@postgres:5432/${POSTGRES_DB:-gigachad_grc}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
       S3_ENDPOINT: rustfs
       S3_PORT: 9000
-      S3_USE_SSL: false
+      S3_USE_SSL: ${MINIO_USE_SSL:-true}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       MINIO_ENDPOINT: rustfs
       MINIO_PORT: 9000
-      MINIO_USE_SSL: false
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-true}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
@@ -271,18 +300,18 @@ services:
       dockerfile: services/policies/Dockerfile
     container_name: grc-policies
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3004
       DATABASE_URL: postgresql://${POSTGRES_USER:-grc}:${POSTGRES_PASSWORD:-grc_secret}@postgres:5432/${POSTGRES_DB:-gigachad_grc}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
       S3_ENDPOINT: rustfs
       S3_PORT: 9000
-      S3_USE_SSL: false
+      S3_USE_SSL: ${MINIO_USE_SSL:-true}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       MINIO_ENDPOINT: rustfs
       MINIO_PORT: 9000
-      MINIO_USE_SSL: false
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-true}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
@@ -314,19 +343,21 @@ services:
       context: .
       dockerfile: services/tprm/Dockerfile
     container_name: grc-tprm
+    security_opt:
+      - no-new-privileges:true
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3005
       DATABASE_URL: postgresql://${POSTGRES_USER:-grc}:${POSTGRES_PASSWORD:-grc_secret}@postgres:5432/${POSTGRES_DB:-gigachad_grc}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
       S3_ENDPOINT: rustfs
       S3_PORT: 9000
-      S3_USE_SSL: false
+      S3_USE_SSL: ${MINIO_USE_SSL:-true}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       MINIO_ENDPOINT: rustfs
       MINIO_PORT: 9000
-      MINIO_USE_SSL: false
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-true}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
@@ -362,18 +393,18 @@ services:
       dockerfile: services/trust/Dockerfile
     container_name: grc-trust
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3006
       DATABASE_URL: postgresql://${POSTGRES_USER:-grc}:${POSTGRES_PASSWORD:-grc_secret}@postgres:5432/${POSTGRES_DB:-gigachad_grc}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
       S3_ENDPOINT: rustfs
       S3_PORT: 9000
-      S3_USE_SSL: false
+      S3_USE_SSL: ${MINIO_USE_SSL:-true}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       MINIO_ENDPOINT: rustfs
       MINIO_PORT: 9000
-      MINIO_USE_SSL: false
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-true}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
@@ -407,19 +438,21 @@ services:
       context: .
       dockerfile: services/audit/Dockerfile
     container_name: grc-audit
+    security_opt:
+      - no-new-privileges:true
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3007
       DATABASE_URL: postgresql://${POSTGRES_USER:-grc}:${POSTGRES_PASSWORD:-grc_secret}@postgres:5432/${POSTGRES_DB:-gigachad_grc}
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
       S3_ENDPOINT: rustfs
       S3_PORT: 9000
-      S3_USE_SSL: false
+      S3_USE_SSL: ${MINIO_USE_SSL:-true}
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       MINIO_ENDPOINT: rustfs
       MINIO_PORT: 9000
-      MINIO_USE_SSL: false
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-true}
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-rustfsadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-rustfsadmin}
       KEYCLOAK_URL: http://keycloak:8080
@@ -509,13 +542,14 @@ services:
     image: grafana/grafana:10.2.0
     container_name: grc-grafana
     environment:
-      # SECURITY WARNING: admin/admin is a development default only!
-      # Set GRAFANA_ADMIN_USER and GRAFANA_ADMIN_PASSWORD environment variables
-      # with strong credentials before exposing this service.
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      # SECURITY WARNING: These credentials MUST be set via environment variables!
+      # DO NOT use default values in production - set strong credentials:
+      #   export GRAFANA_ADMIN_USER=your_admin_user
+      #   export GRAFANA_ADMIN_PASSWORD=$(openssl rand -base64 32)
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       GF_USERS_ALLOW_SIGN_UP: 'false'
-      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
       GF_AUTH_ANONYMOUS_ORG_ROLE: 'Viewer'
     volumes:
       - grafana_data:/var/lib/grafana

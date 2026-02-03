@@ -13,6 +13,18 @@ COPY . .
 # Generate Prisma client
 RUN npm run prisma:generate
 
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+# Change ownership of app directory
+RUN chown -R nodejs:nodejs /app
+
+USER nodejs
+
 EXPOSE 3005
+
+# Healthcheck for container monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget -q --spider http://localhost:3005/health || exit 1
 
 CMD ["npm", "run", "start:dev"]

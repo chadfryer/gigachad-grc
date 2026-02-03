@@ -34,6 +34,16 @@ import { CurrentUser, UserContext } from '@gigachad-grc/shared';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 import { Response } from 'express';
 
+/**
+ * SECURITY: Sanitize filename for Content-Disposition header
+ * Prevents header injection attacks via malicious filenames
+ */
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control chars
+    .replace(/["\\/]/g, '_'); // Replace problematic chars
+}
+
 @ApiTags('policies')
 @ApiBearerAuth()
 @UseGuards(DevAuthGuard)
@@ -88,7 +98,7 @@ export class PoliciesController {
     );
     res.set({
       'Content-Type': mimetype,
-      'Content-Disposition': `inline; filename="${filename}"`,
+      'Content-Disposition': `inline; filename="${sanitizeFilename(filename)}"`,
     });
     return new StreamableFile(stream);
   }

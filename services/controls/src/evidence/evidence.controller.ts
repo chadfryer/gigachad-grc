@@ -11,8 +11,10 @@ import {
   UseInterceptors,
   UploadedFile,
   Res,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { Response } from 'express';
+
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -34,6 +36,7 @@ import {
 } from './dto/evidence.dto';
 import {
   Roles,
+  RolesGuard,
   CurrentUser,
   UserContext,
   EndpointRateLimit,
@@ -41,10 +44,20 @@ import {
 } from '@gigachad-grc/shared';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 
+/**
+ * SECURITY: Sanitize filename for Content-Disposition header
+ * Prevents header injection attacks via malicious filenames
+ */
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control chars
+    .replace(/["\\/]/g, '_'); // Replace problematic chars
+}
+
 @ApiTags('evidence')
 @ApiBearerAuth()
 @Controller('api/evidence')
-@UseGuards(DevAuthGuard)
+@UseGuards(DevAuthGuard, RolesGuard)
 export class EvidenceController {
   constructor(private readonly evidenceService: EvidenceService) {}
 
@@ -92,7 +105,7 @@ export class EvidenceController {
   @ApiOperation({ summary: 'Get evidence by ID' })
   @ApiParam({ name: 'id', description: 'Evidence ID' })
   async findOne(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: UserContext,
   ) {
     return this.evidenceService.findOne(id, user.organizationId);
@@ -102,7 +115,7 @@ export class EvidenceController {
   @ApiOperation({ summary: 'Get download URL for evidence' })
   @ApiParam({ name: 'id', description: 'Evidence ID' })
   async getDownloadUrl(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: UserContext,
   ) {
     return this.evidenceService.getDownloadUrl(id, user.organizationId);
@@ -112,14 +125,14 @@ export class EvidenceController {
   @ApiOperation({ summary: 'Stream file content for preview' })
   @ApiParam({ name: 'id', description: 'Evidence ID' })
   async preview(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: UserContext,
     @Res() res: Response,
   ) {
     const { stream, mimeType, filename } = await this.evidenceService.getFileStream(id, user.organizationId);
     res.set({
       'Content-Type': mimeType || 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${filename}"`,
+      'Content-Disposition': `inline; filename="${sanitizeFilename(filename)}"`,
     });
     stream.pipe(res);
   }
@@ -165,7 +178,7 @@ export class EvidenceController {
   @ApiOperation({ summary: 'Update evidence' })
   @ApiParam({ name: 'id', description: 'Evidence ID' })
   async update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: UserContext,
     @Body() dto: UpdateEvidenceDto,
   ) {
@@ -182,7 +195,7 @@ export class EvidenceController {
   @ApiOperation({ summary: 'Delete evidence' })
   @ApiParam({ name: 'id', description: 'Evidence ID' })
   async delete(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: UserContext,
   ) {
     return this.evidenceService.delete(id, user.organizationId);
@@ -193,7 +206,7 @@ export class EvidenceController {
   @ApiOperation({ summary: 'Review evidence' })
   @ApiParam({ name: 'id', description: 'Evidence ID' })
   async review(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: UserContext,
     @Body() dto: ReviewEvidenceDto,
   ) {
@@ -210,7 +223,7 @@ export class EvidenceController {
   @ApiOperation({ summary: 'Link evidence to controls' })
   @ApiParam({ name: 'id', description: 'Evidence ID' })
   async linkToControls(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: UserContext,
     @Body() dto: LinkEvidenceDto,
   ) {
@@ -226,8 +239,8 @@ export class EvidenceController {
   @Roles('admin', 'compliance_manager')
   @ApiOperation({ summary: 'Unlink evidence from control' })
   async unlinkFromControl(
-    @Param('id') id: string,
-    @Param('controlId') controlId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('controlId', ParseUUIDPipe) controlId: string,
     @CurrentUser() user: UserContext,
   ) {
     return this.evidenceService.unlinkFromControl(

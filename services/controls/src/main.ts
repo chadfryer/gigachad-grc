@@ -30,8 +30,8 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      // Don't forbid non-whitelisted properties - needed for multipart file uploads
-      forbidNonWhitelisted: false,
+      // Reject requests with non-whitelisted properties to prevent mass assignment attacks
+      forbidNonWhitelisted: true,
       transformOptions: {
         enableImplicitConversion: true,
       },

@@ -20,6 +20,16 @@ import { UpdateContractDto } from './dto/update-contract.dto';
 import { CurrentUser, UserContext } from '@gigachad-grc/shared';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 
+/**
+ * SECURITY: Sanitize filename for Content-Disposition header
+ * Prevents header injection attacks via malicious filenames
+ */
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control chars
+    .replace(/["\\/]/g, '_'); // Replace problematic chars
+}
+
 @Controller('contracts')
 @UseGuards(DevAuthGuard)
 export class ContractsController {
@@ -82,7 +92,7 @@ export class ContractsController {
     const { buffer, filename, mimetype } = await this.contractsService.downloadDocument(id, user.organizationId);
 
     res.setHeader('Content-Type', mimetype);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${sanitizeFilename(filename)}"`);
     res.send(buffer);
   }
 

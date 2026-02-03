@@ -22,6 +22,16 @@ import { PermissionGuard } from '../auth/permission.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
 
+/**
+ * SECURITY: Sanitize filename for Content-Disposition header
+ * Prevents header injection attacks via malicious filenames
+ */
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control chars
+    .replace(/["\\/]/g, '_'); // Replace problematic chars
+}
+
 @ApiTags('reports')
 @ApiBearerAuth()
 @Controller('api/reports')
@@ -57,7 +67,7 @@ export class ReportsController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `attachment; filename="${sanitizeFilename(filename)}"`,
       'Content-Length': buffer.length,
     });
 
@@ -86,7 +96,7 @@ export class ReportsController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `attachment; filename="${sanitizeFilename(filename)}"`,
       'Content-Length': buffer.length,
     });
 
@@ -118,7 +128,7 @@ export class ReportsController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `attachment; filename="${sanitizeFilename(filename)}"`,
       'Content-Length': buffer.length,
     });
 
@@ -147,7 +157,7 @@ export class ReportsController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `attachment; filename="${sanitizeFilename(filename)}"`,
       'Content-Length': buffer.length,
     });
 
@@ -176,7 +186,7 @@ export class ReportsController {
 
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `attachment; filename="${sanitizeFilename(filename)}"`,
       'Content-Length': buffer.length,
     });
 

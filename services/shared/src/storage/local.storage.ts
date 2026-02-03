@@ -11,6 +11,7 @@ import {
 
 const mkdir = promisify(fs.mkdir);
 const stat = promisify(fs.stat);
+const lstat = promisify(fs.lstat);
 const unlink = promisify(fs.unlink);
 const readdir = promisify(fs.readdir);
 const copyFile = promisify(fs.copyFile);
@@ -77,6 +78,12 @@ export class LocalStorageProvider implements StorageProvider {
       throw new Error(`File not found: ${storagePath}`);
     }
 
+    // SECURITY: Prevent symlink attacks - deny access to symbolic links
+    const stats = await lstat(fullPath);
+    if (stats.isSymbolicLink()) {
+      throw new Error('SECURITY: Symlink access denied');
+    }
+
     return fs.createReadStream(fullPath);
   }
 
@@ -84,6 +91,12 @@ export class LocalStorageProvider implements StorageProvider {
     const fullPath = this.getFullPath(storagePath);
     
     try {
+      // SECURITY: Prevent symlink attacks - deny deletion of symbolic links
+      const stats = await lstat(fullPath);
+      if (stats.isSymbolicLink()) {
+        throw new Error('SECURITY: Symlink access denied');
+      }
+      
       await unlink(fullPath);
     } catch (error: unknown) {
       const fsError = error as NodeJS.ErrnoException;
@@ -114,7 +127,13 @@ export class LocalStorageProvider implements StorageProvider {
     const fullPath = this.getFullPath(storagePath);
     
     try {
-      const stats = await stat(fullPath);
+      // SECURITY: Use lstat to detect symlinks without following them
+      const stats = await lstat(fullPath);
+      
+      // SECURITY: Prevent symlink attacks - deny access to symbolic links
+      if (stats.isSymbolicLink()) {
+        throw new Error('SECURITY: Symlink access denied');
+      }
       
       return {
         path: storagePath,
@@ -164,6 +183,12 @@ export class LocalStorageProvider implements StorageProvider {
   async copy(sourcePath: string, destPath: string): Promise<string> {
     const sourceFullPath = this.getFullPath(sourcePath);
     const destFullPath = this.getFullPath(destPath);
+
+    // SECURITY: Prevent symlink attacks - deny copy of symbolic links
+    const stats = await lstat(sourceFullPath);
+    if (stats.isSymbolicLink()) {
+      throw new Error('SECURITY: Symlink access denied');
+    }
 
     await this.ensureDir(destFullPath);
     await copyFile(sourceFullPath, destFullPath);

@@ -21,17 +21,7 @@ import { DevAuthGuard } from '../auth/dev-auth.guard';
 import { PermissionGuard } from '../auth/permission.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
-
-// DTOs
-class CallToolDto {
-  toolName: string;
-  params: Record<string, unknown>;
-}
-
-class GetPromptDto {
-  name: string;
-  args?: Record<string, unknown>;
-}
+import { CallToolDto, GetPromptDto, ReadResourceDto } from './dto/mcp.dto';
 
 @ApiTags('MCP Servers')
 @ApiBearerAuth()
@@ -166,13 +156,13 @@ export class MCPController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Read a resource from an MCP server' })
   @ApiParam({ name: 'serverId', description: 'Server ID' })
-  @ApiBody({ schema: { type: 'object', properties: { uri: { type: 'string' } } } })
+  @ApiBody({ type: ReadResourceDto })
   @RequirePermission(Resource.INTEGRATIONS, Action.READ)
   async readResource(
     @Param('serverId') serverId: string,
-    @Body() body: { uri: string }
+    @Body() dto: ReadResourceDto
   ) {
-    return this.mcpClient.readResource(serverId, body.uri);
+    return this.mcpClient.readResource(serverId, dto.uri);
   }
 
   // ============================================
