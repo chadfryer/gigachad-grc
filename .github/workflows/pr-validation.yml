@@ -29,6 +29,11 @@ jobs:
       - name: Install all dependencies
         run: npm ci
 
+      - name: Fix rollup optional dep for Linux
+        run: npm install @rollup/rollup-linux-x64-gnu --save-optional
+        working-directory: frontend
+        continue-on-error: true
+
       - name: TypeScript compilation check
         run: npx tsc --noEmit
         working-directory: frontend
