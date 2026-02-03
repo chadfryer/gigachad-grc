@@ -15,6 +15,8 @@ import {
 import { 
   parsePaginationParams, 
   createPaginatedResponse,
+  safeFetch,
+  SSRFProtectionError,
 } from '@gigachad-grc/shared';
 
 interface WebhookRecord {
@@ -246,12 +248,16 @@ export class WebhooksService {
     }
 
     try {
-      const response = await fetch(webhook.url, {
-        method: 'POST',
-        headers,
-        body,
-        signal: AbortSignal.timeout(30000), // 30 second timeout
-      });
+      const response = await safeFetch(
+        webhook.url,
+        {
+          method: 'POST',
+          headers,
+          body,
+          signal: AbortSignal.timeout(30000), // 30 second timeout
+        },
+        { allowPrivateIPs: false }
+      );
 
       const duration = Date.now() - startTime;
       const success = response.ok;

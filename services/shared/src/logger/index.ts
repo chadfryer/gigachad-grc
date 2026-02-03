@@ -112,5 +112,8 @@ export function logRequest(logger: winston.Logger, entry: RequestLogEntry): void
 // Export winston types for consumers
 export { Logger } from 'winston';
 
+// Export sanitizer utilities
+export { sanitizeForLogging, sanitizeError, maskEmail, safeUserId } from './sanitizer';
+
 
 

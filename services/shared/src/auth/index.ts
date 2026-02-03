@@ -6,3 +6,4 @@ export * from './keycloak.service';
 export * from './dev-user.constants';
 export * from './dev-user-sync';
 export * from './dev-auth.guard';
+export * from './token-blacklist.service';

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
+import { maskEmail } from '@gigachad-grc/shared';
 
 export interface EmailOptions {
   to: string;
@@ -163,7 +164,7 @@ export class EmailService {
       if (this.configService.get<string>('EMAIL_PROVIDER', 'smtp') === 'console') {
         this.logger.log(`[CONSOLE MODE] Email would be sent:
   From: ${mailOptions.from}
-  To: ${options.to}
+  To: ${maskEmail(options.to)}
   Subject: ${options.subject}
   Message ID: ${info.messageId}
 
@@ -171,12 +172,12 @@ export class EmailService {
   ${options.text ? options.text.substring(0, 200) : this.stripHtml(options.html).substring(0, 200)}...
         `);
       } else {
-        this.logger.log(`Email sent successfully to ${options.to} (Message ID: ${info.messageId})`);
+        this.logger.log(`Email sent successfully to ${maskEmail(options.to)} (Message ID: ${info.messageId})`);
       }
 
       return true;
     } catch (error) {
-      this.logger.error(`Failed to send email to ${options.to}:`, error.message);
+      this.logger.error(`Failed to send email to ${maskEmail(options.to)}:`, error.message);
       return false;
     }
   }

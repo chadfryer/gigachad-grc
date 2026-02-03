@@ -36,6 +36,8 @@ import {
   Roles,
   CurrentUser,
   UserContext,
+  EndpointRateLimit,
+  ENDPOINT_RATE_LIMITS,
 } from '@gigachad-grc/shared';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 
@@ -124,6 +126,7 @@ export class EvidenceController {
 
   @Post()
   @Roles('admin', 'compliance_manager')
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.FILE_UPLOAD)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload evidence' })
   @ApiConsumes('multipart/form-data')

@@ -12,6 +12,7 @@ import { SeedDataService } from './seed.service';
 import { ResetDataService } from './reset.service';
 import { DevAuthGuard, User } from '../auth/dev-auth.guard';
 import type { UserContext } from '@gigachad-grc/shared';
+import { EndpointRateLimit, ENDPOINT_RATE_LIMITS } from '@gigachad-grc/shared';
 
 interface ResetDto {
   confirmationPhrase: string;
@@ -43,6 +44,7 @@ export class SeedController {
   }
 
   @Post('load-demo')
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.SEED)
   @ApiOperation({ summary: 'Load demo data into the organization' })
   async loadDemoData(@User() user: UserContext) {
     // Check if user is admin
@@ -54,6 +56,7 @@ export class SeedController {
   }
 
   @Post('reset')
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.SEED)
   @ApiOperation({ summary: 'Reset all organization data' })
   @ApiBody({
     schema: {

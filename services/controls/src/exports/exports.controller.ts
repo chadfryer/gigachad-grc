@@ -22,7 +22,7 @@ import {
   ExportJobDto,
   ExportJobListQueryDto,
 } from './dto/export.dto';
-import { CurrentUser, UserContext, Roles } from '@gigachad-grc/shared';
+import { CurrentUser, UserContext, Roles, EndpointRateLimit, ENDPOINT_RATE_LIMITS } from '@gigachad-grc/shared';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 
 @ApiTags('Exports')
@@ -53,6 +53,7 @@ export class ExportsController {
 
   @Post()
   @Roles('admin', 'compliance_manager', 'auditor')
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.EXPORT)
   @ApiOperation({ summary: 'Create a new export job' })
   @ApiResponse({ status: 201, type: ExportJobDto })
   async createExportJob(
@@ -67,6 +68,7 @@ export class ExportsController {
   }
 
   @Get(':id/download')
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.EXPORT)
   @ApiOperation({ summary: 'Download export file' })
   async downloadExport(
     @CurrentUser() user: UserContext,

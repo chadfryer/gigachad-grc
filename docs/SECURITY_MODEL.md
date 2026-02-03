@@ -101,8 +101,48 @@ export class DevAuthGuard implements CanActivate {
 
 - **Access Token Lifetime**: 5 minutes (configurable in Keycloak)
 - **Refresh Token Lifetime**: 30 minutes (configurable)
-- **Session Storage**: `sessionStorage` for in-memory tokens
+- **Session Storage**: `sessionStorage` for in-memory tokens (frontend)
+- **Backend Session Storage**: Redis-backed storage for distributed deployments
 - **CSRF Protection**: SameSite cookies, CORS restrictions
+
+#### Redis Session Storage (v1.2.0+)
+
+Backend sessions are now stored in Redis for persistence and scalability:
+
+```typescript
+// Session storage configuration
+const sessionStore = new RedisSessionStore();
+// Sessions automatically expire based on TTL
+// User and organization indexes for efficient lookups
+```
+
+**Configuration:**
+- `REDIS_URL`: Redis connection string (e.g., `redis://localhost:6379`)
+
+**Features:**
+- Sessions persist across server restarts
+- Works in multi-instance deployments
+- Automatic TTL-based expiry
+- User and organization session indexing
+
+### Token Revocation (v1.2.0+)
+
+JWT tokens can now be revoked before expiry:
+
+```typescript
+// POST /api/auth/logout - Revokes current token
+// POST /api/auth/logout-all - Revokes all user tokens
+```
+
+**How it works:**
+1. Token `jti` (JWT ID) is extracted from the token
+2. On logout, the `jti` is added to a Redis blacklist with TTL matching token expiry
+3. `JwtAuthGuard` checks the blacklist on every request
+4. Blacklisted tokens are rejected even if signature is valid
+
+**Configuration:**
+- Requires `REDIS_URL` for blacklist storage
+- Tokens are automatically removed from blacklist after they expire
 
 ### Proxy Authentication (v1.1.0+)
 
@@ -408,6 +448,111 @@ The `FileValidatorService` provides comprehensive validation:
 - **Magic bytes verification**: Content matches declared type
 - **Size limits enforced**: Per-category limits (e.g., 50MB for evidence)
 - **Double extension detection**: Flags suspicious patterns like `.pdf.exe`
+
+---
+
+## SSRF Protection (v1.2.0+)
+
+Server-Side Request Forgery (SSRF) protection is applied to all outbound HTTP requests with user-controlled URLs.
+
+### Protected Operations
+
+- **Webhooks**: User-configured webhook URLs
+- **Custom Integrations**: User-provided API endpoints
+- **Collectors**: Evidence collection endpoints
+
+### Validation Rules
+
+```typescript
+import { safeFetch, validateUrl } from '@gigachad-grc/shared';
+
+// Validate URL before making request
+const result = await validateUrl(userProvidedUrl);
+if (!result.valid) {
+  throw new Error(result.error);
+}
+
+// Or use safeFetch for automatic validation
+const response = await safeFetch(userProvidedUrl, options);
+```
+
+**Blocked:**
+- Private IP ranges: `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`
+- Localhost: `127.0.0.1`, `localhost`, `::1`
+- Link-local: `169.254.x.x`
+- Non-HTTP protocols: `file://`, `ftp://`, etc.
+- DNS rebinding attacks (resolved IPs are checked)
+
+**Configurable:**
+- `allowedHosts`: Whitelist specific external hosts
+- `allowPrivateIPs`: Enable for internal integrations (not recommended)
+- `maxRedirects`: Limit redirect chains (default: 5)
+
+---
+
+## Rate Limiting (v1.2.0+)
+
+Sensitive endpoints are protected with rate limiting to prevent abuse.
+
+### Protected Endpoints
+
+| Endpoint Category | Limit | Window |
+|------------------|-------|--------|
+| Exports (PDF, CSV) | 5 requests | 1 minute |
+| Bulk Operations | 10 requests | 1 minute |
+| API Key Management | 20 requests | 1 hour |
+| File Uploads | 10 requests | 1 minute |
+| Seed/Demo Data | 3 requests | 1 hour |
+| Config Import/Export | 5 requests | 5 minutes |
+
+### Usage
+
+```typescript
+import { EndpointRateLimit, ENDPOINT_RATE_LIMITS } from '@gigachad-grc/shared';
+
+@Post('export')
+@EndpointRateLimit(ENDPOINT_RATE_LIMITS.EXPORT)
+async exportData() {
+  // Rate limited to 5 requests per minute per user
+}
+```
+
+### Response
+
+When rate limit is exceeded, the API returns:
+
+```json
+{
+  "statusCode": 429,
+  "message": "Too many requests, please try again later",
+  "retryAfter": 45
+}
+```
+
+---
+
+## Log Sanitization (v1.2.0+)
+
+Sensitive data is automatically sanitized before logging.
+
+### Sanitized Data Types
+
+- **Email addresses**: `john@example.com` → `joh***@***`
+- **JWT tokens**: `Bearer eyJ...` → `Bearer [TOKEN REDACTED]`
+- **Passwords/Secrets**: Any key containing `password`, `secret`, `token`, `apiKey` → `[REDACTED]`
+- **Stack traces**: Only included in development logs
+
+### Usage
+
+```typescript
+import { sanitizeForLogging, maskEmail } from '@gigachad-grc/shared';
+
+// Mask a single email
+logger.log(`User logged in: ${maskEmail(user.email)}`);
+
+// Sanitize an entire object
+logger.log('Request data:', sanitizeForLogging(requestBody));
+```
 
 ---
 
