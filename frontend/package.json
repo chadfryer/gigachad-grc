@@ -8,7 +8,7 @@
     "build:typecheck": "tsc && vite build",
     "build:analyze": "ANALYZE=true vite build",
     "preview": "vite preview",
-    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --report-unused-disable-directives",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

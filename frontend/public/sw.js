@@ -1,3 +1,4 @@
+/* global self, caches, fetch, Response, URL */
 /**
  * GigaChad GRC Service Worker
  * Provides offline caching and improved performance
@@ -108,7 +109,7 @@ async function handleApiRequest(request) {
     }
     
     return response;
-  } catch (error) {
+  } catch {
     // Network failed, try cache
     const cache = await caches.open(API_CACHE);
     const cachedResponse = await cache.match(request);

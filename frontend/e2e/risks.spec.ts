@@ -38,7 +38,7 @@ test.describe('Risks - List View', () => {
     await page.waitForTimeout(2000);
     
     // Look for severity indicators
-    const severityIndicators = page.locator('text=/critical|high|medium|low|negligible/i');
+    const _severityIndicators = page.locator('text=/critical|high|medium|low|negligible/i');
     // May or may not have data
     await expect(page.locator('main')).toBeVisible();
   });

@@ -365,7 +365,7 @@ export default function FrameworkLibrary() {
     try {
       const response = await api.get(`/api/frameworks/catalog/${framework.id}`);
       setPreviewFramework({ ...framework, requirements: response.data.requirements });
-    } catch (error) {
+    } catch {
       toast.error('Failed to load framework details');
     }
   };

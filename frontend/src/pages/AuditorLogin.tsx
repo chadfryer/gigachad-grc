@@ -46,7 +46,7 @@ export default function AuditorLogin() {
     try {
       await login(accessCode.trim());
       navigate('/portal/dashboard');
-    } catch (err) {
+    } catch {
       // Error is handled by context
       setIsSubmitting(false);
     }

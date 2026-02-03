@@ -61,7 +61,7 @@ function AddMemberModal({
       onClose();
       setSelectedUserId('');
       setSelectedRole('viewer');
-    } catch (error) {
+    } catch {
       toast.error('Failed to add member');
     } finally {
       setIsAdding(false);

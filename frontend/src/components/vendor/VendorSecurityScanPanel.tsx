@@ -324,7 +324,7 @@ function SubdomainCrawlModal({
 
         const data = await response.json();
         setCrawlResult(data);
-      } catch (err) {
+      } catch {
         setError('Failed to crawl subdomain. It may not be accessible.');
       } finally {
         setLoading(false);

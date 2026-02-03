@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             secureStorage.set(STORAGE_KEYS.TOKEN, 'dev-token-not-for-production');
             setIsLoading(false);
             return;
-          } catch (e) {
+          } catch {
             localStorage.removeItem('grc-dev-auth');
           }
         }

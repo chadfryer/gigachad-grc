@@ -68,7 +68,7 @@ export default function VendorDetail() {
         if (response.data?.featureSettings) {
           setFeatureSettings(response.data.featureSettings);
         }
-      } catch (err) {
+      } catch {
         // Use defaults if config fetch fails
         console.warn('Failed to fetch TPRM config, using defaults');
       }

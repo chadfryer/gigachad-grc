@@ -65,7 +65,7 @@ test.describe('Dashboard', () => {
 
   test('dashboard data updates on refresh', async ({ page }) => {
     // Get initial state
-    const initialContent = await page.locator('main, [role="main"]').first().textContent();
+    const _initialContent = await page.locator('main, [role="main"]').first().textContent();
     
     // Reload page
     await page.reload();

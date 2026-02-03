@@ -45,7 +45,7 @@ test.describe('Integrations - List View', () => {
       await page.waitForTimeout(1000);
       
       // Should filter results
-      const results = page.locator('[class*="integration"], [class*="card"]');
+      const _results = page.locator('[class*="integration"], [class*="card"]');
       // Results may or may not include AWS integration
     }
   });

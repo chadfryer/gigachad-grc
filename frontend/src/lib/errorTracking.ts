@@ -97,7 +97,7 @@ class ErrorTrackingService {
       });
 
       console.info('[ErrorTracking] Sentry initialized successfully');
-    } catch (error) {
+    } catch {
       // Sentry not installed or failed to load - that's okay, we'll use console logging
       console.info('[ErrorTracking] Sentry not available - using console logging only');
       console.debug('[ErrorTracking] To enable Sentry: npm install @sentry/react');

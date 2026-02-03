@@ -1,8 +1,38 @@
-// Types
+// Types - Primary type definitions
 export * from './types';
 
-// Authentication
-export * from './auth';
+// Authentication - Export with renamed conflicts
+export {
+  // JWT
+  JwtPayload,
+  JwtAuthGuard,
+  ApiKeyAuthGuard,
+  CombinedAuthGuard,
+  // Roles
+  ROLES_KEY,
+  Roles,
+  PERMISSIONS_KEY,
+  RequirePermissions,
+  RolesGuard,
+  PermissionsGuard,
+  RolesOrPermissionsGuard,
+  // User decorators
+  CurrentUser,
+  OrganizationId,
+  // Keycloak
+  KeycloakUser,
+  CreateKeycloakUserDto,
+  KeycloakAdminService,
+  // Dev auth
+  DEV_USER,
+  DevUser,
+  ensureDevUserExists,
+  DevAuthGuard,
+  // Note: User decorator is renamed to avoid conflict with User type
+  User as UserDecorator,
+  // Note: UserContext from auth is renamed - use type from ./types instead
+  UserContext as AuthUserContext,
+} from './auth';
 
 // Storage
 export * from './storage';
@@ -13,11 +43,84 @@ export * from './events';
 // Search
 export * from './search';
 
-// Utilities
-export * from './utils';
+// Utilities - Export with renamed conflicts
+export {
+  // crypto
+  encrypt,
+  decrypt,
+  hashPassword,
+  verifyPassword,
+  generateApiKey,
+  verifyApiKey,
+  generateToken,
+  hashToken,
+  generateWebhookSecret,
+  signWebhookPayload,
+  verifyWebhookSignature,
+  // helpers
+  generateId,
+  sleep,
+  retry,
+  chunk,
+  unique,
+  groupBy,
+  pick,
+  omit,
+  deepClone,
+  isEmpty,
+  formatDate,
+  slugify,
+  // validation
+  isValidEmail,
+  isValidUrl,
+  isValidUuid,
+  sanitizeString,
+  sanitizeObject,
+  // pagination
+  createPaginatedResponse,
+  parsePaginationParams,
+  // sanitize
+  sanitizeFilename,
+  escapeHtml,
+  // error-handler - some renamed to avoid conflicts with types
+  ErrorDetails,
+  DomainError,
+  isDomainError,
+  isPrismaError,
+  isAxiosError,
+  getStatusCode,
+  toErrorDetails,
+  handleError,
+  withErrorHandling,
+  safeAsync,
+  retryAsync,
+  createApiErrorResponse,
+  CatchErrorsOptions,
+  CatchErrors,
+  CatchErrorsClass,
+  // Renamed exports to avoid conflicts
+  ApiErrorResponse as UtilsApiErrorResponse,
+  isError as utilsIsError,
+  getErrorCode as utilsGetErrorCode,
+  getErrorMessage as utilsGetErrorMessage,
+} from './utils';
 
-// Logger
-export * from './logger';
+// Logger - Export with renamed conflicts
+export {
+  getLogger,
+  createChildLogger,
+  controlsLogger,
+  frameworksLogger,
+  integrationsLogger,
+  policiesLogger,
+  mcpLogger,
+  logAudit,
+  logRequest,
+  RequestLogEntry,
+  Logger,
+  // Renamed to avoid conflict with types
+  AuditLogEntry as LoggerAuditLogEntry,
+} from './logger';
 
 // Health checks
 export * from './health';

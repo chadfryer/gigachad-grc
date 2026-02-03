@@ -36,7 +36,7 @@ test.describe('Controls - List View', () => {
       await page.waitForTimeout(500);
       
       // Results should update
-      const results = page.locator('table tbody tr, [class*="list-item"], [class*="card"]');
+      const _results = page.locator('table tbody tr, [class*="list-item"], [class*="card"]');
       // Results count may change after search
     }
   });
@@ -122,7 +122,7 @@ test.describe('Controls - Status Management', () => {
     const statusIndicators = page.locator('[class*="badge"], [class*="chip"], [class*="tag"], [class*="status"]');
     
     // Should have some status indicators if controls exist
-    const count = await statusIndicators.count();
+    const _count = await statusIndicators.count();
     // Just verify the page loads without checking exact count
     await expect(page.locator('main')).toBeVisible();
   });
@@ -166,7 +166,7 @@ test.describe('Controls - Bulk Actions', () => {
       await checkboxes.first().click();
       
       // Bulk action bar should appear or be enabled
-      const bulkActions = page.locator('[class*="bulk"], button:has-text("Selected")');
+      const _bulkActions = page.locator('[class*="bulk"], button:has-text("Selected")');
       // May or may not show depending on implementation
     }
   });

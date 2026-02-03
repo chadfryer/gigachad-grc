@@ -37,7 +37,7 @@ export const evidenceApi = {
    * Upload new evidence
    */
   upload: async (file: File, data: Omit<UploadEvidenceData, 'file'>) => {
-    const formData = createFormData(file, data as Record<string, string | number | boolean>);
+    const formData = createFormData(file, data as unknown as Record<string, string | number | boolean>);
     const response = await api.post<Evidence>('/api/evidence', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

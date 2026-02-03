@@ -553,9 +553,9 @@ function MultiWorkspaceSettings() {
       try {
         await enableMultiWorkspace();
         toast.success('Multi-workspace mode enabled! A default workspace has been created.');
-      } catch (error) {
-        toast.error('Failed to enable multi-workspace mode');
-      } finally {
+    } catch {
+      toast.error('Failed to enable multi-workspace mode');
+    } finally {
         setIsToggling(false);
       }
     }
@@ -567,7 +567,7 @@ function MultiWorkspaceSettings() {
     try {
       await disableMultiWorkspace();
       toast.success('Multi-workspace mode disabled');
-    } catch (error) {
+    } catch {
       toast.error('Failed to disable multi-workspace mode');
     } finally {
       setIsToggling(false);
@@ -1722,7 +1722,7 @@ function EmployeeComplianceSettings() {
       toast.success('Employee compliance settings saved');
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ['employee-compliance-dashboard'] });
-    } catch (error) {
+    } catch {
       toast.error('Failed to save settings');
     } finally {
       setIsSaving(false);

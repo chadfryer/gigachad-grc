@@ -230,7 +230,6 @@ export default function ReportBuilder({ initialConfig, onSave, className }: Repo
 
       toast.success(`Report definition downloaded (${format.toUpperCase()} export coming later)`);
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Error exporting report definition', error);
       toast.error('Failed to export report definition');
     }

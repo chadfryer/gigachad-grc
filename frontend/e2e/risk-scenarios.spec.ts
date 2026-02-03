@@ -47,7 +47,7 @@ test.describe('Risk Scenarios', () => {
       await expect(modal.first()).toBeVisible();
       
       // Check for form fields
-      const titleInput = page.locator('input').filter({ hasText: /title/i }).first();
+      const _titleInput = page.locator('input').filter({ hasText: /title/i }).first();
       expect(await page.locator('input').count()).toBeGreaterThan(0);
     }
   });

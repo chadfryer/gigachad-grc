@@ -119,7 +119,7 @@ test.describe('BC/DR Enhancements', () => {
           await nextButton.click();
           
           // Should show validation error
-          const errorVisible = await page.locator('text=required').first().isVisible().catch(() => false);
+          const _errorVisible = await page.locator('text=required').first().isVisible().catch(() => false);
           // Validation behavior may vary
         }
       }
@@ -138,7 +138,7 @@ test.describe('BC/DR Enhancements', () => {
       const templateCard = page.locator('[class*=card], [class*=template]').first();
       const globalBadge = page.locator('text=Global');
       
-      const hasTemplates = await templateCard.isVisible().catch(() => false) ||
+      const _hasTemplates = await templateCard.isVisible().catch(() => false) ||
                           await globalBadge.isVisible().catch(() => false);
       
       // May not have templates if not seeded
@@ -150,7 +150,7 @@ test.describe('BC/DR Enhancements', () => {
 
       // Look for filter/category buttons
       const categoryFilter = page.locator('select, button').filter({ hasText: /Category|Filter|Ransomware|Infrastructure/i });
-      const hasFilter = await categoryFilter.first().isVisible().catch(() => false);
+      const _hasFilter = await categoryFilter.first().isVisible().catch(() => false);
       
       // Filter presence depends on data
     });
@@ -167,7 +167,7 @@ test.describe('BC/DR Enhancements', () => {
         
         // Look for preview modal
         const previewModal = page.locator('text=Scenario Narrative, text=Discussion Questions');
-        const modalVisible = await previewModal.first().isVisible().catch(() => false);
+        const _modalVisible = await previewModal.first().isVisible().catch(() => false);
         // Modal may or may not appear depending on template presence
       }
     });
@@ -217,7 +217,7 @@ test.describe('BC/DR Enhancements', () => {
 
         // Check for team type dropdown
         const typeSelect = page.locator('select').filter({ hasText: /Crisis Management|IT Recovery/i });
-        const hasOptions = await typeSelect.first().isVisible().catch(() => false) ||
+        const _hasOptions = await typeSelect.first().isVisible().catch(() => false) ||
                           await page.locator('option').filter({ hasText: /Crisis Management/i }).first().count() > 0;
       }
     });
@@ -309,8 +309,8 @@ test.describe('BC/DR Enhancements', () => {
       }
 
       // Look for new dashboard widgets
-      const attestationsWidget = page.locator('text=Pending Attestations');
-      const vendorGapsWidget = page.locator('text=Vendor Recovery Gaps');
+      const _attestationsWidget = page.locator('text=Pending Attestations');
+      const _vendorGapsWidget = page.locator('text=Vendor Recovery Gaps');
       
       // At least the dashboard should load
       const dashboardTitle = page.locator('text=BC/DR Dashboard');
@@ -329,7 +329,7 @@ test.describe('BC/DR Enhancements', () => {
 
       // Look for Recovery Teams in quick actions
       const teamsAction = page.locator('a, button').filter({ hasText: /Recovery Teams/i });
-      const hasAction = await teamsAction.first().isVisible().catch(() => false);
+      const _hasAction = await teamsAction.first().isVisible().catch(() => false);
       // Quick actions section should be present
     });
 
@@ -344,7 +344,7 @@ test.describe('BC/DR Enhancements', () => {
 
       // Look for Incidents link in header
       const incidentsLink = page.locator('a').filter({ hasText: /Incidents/i });
-      const hasLink = await incidentsLink.first().isVisible().catch(() => false);
+      const _hasLink = await incidentsLink.first().isVisible().catch(() => false);
       // Link may be in nav or header
     });
   });
@@ -358,9 +358,9 @@ test.describe('BC/DR Enhancements', () => {
       await page.waitForLoadState('networkidle');
 
       // Look for navigation items
-      const exerciseTemplatesNav = page.locator('nav a, aside a').filter({ hasText: /Exercise Templates/i });
-      const recoveryTeamsNav = page.locator('nav a, aside a').filter({ hasText: /Recovery Teams/i });
-      const incidentsNav = page.locator('nav a, aside a').filter({ hasText: /Incidents/i });
+      const _exerciseTemplatesNav = page.locator('nav a, aside a').filter({ hasText: /Exercise Templates/i });
+      const _recoveryTeamsNav = page.locator('nav a, aside a').filter({ hasText: /Recovery Teams/i });
+      const _incidentsNav = page.locator('nav a, aside a').filter({ hasText: /Incidents/i });
 
       // At least check that the menu structure exists
       const hasNav = await page.locator('nav, aside').first().isVisible().catch(() => false);

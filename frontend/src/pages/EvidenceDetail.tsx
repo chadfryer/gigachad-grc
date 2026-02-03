@@ -108,7 +108,7 @@ export default function EvidenceDetail() {
       const response = await evidenceApi.getDownloadUrl(id!);
       const url = response.data.url;
       window.open(url, '_blank');
-    } catch (error) {
+    } catch {
       toast.error('Failed to get download URL');
     }
   };

@@ -50,7 +50,7 @@ test.describe('Vendors - List View', () => {
     await page.waitForTimeout(2000);
     
     // Look for risk score or risk level indicators
-    const riskIndicators = page.locator('[class*="risk"], [class*="score"], text=/high|medium|low|critical/i');
+    const _riskIndicators = page.locator('[class*="risk"], [class*="score"], text=/high|medium|low|critical/i');
     // May or may not have data
     await expect(page.locator('main')).toBeVisible();
   });

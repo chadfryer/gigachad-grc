@@ -23,7 +23,6 @@ import './index.css';
 // Use MODE to check if this is a production build vs development build
 if (import.meta.env.MODE === 'production' && import.meta.env.VITE_ENABLE_DEV_AUTH === 'true') {
   // Fail fast so misconfigured builds don't silently ship
-  // eslint-disable-next-line no-console
   console.error('VITE_ENABLE_DEV_AUTH is enabled in a production build. This is not allowed.');
   throw new Error('VITE_ENABLE_DEV_AUTH must be false or unset in production builds.');
 }

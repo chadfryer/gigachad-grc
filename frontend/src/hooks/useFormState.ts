@@ -46,7 +46,7 @@ export interface FormActions<T> {
 export function useFormState<T extends Record<string, unknown>>(
   options: UseFormStateOptions<T>
 ): [FormState<T>, FormActions<T>] {
-  const { initialValues, validationRules = {}, onSubmit } = options;
+  const { initialValues, validationRules = {} as Partial<Record<keyof T, FormValidationRule<T>[]>>, onSubmit } = options;
 
   const [values, setValuesState] = useState<T>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof T, FormFieldError>>>({});
