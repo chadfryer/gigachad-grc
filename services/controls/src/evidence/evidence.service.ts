@@ -218,10 +218,15 @@ export class EvidenceService {
   ) {
     const before = await this.findOne(id, organizationId);
 
+    // SECURITY: Explicit field mapping instead of spread to prevent mass assignment
     const updated = await this.prisma.evidence.update({
       where: { id },
       data: {
-        ...dto,
+        title: dto.title,
+        description: dto.description,
+        type: dto.type,
+        category: dto.category,
+        folderId: dto.folderId,
         tags: dto.tags || undefined,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
         updatedBy: userId,

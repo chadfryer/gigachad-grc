@@ -12,10 +12,7 @@ import {
   ExportEntityType,
   ExportStatus,
 } from './dto/export.dto';
-import { 
-  parsePaginationParams, 
-  createPaginatedResponse,
-} from '@gigachad-grc/shared';
+import { parsePaginationParams, createPaginatedResponse } from '@gigachad-grc/shared';
 
 interface ExportJobRecord {
   id: string;
@@ -41,14 +38,17 @@ interface ExportJobRecord {
 const exportJobStore = new Map<string, ExportJobRecord>();
 
 // Cleanup expired jobs every hour
-setInterval(() => {
-  const now = new Date();
-  for (const [id, job] of exportJobStore.entries()) {
-    if (job.expiresAt && job.expiresAt < now) {
-      exportJobStore.delete(id);
+setInterval(
+  () => {
+    const now = new Date();
+    for (const [id, job] of exportJobStore.entries()) {
+      if (job.expiresAt && job.expiresAt < now) {
+        exportJobStore.delete(id);
+      }
     }
-  }
-}, 60 * 60 * 1000);
+  },
+  60 * 60 * 1000
+);
 
 @Injectable()
 export class ExportsService {
@@ -59,7 +59,7 @@ export class ExportsService {
   async createExportJob(
     organizationId: string,
     userId: string,
-    dto: CreateExportJobDto,
+    dto: CreateExportJobDto
   ): Promise<ExportJobDto> {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -81,7 +81,7 @@ export class ExportsService {
     this.logger.log(`Created export job ${id} for ${dto.entityType}`);
 
     // Process asynchronously
-    this.processExportJob(id).catch(err => {
+    this.processExportJob(id).catch((err) => {
       this.logger.error(`Export job ${id} failed: ${err.message}`);
     });
 
@@ -96,24 +96,22 @@ export class ExportsService {
     return this.toDto(job);
   }
 
-  async listExportJobs(
-    organizationId: string,
-    query: ExportJobListQueryDto,
-  ) {
+  async listExportJobs(organizationId: string, query: ExportJobListQueryDto) {
     const pagination = parsePaginationParams({
       page: query.page,
       limit: query.limit,
     });
 
-    let jobs = Array.from(exportJobStore.values())
-      .filter(j => j.organizationId === organizationId);
+    let jobs = Array.from(exportJobStore.values()).filter(
+      (j) => j.organizationId === organizationId
+    );
 
     if (query.status) {
-      jobs = jobs.filter(j => j.status === query.status);
+      jobs = jobs.filter((j) => j.status === query.status);
     }
 
     if (query.entityType) {
-      jobs = jobs.filter(j => j.entityType === query.entityType);
+      jobs = jobs.filter((j) => j.entityType === query.entityType);
     }
 
     jobs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -123,15 +121,15 @@ export class ExportsService {
     const paginatedJobs = jobs.slice(offset, offset + pagination.limit);
 
     return createPaginatedResponse(
-      paginatedJobs.map(j => this.toDto(j)),
+      paginatedJobs.map((j) => this.toDto(j)),
       total,
-      pagination,
+      pagination
     );
   }
 
   async downloadExport(
     organizationId: string,
-    id: string,
+    id: string
   ): Promise<{ content: string; contentType: string; fileName: string }> {
     const job = exportJobStore.get(id);
     if (!job || job.organizationId !== organizationId) {
@@ -147,7 +145,7 @@ export class ExportsService {
     }
 
     const contentType = this.getContentType(job.format);
-    
+
     return {
       content: job.fileContent || '',
       contentType,
@@ -203,70 +201,124 @@ export class ExportsService {
     }
   }
 
+  /**
+   * SECURITY: Allowlists for filter fields per entity type to prevent field injection attacks.
+   * Only these fields can be used in export filters.
+   */
+  private static readonly ALLOWED_FILTER_FIELDS: Record<ExportEntityType, string[]> = {
+    [ExportEntityType.Controls]: ['status', 'category', 'isCustom', 'createdAt', 'updatedAt'],
+    [ExportEntityType.Policies]: ['status', 'category', 'createdAt', 'updatedAt'],
+    [ExportEntityType.Risks]: [
+      'initialSeverity',
+      'category',
+      'intakeStatus',
+      'createdAt',
+      'updatedAt',
+    ],
+    [ExportEntityType.Evidence]: ['status', 'type', 'source', 'category', 'createdAt', 'updatedAt'],
+    [ExportEntityType.Tasks]: ['status', 'priority', 'createdAt', 'updatedAt', 'dueDate'],
+    [ExportEntityType.AuditLogs]: ['action', 'entityType', 'timestamp'],
+    [ExportEntityType.Users]: ['role', 'status', 'createdAt'],
+    [ExportEntityType.Frameworks]: ['type', 'status', 'createdAt'],
+    [ExportEntityType.FullOrg]: [], // No filters allowed for full org export
+  };
+
+  /**
+   * SECURITY: Sanitize filters by extracting only allowed fields.
+   * Prevents mass assignment vulnerabilities by explicitly mapping allowed fields.
+   */
+  private sanitizeFilters(
+    filters: Record<string, any> | undefined,
+    entityType: ExportEntityType
+  ): Record<string, any> {
+    if (!filters) return {};
+
+    const allowedFields = ExportsService.ALLOWED_FILTER_FIELDS[entityType] || [];
+    const sanitized: Record<string, any> = {};
+
+    for (const field of allowedFields) {
+      if (filters[field] !== undefined) {
+        sanitized[field] = filters[field];
+      }
+    }
+
+    return sanitized;
+  }
+
   private async fetchData(job: ExportJobRecord): Promise<any[]> {
     const { organizationId, entityType, filters, includeRelations } = job;
+
+    // SECURITY: Sanitize filters to prevent field injection
+    const sanitizedFilters = this.sanitizeFilters(filters, entityType);
 
     switch (entityType) {
       case ExportEntityType.Controls:
         return this.prisma.control.findMany({
           where: {
-            OR: [
-              { organizationId: null },
-              { organizationId },
-            ],
+            OR: [{ organizationId: null }, { organizationId }],
             deletedAt: null,
-            ...filters,
+            ...sanitizedFilters,
           },
-          include: includeRelations ? {
-            implementations: { where: { organizationId } },
-            mappings: true,
-          } : undefined,
+          include: includeRelations
+            ? {
+                implementations: { where: { organizationId } },
+                mappings: true,
+              }
+            : undefined,
         });
 
       case ExportEntityType.Policies:
         return this.prisma.policy.findMany({
-          where: { organizationId, deletedAt: null, ...filters },
-          include: includeRelations ? {
-            versions: true,
-            controlLinks: true,
-          } : undefined,
+          where: { organizationId, deletedAt: null, ...sanitizedFilters },
+          include: includeRelations
+            ? {
+                versions: true,
+                controlLinks: true,
+              }
+            : undefined,
         });
 
       case ExportEntityType.Risks:
         return this.prisma.risk.findMany({
-          where: { organizationId, deletedAt: null, ...filters },
-          include: includeRelations ? {
-            controls: true,
-            assessment: true,
-          } : undefined,
+          where: { organizationId, deletedAt: null, ...sanitizedFilters },
+          include: includeRelations
+            ? {
+                controls: true,
+                assessment: true,
+              }
+            : undefined,
         });
 
       case ExportEntityType.Evidence:
         return this.prisma.evidence.findMany({
-          where: { organizationId, deletedAt: null, ...filters },
-          include: includeRelations ? {
-            controlLinks: true,
-          } : undefined,
+          where: { organizationId, deletedAt: null, ...sanitizedFilters },
+          include: includeRelations
+            ? {
+                controlLinks: true,
+              }
+            : undefined,
         });
 
       case ExportEntityType.Tasks:
         return this.prisma.task.findMany({
-          where: { organizationId, ...filters },
-          include: includeRelations ? {
-            assignee: { select: { id: true, displayName: true, email: true } },
-          } : undefined,
+          where: { organizationId, ...sanitizedFilters },
+          include: includeRelations
+            ? {
+                assignee: { select: { id: true, displayName: true, email: true } },
+              }
+            : undefined,
         });
 
       case ExportEntityType.AuditLogs:
         return this.prisma.auditLog.findMany({
-          where: { organizationId, ...filters },
+          where: { organizationId, ...sanitizedFilters },
           orderBy: { timestamp: 'desc' },
           take: 10000, // Limit audit log exports
         });
 
       case ExportEntityType.Users:
         return this.prisma.user.findMany({
-          where: { organizationId, ...filters },
+          where: { organizationId, ...sanitizedFilters },
           select: {
             id: true,
             email: true,
@@ -281,18 +333,18 @@ export class ExportsService {
       case ExportEntityType.Frameworks:
         return this.prisma.framework.findMany({
           where: {
-            OR: [
-              { organizationId: null },
-              { organizationId },
-            ],
-            ...filters,
+            OR: [{ organizationId: null }, { organizationId }],
+            ...sanitizedFilters,
           },
-          include: includeRelations ? {
-            requirements: true,
-          } : undefined,
+          include: includeRelations
+            ? {
+                requirements: true,
+              }
+            : undefined,
         });
 
       case ExportEntityType.FullOrg: {
+        // SECURITY: No filters allowed for full org export to prevent targeted data extraction
         const [controls, policies, risks, evidence] = await Promise.all([
           this.prisma.control.findMany({
             where: { OR: [{ organizationId: null }, { organizationId }], deletedAt: null },
@@ -342,23 +394,25 @@ export class ExportsService {
    */
   private formatAsCsv(data: any[]): string {
     if (data.length === 0) return '';
-    
-    const flatData = data.map(row => this.flattenObject(row));
+
+    const flatData = data.map((row) => this.flattenObject(row));
     const headers = Object.keys(flatData[0]);
-    
-    const rows = flatData.map(row => 
-      headers.map(h => {
-        const val = row[h];
-        if (val === null || val === undefined) return '';
-        if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
-        const strVal = String(val);
-        if (strVal.includes(',') || strVal.includes('"') || strVal.includes('\n')) {
-          return `"${strVal.replace(/"/g, '""')}"`;
-        }
-        return strVal;
-      }).join(',')
+
+    const rows = flatData.map((row) =>
+      headers
+        .map((h) => {
+          const val = row[h];
+          if (val === null || val === undefined) return '';
+          if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
+          const strVal = String(val);
+          if (strVal.includes(',') || strVal.includes('"') || strVal.includes('\n')) {
+            return `"${strVal.replace(/"/g, '""')}"`;
+          }
+          return strVal;
+        })
+        .join(',')
     );
-    
+
     return [headers.join(','), ...rows].join('\n');
   }
 
@@ -375,7 +429,7 @@ export class ExportsService {
     if (data.length === 0) {
       worksheet.addRow(['No data to export']);
     } else {
-      const flatData = data.map(row => this.flattenObject(row));
+      const flatData = data.map((row) => this.flattenObject(row));
       const headers = Object.keys(flatData[0]);
 
       // Add header row with styling
@@ -392,8 +446,8 @@ export class ExportsService {
       });
 
       // Add data rows
-      flatData.forEach(row => {
-        const values = headers.map(h => {
+      flatData.forEach((row) => {
+        const values = headers.map((h) => {
           const val = row[h];
           if (val === null || val === undefined) return '';
           if (typeof val === 'object') return JSON.stringify(val);
@@ -405,7 +459,7 @@ export class ExportsService {
       // Auto-fit columns
       worksheet.columns.forEach((column, i) => {
         let maxLength = headers[i].length;
-        flatData.forEach(row => {
+        flatData.forEach((row) => {
           const val = row[headers[i]];
           const len = val ? String(val).length : 0;
           if (len > maxLength) maxLength = Math.min(len, 50);
@@ -467,7 +521,7 @@ export class ExportsService {
         doc.fontSize(12).fillColor('#333333');
         doc.text('No data to export.', { align: 'center' });
       } else {
-        const flatData = data.map(row => this.flattenObject(row));
+        const flatData = data.map((row) => this.flattenObject(row));
         const headers = Object.keys(flatData[0]).slice(0, 8); // Limit columns for PDF
 
         // Table header
@@ -478,12 +532,10 @@ export class ExportsService {
         // Header row
         doc.font('Helvetica-Bold');
         headers.forEach((header, i) => {
-          doc.text(
-            this.truncateText(header, 12),
-            50 + i * colWidth,
-            yPos,
-            { width: colWidth - 5, ellipsis: true }
-          );
+          doc.text(this.truncateText(header, 12), 50 + i * colWidth, yPos, {
+            width: colWidth - 5,
+            ellipsis: true,
+          });
         });
 
         doc.font('Helvetica');
@@ -494,7 +546,7 @@ export class ExportsService {
         // Data rows
         doc.fontSize(8).fillColor('#333333');
         const maxRows = 50; // Limit rows for PDF
-        
+
         flatData.slice(0, maxRows).forEach((row, rowIndex) => {
           if (yPos > doc.page.height - 100) {
             doc.addPage();
@@ -504,12 +556,10 @@ export class ExportsService {
           headers.forEach((header, i) => {
             const val = row[header];
             const displayVal = val === null || val === undefined ? '' : String(val);
-            doc.text(
-              this.truncateText(displayVal, 15),
-              50 + i * colWidth,
-              yPos,
-              { width: colWidth - 5, ellipsis: true }
-            );
+            doc.text(this.truncateText(displayVal, 15), 50 + i * colWidth, yPos, {
+              width: colWidth - 5,
+              ellipsis: true,
+            });
           });
 
           yPos += 15;
@@ -524,7 +574,9 @@ export class ExportsService {
         if (data.length > maxRows) {
           doc.moveDown(2);
           doc.fontSize(10).fillColor('#666666');
-          doc.text(`... and ${data.length - maxRows} more records (truncated for PDF)`, { align: 'center' });
+          doc.text(`... and ${data.length - maxRows} more records (truncated for PDF)`, {
+            align: 'center',
+          });
         }
       }
 
@@ -533,12 +585,10 @@ export class ExportsService {
       const pageCount = doc.bufferedPageRange().count;
       for (let i = 0; i < pageCount; i++) {
         doc.switchToPage(i);
-        doc.text(
-          `Page ${i + 1} of ${pageCount} | Confidential`,
-          50,
-          doc.page.height - 30,
-          { align: 'center', width: doc.page.width - 100 }
-        );
+        doc.text(`Page ${i + 1} of ${pageCount} | Confidential`, 50, doc.page.height - 30, {
+          align: 'center',
+          width: doc.page.width - 100,
+        });
       }
 
       doc.end();
@@ -578,7 +628,10 @@ export class ExportsService {
       doc.fontSize(24).fillColor('#9ca3af');
       doc.text('Data Export Report', 40, 250, { width: 880, align: 'center' });
       doc.fontSize(14).fillColor('#6b7280');
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 40, 320, { width: 880, align: 'center' });
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 40, 320, {
+        width: 880,
+        align: 'center',
+      });
       doc.text(`Total Records: ${data.length}`, 40, 350, { width: 880, align: 'center' });
 
       // Summary slide
@@ -591,7 +644,7 @@ export class ExportsService {
       doc.text(`This export contains ${data.length} records.`, 40, 100);
 
       if (data.length > 0) {
-        const flatData = data.map(row => this.flattenObject(row));
+        const flatData = data.map((row) => this.flattenObject(row));
         const headers = Object.keys(flatData[0]);
 
         doc.fontSize(14).fillColor('#4b5563');
@@ -615,7 +668,7 @@ export class ExportsService {
         doc.fontSize(10).fillColor('#4b5563');
         doc.text('First 5 records:', 40, 80);
 
-        const flatData = data.slice(0, 5).map(row => this.flattenObject(row));
+        const flatData = data.slice(0, 5).map((row) => this.flattenObject(row));
         const headers = Object.keys(flatData[0]).slice(0, 4);
         const colWidth = 200;
 
@@ -703,7 +756,8 @@ export class ExportsService {
       status: job.status,
       fileName: job.fileName,
       fileSize: job.fileSize,
-      downloadUrl: job.status === ExportStatus.COMPLETED ? `/api/exports/${job.id}/download` : undefined,
+      downloadUrl:
+        job.status === ExportStatus.COMPLETED ? `/api/exports/${job.id}/download` : undefined,
       expiresAt: job.expiresAt,
       errorMessage: job.errorMessage,
       recordCount: job.recordCount,

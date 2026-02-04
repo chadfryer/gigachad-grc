@@ -594,6 +594,31 @@ export class ServiceNowService {
     }
   }
 
+  /**
+   * SECURITY: Allowlist of ServiceNow fields that can be set via additionalFields.
+   * Prevents injection of sensitive fields like sys_id, sys_created_by, ACL fields, etc.
+   */
+  private static readonly ALLOWED_SNOW_ADDITIONAL_FIELDS = [
+    'priority',
+    'urgency',
+    'impact',
+    'state',
+    'category',
+    'subcategory',
+    'assignment_group',
+    'assigned_to',
+    'caller_id',
+    'contact_type',
+    'location',
+    'business_service',
+    'cmdb_ci',
+    'due_date',
+    'work_notes',
+    'comments',
+    'u_risk_score', // Example custom field
+    'u_grc_reference', // Example custom field
+  ] as const;
+
   private buildSnowRecord(mapping: any, entityData: any, additionalFields?: any): any {
     const fieldMappings = mapping.fieldMappings || [];
 
@@ -619,9 +644,19 @@ export class ServiceNowService {
       }
     }
 
-    // Apply additional fields
+    // SECURITY: Apply additional fields with allowlist validation
     if (additionalFields) {
-      Object.assign(record, additionalFields);
+      for (const [key, value] of Object.entries(additionalFields)) {
+        // Only allow fields in the allowlist or custom fields (u_*)
+        if (
+          ServiceNowService.ALLOWED_SNOW_ADDITIONAL_FIELDS.includes(key as any) ||
+          key.startsWith('u_')
+        ) {
+          record[key] = value;
+        } else {
+          this.logger.warn(`Blocked disallowed ServiceNow field: ${key}`);
+        }
+      }
     }
 
     return record;

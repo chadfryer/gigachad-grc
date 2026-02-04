@@ -601,6 +601,24 @@ export class JiraService {
     }
   }
 
+  /**
+   * SECURITY: Allowlist of Jira fields that can be set via additionalFields.
+   * Prevents injection of sensitive Jira fields like security level, permissions, etc.
+   */
+  private static readonly ALLOWED_JIRA_ADDITIONAL_FIELDS = [
+    'priority',
+    'labels',
+    'components',
+    'fixVersions',
+    'duedate',
+    'assignee',
+    'reporter',
+    'environment',
+    'customfield_10001', // Example: Story Points
+    'customfield_10002', // Example: Sprint
+    'customfield_10003', // Example: Epic Link
+  ] as const;
+
   private buildJiraIssue(mapping: any, entityData: any, additionalFields?: any): any {
     const fieldMappings = mapping.fieldMappings || [];
 
@@ -621,15 +639,25 @@ export class JiraService {
     };
 
     // Apply field mappings
-    for (const mapping of fieldMappings) {
-      if (entityData[mapping.grcField] !== undefined) {
-        fields[mapping.jiraField] = entityData[mapping.grcField];
+    for (const fm of fieldMappings) {
+      if (entityData[fm.grcField] !== undefined) {
+        fields[fm.jiraField] = entityData[fm.grcField];
       }
     }
 
-    // Apply additional fields
+    // SECURITY: Apply additional fields with allowlist validation
     if (additionalFields) {
-      Object.assign(fields, additionalFields);
+      for (const [key, value] of Object.entries(additionalFields)) {
+        // Only allow fields in the allowlist or custom fields (customfield_*)
+        if (
+          JiraService.ALLOWED_JIRA_ADDITIONAL_FIELDS.includes(key as any) ||
+          key.startsWith('customfield_')
+        ) {
+          fields[key] = value;
+        } else {
+          this.logger.warn(`Blocked disallowed Jira field: ${key}`);
+        }
+      }
     }
 
     return { fields };

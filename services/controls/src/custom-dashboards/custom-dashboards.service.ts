@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -16,13 +21,25 @@ import {
 const DATA_SOURCE_FIELDS: Record<DataSourceType, DataSourceDefinitionDto['fields']> = {
   [DataSourceType.CONTROLS]: [
     { name: 'id', type: 'string', label: 'ID', filterable: true, aggregatable: false },
-    { name: 'controlId', type: 'string', label: 'Control ID', filterable: true, aggregatable: false },
+    {
+      name: 'controlId',
+      type: 'string',
+      label: 'Control ID',
+      filterable: true,
+      aggregatable: false,
+    },
     { name: 'title', type: 'string', label: 'Title', filterable: true, aggregatable: false },
     { name: 'status', type: 'enum', label: 'Status', filterable: true, aggregatable: true },
     { name: 'category', type: 'string', label: 'Category', filterable: true, aggregatable: true },
     { name: 'ownerId', type: 'string', label: 'Owner', filterable: true, aggregatable: true },
     { name: 'dueDate', type: 'date', label: 'Due Date', filterable: true, aggregatable: false },
-    { name: 'effectiveness', type: 'number', label: 'Effectiveness', filterable: true, aggregatable: true },
+    {
+      name: 'effectiveness',
+      type: 'number',
+      label: 'Effectiveness',
+      filterable: true,
+      aggregatable: true,
+    },
     { name: 'createdAt', type: 'date', label: 'Created At', filterable: true, aggregatable: false },
   ],
   [DataSourceType.RISKS]: [
@@ -30,7 +47,13 @@ const DATA_SOURCE_FIELDS: Record<DataSourceType, DataSourceDefinitionDto['fields
     { name: 'title', type: 'string', label: 'Title', filterable: true, aggregatable: false },
     { name: 'likelihood', type: 'enum', label: 'Likelihood', filterable: true, aggregatable: true },
     { name: 'impact', type: 'enum', label: 'Impact', filterable: true, aggregatable: true },
-    { name: 'initialSeverity', type: 'enum', label: 'Severity', filterable: true, aggregatable: true },
+    {
+      name: 'initialSeverity',
+      type: 'enum',
+      label: 'Severity',
+      filterable: true,
+      aggregatable: true,
+    },
     { name: 'category', type: 'string', label: 'Category', filterable: true, aggregatable: true },
     { name: 'intakeStatus', type: 'enum', label: 'Status', filterable: true, aggregatable: true },
     { name: 'createdAt', type: 'date', label: 'Created At', filterable: true, aggregatable: false },
@@ -41,7 +64,13 @@ const DATA_SOURCE_FIELDS: Record<DataSourceType, DataSourceDefinitionDto['fields
     { name: 'status', type: 'enum', label: 'Status', filterable: true, aggregatable: true },
     { name: 'category', type: 'string', label: 'Category', filterable: true, aggregatable: true },
     { name: 'ownerId', type: 'string', label: 'Owner', filterable: true, aggregatable: true },
-    { name: 'nextReviewDate', type: 'date', label: 'Next Review Date', filterable: true, aggregatable: false },
+    {
+      name: 'nextReviewDate',
+      type: 'date',
+      label: 'Next Review Date',
+      filterable: true,
+      aggregatable: false,
+    },
     { name: 'createdAt', type: 'date', label: 'Created At', filterable: true, aggregatable: false },
   ],
   [DataSourceType.VENDORS]: [
@@ -50,8 +79,20 @@ const DATA_SOURCE_FIELDS: Record<DataSourceType, DataSourceDefinitionDto['fields
     { name: 'tier', type: 'enum', label: 'Tier', filterable: true, aggregatable: true },
     { name: 'category', type: 'enum', label: 'Category', filterable: true, aggregatable: true },
     { name: 'status', type: 'enum', label: 'Status', filterable: true, aggregatable: true },
-    { name: 'riskScore', type: 'number', label: 'Risk Score', filterable: true, aggregatable: true },
-    { name: 'lastAssessmentDate', type: 'date', label: 'Last Assessment', filterable: true, aggregatable: false },
+    {
+      name: 'riskScore',
+      type: 'number',
+      label: 'Risk Score',
+      filterable: true,
+      aggregatable: true,
+    },
+    {
+      name: 'lastAssessmentDate',
+      type: 'date',
+      label: 'Last Assessment',
+      filterable: true,
+      aggregatable: false,
+    },
     { name: 'createdAt', type: 'date', label: 'Created At', filterable: true, aggregatable: false },
   ],
   [DataSourceType.EVIDENCE]: [
@@ -60,18 +101,60 @@ const DATA_SOURCE_FIELDS: Record<DataSourceType, DataSourceDefinitionDto['fields
     { name: 'type', type: 'string', label: 'Type', filterable: true, aggregatable: true },
     { name: 'status', type: 'enum', label: 'Status', filterable: true, aggregatable: true },
     { name: 'source', type: 'string', label: 'Source', filterable: true, aggregatable: true },
-    { name: 'collectedAt', type: 'date', label: 'Collected At', filterable: true, aggregatable: false },
-    { name: 'validUntil', type: 'date', label: 'Valid Until', filterable: true, aggregatable: false },
-    { name: 'isExpired', type: 'boolean', label: 'Is Expired', filterable: true, aggregatable: true },
+    {
+      name: 'collectedAt',
+      type: 'date',
+      label: 'Collected At',
+      filterable: true,
+      aggregatable: false,
+    },
+    {
+      name: 'validUntil',
+      type: 'date',
+      label: 'Valid Until',
+      filterable: true,
+      aggregatable: false,
+    },
+    {
+      name: 'isExpired',
+      type: 'boolean',
+      label: 'Is Expired',
+      filterable: true,
+      aggregatable: true,
+    },
   ],
   [DataSourceType.EMPLOYEES]: [
     { name: 'id', type: 'string', label: 'ID', filterable: true, aggregatable: false },
     { name: 'name', type: 'string', label: 'Name', filterable: true, aggregatable: false },
     { name: 'email', type: 'string', label: 'Email', filterable: true, aggregatable: false },
-    { name: 'department', type: 'string', label: 'Department', filterable: true, aggregatable: true },
-    { name: 'complianceScore', type: 'number', label: 'Compliance Score', filterable: true, aggregatable: true },
-    { name: 'trainingStatus', type: 'string', label: 'Training Status', filterable: true, aggregatable: true },
-    { name: 'backgroundCheckStatus', type: 'string', label: 'Background Check Status', filterable: true, aggregatable: true },
+    {
+      name: 'department',
+      type: 'string',
+      label: 'Department',
+      filterable: true,
+      aggregatable: true,
+    },
+    {
+      name: 'complianceScore',
+      type: 'number',
+      label: 'Compliance Score',
+      filterable: true,
+      aggregatable: true,
+    },
+    {
+      name: 'trainingStatus',
+      type: 'string',
+      label: 'Training Status',
+      filterable: true,
+      aggregatable: true,
+    },
+    {
+      name: 'backgroundCheckStatus',
+      type: 'string',
+      label: 'Background Check Status',
+      filterable: true,
+      aggregatable: true,
+    },
   ],
   [DataSourceType.AUDITS]: [
     { name: 'id', type: 'string', label: 'ID', filterable: true, aggregatable: false },
@@ -80,7 +163,13 @@ const DATA_SOURCE_FIELDS: Record<DataSourceType, DataSourceDefinitionDto['fields
     { name: 'status', type: 'enum', label: 'Status', filterable: true, aggregatable: true },
     { name: 'startDate', type: 'date', label: 'Start Date', filterable: true, aggregatable: false },
     { name: 'endDate', type: 'date', label: 'End Date', filterable: true, aggregatable: false },
-    { name: 'findingsCount', type: 'number', label: 'Findings Count', filterable: true, aggregatable: true },
+    {
+      name: 'findingsCount',
+      type: 'number',
+      label: 'Findings Count',
+      filterable: true,
+      aggregatable: true,
+    },
   ],
   [DataSourceType.INTEGRATIONS]: [
     { name: 'id', type: 'string', label: 'ID', filterable: true, aggregatable: false },
@@ -88,14 +177,26 @@ const DATA_SOURCE_FIELDS: Record<DataSourceType, DataSourceDefinitionDto['fields
     { name: 'name', type: 'string', label: 'Name', filterable: true, aggregatable: false },
     { name: 'status', type: 'string', label: 'Status', filterable: true, aggregatable: true },
     { name: 'lastSyncAt', type: 'date', label: 'Last Sync', filterable: true, aggregatable: false },
-    { name: 'totalEvidenceCollected', type: 'number', label: 'Evidence Collected', filterable: true, aggregatable: true },
+    {
+      name: 'totalEvidenceCollected',
+      type: 'number',
+      label: 'Evidence Collected',
+      filterable: true,
+      aggregatable: true,
+    },
   ],
   [DataSourceType.FRAMEWORKS]: [
     { name: 'id', type: 'string', label: 'ID', filterable: true, aggregatable: false },
     { name: 'name', type: 'string', label: 'Name', filterable: true, aggregatable: false },
     { name: 'version', type: 'string', label: 'Version', filterable: true, aggregatable: false },
     { name: 'status', type: 'string', label: 'Status', filterable: true, aggregatable: true },
-    { name: 'readinessScore', type: 'number', label: 'Readiness Score', filterable: true, aggregatable: true },
+    {
+      name: 'readinessScore',
+      type: 'number',
+      label: 'Readiness Score',
+      filterable: true,
+      aggregatable: true,
+    },
   ],
 };
 
@@ -131,10 +232,7 @@ export class CustomDashboardsService {
       where: {
         id,
         organizationId,
-        OR: [
-          { userId },
-          { isTemplate: true },
-        ],
+        OR: [{ userId }, { isTemplate: true }],
       },
       include: {
         widgets: {
@@ -339,7 +437,12 @@ export class CustomDashboardsService {
 
   // ==================== Widget CRUD ====================
 
-  async addWidget(dashboardId: string, organizationId: string, userId: string, dto: CreateWidgetDto) {
+  async addWidget(
+    dashboardId: string,
+    organizationId: string,
+    userId: string,
+    dto: CreateWidgetDto
+  ) {
     // Verify dashboard access
     await this.findById(dashboardId, organizationId, userId);
 
@@ -363,7 +466,7 @@ export class CustomDashboardsService {
     dashboardId: string,
     organizationId: string,
     userId: string,
-    dto: UpdateWidgetDto,
+    dto: UpdateWidgetDto
   ) {
     // Verify dashboard access
     await this.findById(dashboardId, organizationId, userId);
@@ -389,7 +492,12 @@ export class CustomDashboardsService {
     });
   }
 
-  async deleteWidget(widgetId: string, dashboardId: string, organizationId: string, userId: string) {
+  async deleteWidget(
+    widgetId: string,
+    dashboardId: string,
+    organizationId: string,
+    userId: string
+  ) {
     // Verify dashboard access
     await this.findById(dashboardId, organizationId, userId);
 
@@ -481,12 +589,39 @@ export class CustomDashboardsService {
     }
   }
 
-  private buildPrismaWhere(filters: DataQueryDto['filters'], organizationId: string): Record<string, unknown> {
+  /**
+   * SECURITY: Validate filter fields against an allowlist to prevent field injection attacks.
+   * Only fields explicitly defined in DATA_SOURCE_FIELDS are allowed to be used in filters.
+   */
+  private validateFilterField(field: string, source: DataSourceType): void {
+    const allowedFields = DATA_SOURCE_FIELDS[source];
+    if (!allowedFields) {
+      throw new BadRequestException(`Invalid data source: ${source}`);
+    }
+
+    const fieldNames = allowedFields.map((f) => f.name);
+    if (!fieldNames.includes(field)) {
+      throw new BadRequestException(
+        `Invalid filter field: ${field}. Allowed fields: ${fieldNames.join(', ')}`
+      );
+    }
+  }
+
+  private buildPrismaWhere(
+    filters: DataQueryDto['filters'],
+    organizationId: string,
+    source?: DataSourceType
+  ): Record<string, unknown> {
     const where: Record<string, unknown> = { organizationId };
 
     if (!filters || filters.length === 0) return where;
 
     filters.forEach((filter) => {
+      // SECURITY: Validate filter field against allowlist to prevent field injection
+      if (source) {
+        this.validateFilterField(filter.field, source);
+      }
+
       switch (filter.operator) {
         case FilterOperator.EQ:
           where[filter.field] = filter.value;
@@ -528,7 +663,7 @@ export class CustomDashboardsService {
   }
 
   private async queryControls(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.CONTROLS);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       // Use groupBy for aggregations
@@ -573,7 +708,7 @@ export class CustomDashboardsService {
   }
 
   private async queryRisks(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.RISKS);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       const groupBy = query.groupBy || 'initialSeverity';
@@ -600,7 +735,7 @@ export class CustomDashboardsService {
   }
 
   private async queryPolicies(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.POLICIES);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       const groupBy = query.groupBy || 'status';
@@ -627,7 +762,7 @@ export class CustomDashboardsService {
   }
 
   private async queryVendors(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.VENDORS);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       const groupBy = query.groupBy || 'tier';
@@ -654,7 +789,7 @@ export class CustomDashboardsService {
   }
 
   private async queryEvidence(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.EVIDENCE);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       const groupBy = query.groupBy || 'status';
@@ -681,7 +816,7 @@ export class CustomDashboardsService {
   }
 
   private async queryEmployees(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.EMPLOYEES);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       const groupBy = query.groupBy || 'status';
@@ -708,7 +843,7 @@ export class CustomDashboardsService {
   }
 
   private async queryAudits(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.AUDITS);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       const groupBy = query.groupBy || 'status';
@@ -735,7 +870,7 @@ export class CustomDashboardsService {
   }
 
   private async queryIntegrations(organizationId: string, query: DataQueryDto, limit: number) {
-    const where = this.buildPrismaWhere(query.filters, organizationId);
+    const where = this.buildPrismaWhere(query.filters, organizationId, DataSourceType.INTEGRATIONS);
 
     if (query.groupBy || (query.aggregations && query.aggregations.length > 0)) {
       const groupBy = query.groupBy || 'type';
@@ -776,7 +911,12 @@ export class CustomDashboardsService {
 
   // ==================== Widget Data ====================
 
-  async getWidgetData(widgetId: string, dashboardId: string, organizationId: string, userId: string) {
+  async getWidgetData(
+    widgetId: string,
+    dashboardId: string,
+    organizationId: string,
+    userId: string
+  ) {
     // Verify access
     await this.findById(dashboardId, organizationId, userId);
 
@@ -797,4 +937,3 @@ export class CustomDashboardsService {
     return { data };
   }
 }
-
