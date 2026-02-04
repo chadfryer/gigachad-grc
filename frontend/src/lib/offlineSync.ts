@@ -48,13 +48,9 @@ function saveActions(actions: PendingAction[]): void {
   }
 }
 
-export function queueAction(
-  type: PendingAction['type'],
-  entity: string,
-  data: unknown
-): string {
-  const id = `${entity}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
+export function queueAction(type: PendingAction['type'], entity: string, data: unknown): string {
+  const id = `${entity}-${Date.now()}-${crypto.randomUUID().split('-')[0]}`;
+
   const action: PendingAction = {
     id,
     type,
@@ -67,12 +63,15 @@ export function queueAction(
   const actions = getStoredActions();
   actions.push(action);
   saveActions(actions);
-  
+
   // Request background sync if available
   if ('serviceWorker' in navigator && 'sync' in (ServiceWorkerRegistration.prototype as object)) {
-    navigator.serviceWorker.ready.then(registration => {
-      (registration as ServiceWorkerRegistration & { sync?: { register: (tag: string) => Promise<void> } })
-        .sync?.register('sync-pending-actions');
+    navigator.serviceWorker.ready.then((registration) => {
+      (
+        registration as ServiceWorkerRegistration & {
+          sync?: { register: (tag: string) => Promise<void> };
+        }
+      ).sync?.register('sync-pending-actions');
     });
   }
 
@@ -81,17 +80,17 @@ export function queueAction(
 
 export function getPendingActions(entity?: string): PendingAction[] {
   const actions = getStoredActions();
-  
+
   if (entity) {
-    return actions.filter(a => a.entity === entity);
+    return actions.filter((a) => a.entity === entity);
   }
-  
+
   return actions;
 }
 
 export function removePendingAction(id: string): void {
   const actions = getStoredActions();
-  const filtered = actions.filter(a => a.id !== id);
+  const filtered = actions.filter((a) => a.id !== id);
   saveActions(filtered);
 }
 
@@ -101,8 +100,8 @@ export function clearPendingActions(): void {
 
 export function retryPendingAction(id: string): void {
   const actions = getStoredActions();
-  const action = actions.find(a => a.id === id);
-  
+  const action = actions.find((a) => a.id === id);
+
   if (action) {
     action.retryCount += 1;
     saveActions(actions);
@@ -115,21 +114,17 @@ export function retryPendingAction(id: string): void {
 
 const DEFAULT_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
-export function cacheData(
-  key: string,
-  data: unknown,
-  ttl: number = DEFAULT_CACHE_TTL
-): void {
+export function cacheData(key: string, data: unknown, ttl: number = DEFAULT_CACHE_TTL): void {
   const now = Date.now();
   const cacheKey = CACHED_DATA_PREFIX + key;
-  
+
   const cached: CachedData = {
     key,
     data,
     timestamp: now,
     expiresAt: now + ttl,
   };
-  
+
   try {
     localStorage.setItem(cacheKey, JSON.stringify(cached));
   } catch (error) {
@@ -141,19 +136,19 @@ export function cacheData(
 
 export function getCachedData<T>(key: string): T | null {
   const cacheKey = CACHED_DATA_PREFIX + key;
-  
+
   try {
     const stored = localStorage.getItem(cacheKey);
     if (!stored) return null;
-    
+
     const cached: CachedData = JSON.parse(stored);
-    
+
     // Check if expired
     if (cached.expiresAt < Date.now()) {
       localStorage.removeItem(cacheKey);
       return null;
     }
-    
+
     return cached.data as T;
   } catch {
     return null;
@@ -163,24 +158,24 @@ export function getCachedData<T>(key: string): T | null {
 export function invalidateCache(keyPattern?: string): void {
   if (!keyPattern) {
     // Clear all cache
-    const keys = Object.keys(localStorage).filter(k => k.startsWith(CACHED_DATA_PREFIX));
-    keys.forEach(k => localStorage.removeItem(k));
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith(CACHED_DATA_PREFIX));
+    keys.forEach((k) => localStorage.removeItem(k));
     return;
   }
-  
+
   // Clear matching keys
   const keys = Object.keys(localStorage).filter(
-    k => k.startsWith(CACHED_DATA_PREFIX) && k.includes(keyPattern)
+    (k) => k.startsWith(CACHED_DATA_PREFIX) && k.includes(keyPattern)
   );
-  keys.forEach(k => localStorage.removeItem(k));
+  keys.forEach((k) => localStorage.removeItem(k));
 }
 
 export function cleanExpiredCache(): number {
   const now = Date.now();
   let cleaned = 0;
-  
-  const keys = Object.keys(localStorage).filter(k => k.startsWith(CACHED_DATA_PREFIX));
-  
+
+  const keys = Object.keys(localStorage).filter((k) => k.startsWith(CACHED_DATA_PREFIX));
+
   for (const key of keys) {
     try {
       const stored = localStorage.getItem(key);
@@ -197,7 +192,7 @@ export function cleanExpiredCache(): number {
       cleaned++;
     }
   }
-  
+
   return cleaned;
 }
 
@@ -223,14 +218,14 @@ export async function syncPendingActions(): Promise<{
 
   for (const action of actions) {
     const handler = syncHandlers.get(action.entity);
-    
+
     if (!handler) {
       continue;
     }
 
     try {
       const success = await handler(action);
-      
+
       if (success) {
         removePendingAction(action.id);
         synced++;
@@ -245,7 +240,7 @@ export async function syncPendingActions(): Promise<{
   }
 
   const remaining = getPendingActions().length;
-  
+
   return { synced, failed, remaining };
 }
 
@@ -269,15 +264,15 @@ export function onOnlineStatusChange(callback: (online: boolean) => void): () =>
 if (typeof window !== 'undefined') {
   window.addEventListener('online', async () => {
     isOnline = true;
-    onlineCallbacks.forEach(cb => cb(true));
-    
+    onlineCallbacks.forEach((cb) => cb(true));
+
     // Auto-sync when coming back online
     await syncPendingActions();
   });
 
   window.addEventListener('offline', () => {
     isOnline = false;
-    onlineCallbacks.forEach(cb => cb(false));
+    onlineCallbacks.forEach((cb) => cb(false));
   });
 }
 
@@ -291,8 +286,8 @@ export function getStorageStats(): {
   estimatedSize: string;
 } {
   const pendingCount = getPendingActions().length;
-  const cachedKeys = Object.keys(localStorage).filter(k => k.startsWith(CACHED_DATA_PREFIX));
-  
+  const cachedKeys = Object.keys(localStorage).filter((k) => k.startsWith(CACHED_DATA_PREFIX));
+
   // Estimate storage used
   let totalSize = 0;
   for (const key of Object.keys(localStorage)) {
@@ -301,10 +296,10 @@ export function getStorageStats(): {
       totalSize += key.length + value.length;
     }
   }
-  
+
   const kb = totalSize / 1024;
   const estimatedSize = kb < 1024 ? `${kb.toFixed(1)} KB` : `${(kb / 1024).toFixed(2)} MB`;
-  
+
   return {
     pendingActions: pendingCount,
     cachedItems: cachedKeys.length,

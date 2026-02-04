@@ -17,24 +17,24 @@ const SENSITIVE_PATTERNS = [
   /mysql:\/\/[^@]+@[^\s]+/gi,
   /mongodb(\+srv)?:\/\/[^@]+@[^\s]+/gi,
   /redis:\/\/[^@]+@[^\s]+/gi,
-  
+
   // File paths
   /\/Users\/[^\s:]+/gi,
   /\/home\/[^\s:]+/gi,
   /C:\\Users\\[^\s:]+/gi,
   /\/app\/[^\s:]+/gi,
   /\/var\/[^\s:]+/gi,
-  
+
   // IP addresses (internal)
   /\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
   /\b172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}\b/g,
   /\b192\.168\.\d{1,3}\.\d{1,3}\b/g,
-  
+
   // API keys and tokens
   /api[_-]?key[=:]\s*["']?[a-zA-Z0-9_-]+["']?/gi,
   /bearer\s+[a-zA-Z0-9_.-]+/gi,
   /token[=:]\s*["']?[a-zA-Z0-9_.-]+["']?/gi,
-  
+
   // Environment variable values
   /process\.env\.[A-Z_]+\s*=\s*["'][^"']+["']/gi,
 ];
@@ -73,7 +73,7 @@ interface ErrorResponse {
 
 /**
  * Global exception filter that sanitizes error messages in production
- * 
+ *
  * Features:
  * - Removes sensitive information (paths, connection strings, tokens)
  * - Uses generic messages in production
@@ -84,9 +84,13 @@ interface ErrorResponse {
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
   private readonly isProduction: boolean;
+  private readonly showStackTrace: boolean;
 
   constructor() {
     this.isProduction = process.env.NODE_ENV === 'production';
+    // Fail-safe: Only show stack traces if explicitly enabled AND not in production
+    this.showStackTrace =
+      process.env.SHOW_STACK_TRACES === 'true' && process.env.NODE_ENV !== 'production';
   }
 
   catch(exception: unknown, host: ArgumentsHost) {
@@ -106,9 +110,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       path: request.url,
     };
 
-    // Add debugging info in development only
+    // Add debugging info only when explicitly enabled AND not in production
     // SECURITY: Stack traces are never included in production responses
-    if (!this.isProduction) {
+    if (this.showStackTrace) {
       errorResponse.details = this.getDetailedMessage(exception);
       if (exception instanceof Error) {
         errorResponse.stack = exception.stack;
@@ -131,9 +135,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   } {
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
-      const message = typeof response === 'string' 
-        ? response 
-        : (response as { message?: string | string[] }).message || exception.message;
+      const message =
+        typeof response === 'string'
+          ? response
+          : (response as { message?: string | string[] }).message || exception.message;
 
       return {
         status: exception.getStatus(),
@@ -235,9 +240,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private getDetailedMessage(exception: unknown): string {
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
-      return typeof response === 'object' 
-        ? JSON.stringify(response, null, 2)
-        : String(response);
+      return typeof response === 'object' ? JSON.stringify(response, null, 2) : String(response);
     }
 
     if (exception instanceof Error) {
@@ -251,7 +254,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
    * Log the error with context
    */
   private logError(exception: unknown, request: Request, status: number): void {
-    const authenticatedRequest = request as Request & { user?: { userId?: string; organizationId?: string } };
+    const authenticatedRequest = request as Request & {
+      user?: { userId?: string; organizationId?: string };
+    };
     const userId = authenticatedRequest.user?.userId || 'anonymous';
     const orgId = authenticatedRequest.user?.organizationId || 'unknown';
     const method = request.method;
@@ -276,7 +281,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       } else {
         this.logger.error(
           `${method} ${url} - ${status}`,
-          exception instanceof Error ? exception.stack : String(exception),
+          exception instanceof Error ? exception.stack : String(exception)
         );
       }
     } else if (status >= 400) {
