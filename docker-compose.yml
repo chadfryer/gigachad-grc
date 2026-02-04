@@ -43,6 +43,8 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   # ===========================================
   # Database - PostgreSQL (Docker Hardened Image)
@@ -64,6 +66,8 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     # Resource limits - example configuration for development
     deploy:
       resources:
@@ -95,6 +99,8 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     # Resource limits - example configuration for development
     deploy:
       resources:
@@ -144,6 +150,8 @@ services:
       - 'traefik.http.routers.keycloak.rule=Host(`auth.localhost`)'
       - 'traefik.http.services.keycloak.loadbalancer.server.port=8080'
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   # ===========================================
   # Object Storage - RustFS (S3-Compatible, Apache 2.0)
@@ -165,6 +173,8 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test:
         ['CMD-SHELL', 'wget -q --spider http://localhost:9001/rustfs/console/index.html || exit 1']
@@ -256,6 +266,8 @@ services:
       context: .
       dockerfile: services/frameworks/Dockerfile
     container_name: grc-frameworks
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3002
@@ -300,6 +312,8 @@ services:
       context: .
       dockerfile: services/policies/Dockerfile
     container_name: grc-policies
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3004
@@ -393,6 +407,8 @@ services:
       context: .
       dockerfile: services/trust/Dockerfile
     container_name: grc-trust
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3006
@@ -496,6 +512,8 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: grc-frontend
+    security_opt:
+      - no-new-privileges:true
     ports:
       - '3000:80'
     environment:
@@ -530,6 +548,8 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - controls
       - audit
@@ -561,6 +581,8 @@ services:
     networks:
       - grc-network
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - prometheus
     labels:
