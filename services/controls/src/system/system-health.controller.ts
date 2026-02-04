@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SystemHealthService } from './system-health.service';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
@@ -21,6 +22,7 @@ export class SystemHealthController {
    * Basic health check - no auth required
    * Used by load balancers and monitoring systems
    */
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   @Get('health')
   @ApiOperation({ summary: 'Basic health check (no auth required)' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
@@ -29,7 +31,6 @@ export class SystemHealthController {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       service: 'controls',
-      version: process.env.npm_package_version || '1.0.0',
     };
   }
 
@@ -115,4 +116,3 @@ export class SystemHealthController {
     };
   }
 }
-

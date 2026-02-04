@@ -9,15 +9,18 @@ import { GlobalExceptionFilter } from '@gigachad-grc/shared';
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
-    logger: process.env.NODE_ENV === 'production' 
-      ? ['error', 'warn', 'log']
-      : ['error', 'warn', 'log', 'debug', 'verbose'],
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? ['error', 'warn', 'log']
+        : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
 
   // Security middleware
-  app.use(helmet({
-    contentSecurityPolicy: false, // Disable for API
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Disable for API
+    })
+  );
 
   // Response compression
   app.use(compression());
@@ -35,16 +38,29 @@ async function bootstrap() {
       transformOptions: {
         enableImplicitConversion: true,
       },
-    }),
+    })
   );
 
   // CORS
-  const corsOrigins = process.env.CORS_ORIGINS?.split(',');
-  if (!corsOrigins && process.env.NODE_ENV === 'production') {
-    logger.warn('CORS_ORIGINS not set - using localhost defaults. Set CORS_ORIGINS in production!');
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',') || [];
+
+  if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
+    throw new Error('CORS_ORIGINS must be configured in production');
   }
+
+  // Fall back to localhost only in development
+  const origins =
+    corsOrigins.length > 0
+      ? corsOrigins
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://localhost:5174',
+          'http://localhost:5175',
+        ];
+
   app.enableCors({
-    origin: corsOrigins || ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'],
+    origin: origins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -84,4 +100,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-

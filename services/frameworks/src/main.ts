@@ -9,20 +9,33 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // SECURITY: Add Helmet for security headers
-  app.use(helmet({
-    contentSecurityPolicy: false, // Disable for API service
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Disable for API service
+    })
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
-    }),
+    })
   );
 
+  // CORS
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',') || [];
+
+  if (process.env.NODE_ENV === 'production' && corsOrigins.length === 0) {
+    throw new Error('CORS_ORIGINS must be configured in production');
+  }
+
+  // Fall back to localhost only in development
+  const origins =
+    corsOrigins.length > 0 ? corsOrigins : ['http://localhost:3000', 'http://localhost:5173'];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: origins,
     credentials: true,
   });
 
@@ -46,6 +59,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-
-
-
