@@ -173,7 +173,10 @@ export class UsersController {
   }
 
   @Get('keycloak/:keycloakId')
-  async getUserByKeycloakId(@Param('keycloakId') keycloakId: string) {
-    return this.usersService.findByKeycloakId(keycloakId);
+  @RequirePermission(Resource.USERS, Action.READ)
+  async getUserByKeycloakId(@Param('keycloakId') keycloakId: string, @User() user: UserContext) {
+    // SECURITY: Filter by organizationId to prevent IDOR - users can only lookup
+    // Keycloak users within their own organization
+    return this.usersService.findByKeycloakId(keycloakId, user.organizationId);
   }
 }

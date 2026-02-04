@@ -132,14 +132,38 @@ export class DevAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // SECURITY: Prevent usage in production
-    const nodeEnv = process.env.NODE_ENV || 'development';
-    if (nodeEnv === 'production') {
+    // SECURITY: Fail-safe production check with multiple safeguards
+    // This guard should NEVER run in production. We use multiple checks to ensure this:
+    // 1. NODE_ENV check (primary)
+    // 2. ENABLE_DEV_AUTH flag must be explicitly set to 'true' (secondary)
+    // 3. Default behavior is to DENY (fail-safe)
+    const nodeEnv = process.env.NODE_ENV;
+    const devAuthEnabled = process.env.ENABLE_DEV_AUTH === 'true';
+
+    // SECURITY: Fail-safe - if NODE_ENV is not explicitly 'development' or 'test', deny
+    const isNonProduction = nodeEnv === 'development' || nodeEnv === 'test';
+
+    if (!isNonProduction) {
       throw new Error(
-        'SECURITY ERROR: DevAuthGuard is configured but NODE_ENV is set to production. ' +
+        'SECURITY ERROR: DevAuthGuard is configured but NODE_ENV is not set to development or test. ' +
+          'NODE_ENV must be explicitly set to "development" or "test" to use DevAuthGuard. ' +
           'This is a critical security vulnerability. Please use proper JWT authentication in production.'
       );
     }
+
+    // SECURITY: Secondary check - require explicit opt-in via ENABLE_DEV_AUTH=true
+    if (!devAuthEnabled) {
+      throw new Error(
+        'SECURITY ERROR: DevAuthGuard requires ENABLE_DEV_AUTH=true environment variable. ' +
+          'This secondary check prevents accidental usage if NODE_ENV is misconfigured. ' +
+          'Set ENABLE_DEV_AUTH=true in your .env file for local development.'
+      );
+    }
+
+    this.logger.warn(
+      'DevAuthGuard is active - using mock authentication. ' +
+        'This should NEVER appear in production logs.'
+    );
 
     const request = context.switchToHttp().getRequest();
 

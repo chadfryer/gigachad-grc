@@ -23,10 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 import { FrameworksService } from './frameworks.service';
-import {
-  CurrentUser,
-  UserContext,
-} from '@gigachad-grc/shared';
+import { CurrentUser, UserContext } from '@gigachad-grc/shared';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 
 class CreateFrameworkDto {
@@ -114,24 +111,24 @@ export class FrameworksController {
   @ApiOperation({ summary: 'Create a new framework' })
   @ApiResponse({ status: 201, description: 'Framework created successfully' })
   @ApiBody({ type: CreateFrameworkDto })
-  async create(
-    @CurrentUser() user: UserContext,
-    @Body() dto: CreateFrameworkDto,
-  ) {
+  async create(@CurrentUser() user: UserContext, @Body() dto: CreateFrameworkDto) {
     return this.frameworksService.create(user.organizationId, dto);
   }
 
   @Get('types')
+  @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: 'Get framework types' })
   async getTypes() {
     return this.frameworksService.getFrameworkTypes();
   }
 
   @Get(':id')
+  @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: 'Get framework by ID' })
   @ApiParam({ name: 'id', description: 'Framework ID' })
-  async findOne(@Param('id') id: string) {
-    return this.frameworksService.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: UserContext) {
+    // SECURITY: Validate framework belongs to user's organization
+    return this.frameworksService.findOne(id, user.organizationId);
   }
 
   @Put(':id')
@@ -140,10 +137,7 @@ export class FrameworksController {
   @ApiParam({ name: 'id', description: 'Framework ID' })
   @ApiBody({ type: CreateFrameworkDto })
   @ApiResponse({ status: 200, description: 'Framework updated successfully' })
-  async update(
-    @Param('id') id: string,
-    @Body() dto: CreateFrameworkDto,
-  ) {
+  async update(@Param('id') id: string, @Body() dto: CreateFrameworkDto) {
     return this.frameworksService.update(id, dto);
   }
 
@@ -152,21 +146,21 @@ export class FrameworksController {
   @ApiOperation({ summary: 'Delete a framework (soft delete)' })
   @ApiParam({ name: 'id', description: 'Framework ID' })
   @ApiResponse({ status: 200, description: 'Framework deleted successfully' })
-  async delete(
-    @Param('id') id: string,
-    @CurrentUser() user: UserContext,
-  ) {
+  async delete(@Param('id') id: string, @CurrentUser() user: UserContext) {
     return this.frameworksService.delete(id, user.userId);
   }
 
   @Get(':id/requirements')
+  @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: 'Get framework requirements' })
   @ApiParam({ name: 'id', description: 'Framework ID' })
   async getRequirements(
     @Param('id') id: string,
     @Query('parentId') parentId?: string,
+    @CurrentUser() user: UserContext
   ) {
-    return this.frameworksService.getRequirements(id, parentId);
+    // SECURITY: Validate framework belongs to user's organization before returning requirements
+    return this.frameworksService.getRequirements(id, parentId, user.organizationId);
   }
 
   @Post(':id/requirements')
@@ -175,10 +169,7 @@ export class FrameworksController {
   @ApiParam({ name: 'id', description: 'Framework ID' })
   @ApiBody({ type: CreateRequirementDto })
   @ApiResponse({ status: 201, description: 'Requirement created successfully' })
-  async createRequirement(
-    @Param('id') id: string,
-    @Body() dto: CreateRequirementDto,
-  ) {
+  async createRequirement(@Param('id') id: string, @Body() dto: CreateRequirementDto) {
     return this.frameworksService.createRequirement(id, dto);
   }
 
@@ -188,10 +179,7 @@ export class FrameworksController {
   @ApiOperation({ summary: 'Bulk upload requirements from CSV, Excel, or JSON file' })
   @ApiParam({ name: 'id', description: 'Framework ID' })
   @ApiResponse({ status: 201, description: 'Requirements uploaded successfully' })
-  async bulkUploadRequirements(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async bulkUploadRequirements(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
     return this.frameworksService.bulkUploadRequirements(id, file);
   }
 
@@ -199,20 +187,20 @@ export class FrameworksController {
   @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: 'Get framework requirements as tree' })
   @ApiParam({ name: 'id', description: 'Framework ID' })
-  async getRequirementTree(
-    @Param('id') id: string,
-    @CurrentUser() user: UserContext,
-  ) {
+  async getRequirementTree(@Param('id') id: string, @CurrentUser() user: UserContext) {
     return this.frameworksService.getRequirementTree(id, user.organizationId);
   }
 
   @Get(':id/requirements/:requirementId')
+  @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: 'Get specific requirement' })
   async getRequirement(
     @Param('id') id: string,
     @Param('requirementId') requirementId: string,
+    @CurrentUser() user: UserContext
   ) {
-    return this.frameworksService.getRequirement(id, requirementId);
+    // SECURITY: Validate framework belongs to user's organization before returning requirement
+    return this.frameworksService.getRequirement(id, requirementId, user.organizationId);
   }
 
   @Put(':id/requirements/:requirementId')
@@ -224,7 +212,7 @@ export class FrameworksController {
   async updateRequirement(
     @Param('id') id: string,
     @Param('requirementId') requirementId: string,
-    @Body() dto: UpdateRequirementOwnerDto,
+    @Body() dto: UpdateRequirementOwnerDto
   ) {
     return this.frameworksService.updateRequirement(id, requirementId, dto);
   }
@@ -233,10 +221,7 @@ export class FrameworksController {
   @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: 'Calculate framework readiness score' })
   @ApiParam({ name: 'id', description: 'Framework ID' })
-  async getReadiness(
-    @Param('id') id: string,
-    @CurrentUser() user: UserContext,
-  ) {
+  async getReadiness(@Param('id') id: string, @CurrentUser() user: UserContext) {
     return this.frameworksService.calculateReadiness(id, user.organizationId);
   }
 }
@@ -254,4 +239,3 @@ export class UsersController {
     return this.frameworksService.listUsers(user.organizationId);
   }
 }
-
