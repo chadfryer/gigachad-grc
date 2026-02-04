@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { encrypt, decrypt } from '@gigachad-grc/shared';
+import { encrypt, decrypt, safeFetch } from '@gigachad-grc/shared';
 import {
   JiraOAuthConfigDto,
   JiraConnectionResponseDto,
@@ -140,7 +140,8 @@ export class JiraService {
     const credentials = this.decryptCredentials(connection.credentials);
 
     // Exchange code for tokens
-    const tokenResponse = await fetch('https://auth.atlassian.com/oauth/token', {
+    // SECURITY: Using safeFetch for consistency even with hardcoded Atlassian URL
+    const tokenResponse = await safeFetch('https://auth.atlassian.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -454,7 +455,8 @@ export class JiraService {
     // Decrypt the stored refresh token
     const decryptedRefreshToken = decrypt(connection.refreshToken);
 
-    const response = await fetch('https://auth.atlassian.com/oauth/token', {
+    // SECURITY: Using safeFetch for consistency even with hardcoded Atlassian URL
+    const response = await safeFetch('https://auth.atlassian.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -499,7 +501,7 @@ export class JiraService {
         ? `Basic ${Buffer.from(`${dto.userEmail}:${dto.apiToken}`).toString('base64')}`
         : undefined;
 
-      const response = await fetch(`${dto.instanceUrl}/rest/api/3/myself`, {
+      const response = await safeFetch(`${dto.instanceUrl}/rest/api/3/myself`, {
         headers: auth ? { Authorization: auth } : {},
       });
 
@@ -540,7 +542,7 @@ export class JiraService {
       throw new UnauthorizedException('No authentication available');
     }
 
-    const response = await fetch(`${connection.instanceUrl}${path}`, {
+    const response = await safeFetch(`${connection.instanceUrl}${path}`, {
       method,
       headers: {
         Authorization: auth,
