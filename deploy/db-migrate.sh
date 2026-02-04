@@ -36,7 +36,7 @@ DB_HOST=${POSTGRES_HOST:-postgres}
 DB_PORT=${POSTGRES_PORT:-5432}
 DB_NAME=${POSTGRES_DB:-gigachad_grc}
 DB_USER=${POSTGRES_USER:-grc}
-DB_PASS=${POSTGRES_PASSWORD:-grc_secret}
+DB_PASS=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
 BACKUP_DIR=${BACKUP_DIR:-./backups}
 
 # =============================================================================

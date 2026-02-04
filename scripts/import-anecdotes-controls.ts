@@ -8,10 +8,15 @@ import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as _path from 'path';
 
+if (!process.env.DATABASE_URL) {
+  console.error('ERROR: DATABASE_URL environment variable is required');
+  process.exit(1);
+}
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || 'postgresql://grc:grc_secret@localhost:5433/gigachad_grc',
+      url: process.env.DATABASE_URL,
     },
   },
 });
@@ -54,12 +59,17 @@ function normalizeCategory(category: string): string {
 
 // Map Anecdotes status to our status enum
 // Note: Returns string type but compatible with ControlImplementationStatus enum values
-function normalizeStatus(status: string): 'implemented' | 'in_progress' | 'not_started' | 'not_applicable' {
-  const statusMap: Record<string, 'implemented' | 'in_progress' | 'not_started' | 'not_applicable'> = {
-    'monitoring': 'implemented',
+function normalizeStatus(
+  status: string
+): 'implemented' | 'in_progress' | 'not_started' | 'not_applicable' {
+  const statusMap: Record<
+    string,
+    'implemented' | 'in_progress' | 'not_started' | 'not_applicable'
+  > = {
+    monitoring: 'implemented',
     'in progress': 'in_progress',
     'not started': 'not_started',
-    'gap': 'not_started',
+    gap: 'not_started',
   };
 
   return statusMap[status.toLowerCase().trim()] || 'not_started';
@@ -68,18 +78,18 @@ function normalizeStatus(status: string): 'implemented' | 'in_progress' | 'not_s
 // Generate a control ID from the category and name
 function generateControlId(category: string, name: string, index: number): string {
   const prefixMap: Record<string, string> = {
-    'compliance': 'COMP',
-    'human_resources': 'HR',
-    'risk_management': 'RM',
-    'vendor_management': 'VM',
-    'access_control': 'AC',
-    'physical_security': 'PHY',
-    'network_security': 'NS',
-    'incident_response': 'IR',
-    'change_management': 'CM',
-    'business_continuity': 'BC',
-    'data_protection': 'DP',
-    'other': 'OTH',
+    compliance: 'COMP',
+    human_resources: 'HR',
+    risk_management: 'RM',
+    vendor_management: 'VM',
+    access_control: 'AC',
+    physical_security: 'PHY',
+    network_security: 'NS',
+    incident_response: 'IR',
+    change_management: 'CM',
+    business_continuity: 'BC',
+    data_protection: 'DP',
+    other: 'OTH',
   };
 
   const prefix = prefixMap[category] || 'CTL';
@@ -94,7 +104,7 @@ function parseCSVLine(line: string): string[] {
 
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
-    
+
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"';
@@ -109,19 +119,19 @@ function parseCSVLine(line: string): string[] {
       current += char;
     }
   }
-  
+
   result.push(current.trim());
   return result;
 }
 
 // Parse the Anecdotes CSV format
 function parseAnecdotesCSV(csvContent: string): AnecdotesControl[] {
-  const lines = csvContent.split('\n').filter(line => line.trim());
+  const lines = csvContent.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     throw new Error('CSV must have a header row and at least one data row');
   }
 
-  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
   const controls: AnecdotesControl[] = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -212,32 +222,42 @@ async function ensureSOC2Requirements(frameworkId: string): Promise<Map<string, 
   const criteria = [
     // Common Criteria (Security)
     { ref: 'CC1', title: 'Control Environment', level: 0, isCategory: true },
-    { ref: 'CC1.1', title: 'COSO Principle 1 - Integrity and Ethical Values', level: 1, parent: 'CC1' },
+    {
+      ref: 'CC1.1',
+      title: 'COSO Principle 1 - Integrity and Ethical Values',
+      level: 1,
+      parent: 'CC1',
+    },
     { ref: 'CC1.2', title: 'COSO Principle 2 - Board Independence', level: 1, parent: 'CC1' },
     { ref: 'CC1.3', title: 'COSO Principle 3 - Management Structure', level: 1, parent: 'CC1' },
     { ref: 'CC1.4', title: 'COSO Principle 4 - Competent Personnel', level: 1, parent: 'CC1' },
     { ref: 'CC1.5', title: 'COSO Principle 5 - Accountability', level: 1, parent: 'CC1' },
-    
+
     { ref: 'CC2', title: 'Communication and Information', level: 0, isCategory: true },
     { ref: 'CC2.1', title: 'COSO Principle 13 - Quality Information', level: 1, parent: 'CC2' },
     { ref: 'CC2.2', title: 'COSO Principle 14 - Internal Communication', level: 1, parent: 'CC2' },
     { ref: 'CC2.3', title: 'COSO Principle 15 - External Communication', level: 1, parent: 'CC2' },
-    
+
     { ref: 'CC3', title: 'Risk Assessment', level: 0, isCategory: true },
     { ref: 'CC3.1', title: 'COSO Principle 6 - Specified Objectives', level: 1, parent: 'CC3' },
     { ref: 'CC3.2', title: 'COSO Principle 7 - Risk Identification', level: 1, parent: 'CC3' },
     { ref: 'CC3.3', title: 'COSO Principle 8 - Fraud Risk', level: 1, parent: 'CC3' },
     { ref: 'CC3.4', title: 'COSO Principle 9 - Change Assessment', level: 1, parent: 'CC3' },
-    
+
     { ref: 'CC4', title: 'Monitoring Activities', level: 0, isCategory: true },
     { ref: 'CC4.1', title: 'COSO Principle 16 - Ongoing Evaluations', level: 1, parent: 'CC4' },
-    { ref: 'CC4.2', title: 'COSO Principle 17 - Deficiency Communication', level: 1, parent: 'CC4' },
-    
+    {
+      ref: 'CC4.2',
+      title: 'COSO Principle 17 - Deficiency Communication',
+      level: 1,
+      parent: 'CC4',
+    },
+
     { ref: 'CC5', title: 'Control Activities', level: 0, isCategory: true },
     { ref: 'CC5.1', title: 'COSO Principle 10 - Risk Mitigation', level: 1, parent: 'CC5' },
     { ref: 'CC5.2', title: 'COSO Principle 11 - Technology Controls', level: 1, parent: 'CC5' },
     { ref: 'CC5.3', title: 'COSO Principle 12 - Policies and Procedures', level: 1, parent: 'CC5' },
-    
+
     { ref: 'CC6', title: 'Logical and Physical Access', level: 0, isCategory: true },
     { ref: 'CC6.1', title: 'Security Software and Infrastructure', level: 1, parent: 'CC6' },
     { ref: 'CC6.2', title: 'User Registration and Authorization', level: 1, parent: 'CC6' },
@@ -247,32 +267,32 @@ async function ensureSOC2Requirements(frameworkId: string): Promise<Map<string, 
     { ref: 'CC6.6', title: 'Boundary Protection', level: 1, parent: 'CC6' },
     { ref: 'CC6.7', title: 'Data Transmission Protection', level: 1, parent: 'CC6' },
     { ref: 'CC6.8', title: 'Malware Protection', level: 1, parent: 'CC6' },
-    
+
     { ref: 'CC7', title: 'System Operations', level: 0, isCategory: true },
     { ref: 'CC7.1', title: 'Vulnerability Management', level: 1, parent: 'CC7' },
     { ref: 'CC7.2', title: 'Security Incident Monitoring', level: 1, parent: 'CC7' },
     { ref: 'CC7.3', title: 'Security Incident Response', level: 1, parent: 'CC7' },
     { ref: 'CC7.4', title: 'Security Incident Recovery', level: 1, parent: 'CC7' },
     { ref: 'CC7.5', title: 'Incident Recovery Activities', level: 1, parent: 'CC7' },
-    
+
     { ref: 'CC8', title: 'Change Management', level: 0, isCategory: true },
     { ref: 'CC8.1', title: 'Change Authorization and Implementation', level: 1, parent: 'CC8' },
-    
+
     { ref: 'CC9', title: 'Risk Mitigation', level: 0, isCategory: true },
     { ref: 'CC9.1', title: 'Business Disruption Risk', level: 1, parent: 'CC9' },
     { ref: 'CC9.2', title: 'Vendor Risk Management', level: 1, parent: 'CC9' },
-    
+
     // Availability
     { ref: 'A1', title: 'Availability', level: 0, isCategory: true },
     { ref: 'A1.1', title: 'Capacity Management', level: 1, parent: 'A1' },
     { ref: 'A1.2', title: 'Recovery and Continuity', level: 1, parent: 'A1' },
     { ref: 'A1.3', title: 'Recovery Testing', level: 1, parent: 'A1' },
-    
+
     // Confidentiality
     { ref: 'C1', title: 'Confidentiality', level: 0, isCategory: true },
     { ref: 'C1.1', title: 'Confidential Information Identification', level: 1, parent: 'C1' },
     { ref: 'C1.2', title: 'Confidential Information Disposal', level: 1, parent: 'C1' },
-    
+
     // Processing Integrity
     { ref: 'PI1', title: 'Processing Integrity', level: 0, isCategory: true },
     { ref: 'PI1.1', title: 'Processing Accuracy', level: 1, parent: 'PI1' },
@@ -280,7 +300,7 @@ async function ensureSOC2Requirements(frameworkId: string): Promise<Map<string, 
     { ref: 'PI1.3', title: 'Processing Monitoring', level: 1, parent: 'PI1' },
     { ref: 'PI1.4', title: 'Output Validation', level: 1, parent: 'PI1' },
     { ref: 'PI1.5', title: 'Data Retention', level: 1, parent: 'PI1' },
-    
+
     // Privacy
     { ref: 'P1', title: 'Privacy Notice', level: 0, isCategory: true },
     { ref: 'P1.1', title: 'Privacy Notice Provided', level: 1, parent: 'P1' },
@@ -305,7 +325,7 @@ async function ensureSOC2Requirements(frameworkId: string): Promise<Map<string, 
   let order = 0;
 
   // First pass: create categories
-  for (const crit of criteria.filter(c => c.isCategory)) {
+  for (const crit of criteria.filter((c) => c.isCategory)) {
     const existing = await prisma.frameworkRequirement.findFirst({
       where: { frameworkId, reference: crit.ref },
     });
@@ -329,7 +349,7 @@ async function ensureSOC2Requirements(frameworkId: string): Promise<Map<string, 
   }
 
   // Second pass: create requirements under categories
-  for (const crit of criteria.filter(c => !c.isCategory)) {
+  for (const crit of criteria.filter((c) => !c.isCategory)) {
     const existing = await prisma.frameworkRequirement.findFirst({
       where: { frameworkId, reference: crit.ref },
     });
@@ -357,7 +377,12 @@ async function ensureSOC2Requirements(frameworkId: string): Promise<Map<string, 
   return refToId;
 }
 
-async function importControls(controls: AnecdotesControl[], organizationId: string, frameworkId: string, requirementMap: Map<string, string>) {
+async function importControls(
+  controls: AnecdotesControl[],
+  organizationId: string,
+  frameworkId: string,
+  requirementMap: Map<string, string>
+) {
   let created = 0;
   let updated = 0;
   let mappingsCreated = 0;
@@ -367,15 +392,15 @@ async function importControls(controls: AnecdotesControl[], organizationId: stri
     if (!ctrl.controlName) continue;
 
     const category = normalizeCategory(ctrl.category);
-    
+
     // Generate unique control ID
     controlIdCounters[category] = (controlIdCounters[category] || 0) + 1;
     const controlId = generateControlId(category, ctrl.controlName, controlIdCounters[category]);
 
     // Build guidance from requirements
     const guidance = ctrl.requirements
-      .filter(r => r.name)
-      .map(r => `• ${r.name}`)
+      .filter((r) => r.name)
+      .map((r) => `• ${r.name}`)
       .join('\n');
 
     // Check if control exists
@@ -394,7 +419,12 @@ async function importControls(controls: AnecdotesControl[], organizationId: stri
           description: ctrl.controlDescription || ctrl.controlName,
           category,
           guidance: guidance || ctrl.controlImplementation || null,
-          tags: ctrl.tags ? ctrl.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          tags: ctrl.tags
+            ? ctrl.tags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : [],
         },
       });
       updated++;
@@ -409,7 +439,12 @@ async function importControls(controls: AnecdotesControl[], organizationId: stri
           guidance: guidance || ctrl.controlImplementation || null,
           isCustom: true,
           organizationId,
-          tags: ctrl.tags ? ctrl.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          tags: ctrl.tags
+            ? ctrl.tags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : [],
           automationSupported: false,
         },
       });
@@ -431,8 +466,11 @@ async function importControls(controls: AnecdotesControl[], organizationId: stri
 
     // Create framework mappings from FW reference
     if (ctrl.fwReference) {
-      const refs = ctrl.fwReference.split(',').map(r => r.trim()).filter(Boolean);
-      
+      const refs = ctrl.fwReference
+        .split(',')
+        .map((r) => r.trim())
+        .filter(Boolean);
+
       for (const ref of refs) {
         const requirementId = requirementMap.get(ref);
         if (requirementId) {
@@ -466,7 +504,8 @@ async function importControls(controls: AnecdotesControl[], organizationId: stri
 }
 
 async function main() {
-  const csvPath = process.argv[2] || '/Users/chad.fryer/Downloads/SOC 2_controls_list_by_anecdotes.csv';
+  const csvPath =
+    process.argv[2] || '/Users/chad.fryer/Downloads/SOC 2_controls_list_by_anecdotes.csv';
 
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║     GigaChad GRC - Anecdotes SOC 2 Controls Importer           ║');
@@ -505,11 +544,16 @@ async function main() {
     console.log('\n╔════════════════════════════════════════════════════════════════╗');
     console.log('║                      Import Complete!                          ║');
     console.log('╠════════════════════════════════════════════════════════════════╣');
-    console.log(`║  Controls Created:    ${result.created.toString().padStart(4)}                                   ║`);
-    console.log(`║  Controls Updated:    ${result.updated.toString().padStart(4)}                                   ║`);
-    console.log(`║  Mappings Created:    ${result.mappingsCreated.toString().padStart(4)}                                   ║`);
+    console.log(
+      `║  Controls Created:    ${result.created.toString().padStart(4)}                                   ║`
+    );
+    console.log(
+      `║  Controls Updated:    ${result.updated.toString().padStart(4)}                                   ║`
+    );
+    console.log(
+      `║  Mappings Created:    ${result.mappingsCreated.toString().padStart(4)}                                   ║`
+    );
     console.log('╚════════════════════════════════════════════════════════════════╝');
-
   } catch (error) {
     console.error('\n❌ Import failed:', error);
     throw error;
@@ -524,6 +568,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-
