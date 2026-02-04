@@ -693,9 +693,9 @@ export class PhishingService {
 
     for (const target of targetsArray) {
       try {
-        const protocol =
-          process.env.PHISHING_TRACKING_PROTOCOL ||
-          (process.env.NODE_ENV === 'production' ? 'https' : 'http');
+        // Default to HTTP for phishing simulations - mimics real phishing behavior for training realism
+        // Override with PHISHING_TRACKING_PROTOCOL env var if needed (e.g., 'https')
+        const protocol = process.env.PHISHING_TRACKING_PROTOCOL || 'http';
         const trackingUrl = `${protocol}://${trackingDomain}/api/phishing/track/click?t=${target.trackingToken}`;
         const openTrackingUrl = `${protocol}://${trackingDomain}/api/phishing/track/open?t=${target.trackingToken}`;
 
