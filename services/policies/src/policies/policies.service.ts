@@ -10,12 +10,43 @@ import {
 import { generateId, STORAGE_PROVIDER, StorageProvider } from '@gigachad-grc/shared';
 import { PolicyStatus, Prisma } from '@prisma/client';
 
+/**
+ * SECURITY: Sanitize filename to prevent path traversal attacks
+ * Removes path components, null bytes, and special characters
+ */
+function sanitizeFilename(filename: string): string {
+  if (!filename) return 'file';
+
+  // Remove path components (prevents ../../../etc/passwd)
+  let sanitized = filename.replace(/^.*[\\/]/, '');
+
+  // Remove null bytes (prevents null byte injection)
+  // eslint-disable-next-line no-control-regex
+  sanitized = sanitized.replace(/\x00/g, '');
+  sanitized = sanitized.replace(/%00/g, '');
+
+  // Replace special characters with underscore
+  sanitized = sanitized.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+  // Prevent multiple dots that could indicate double extension attacks
+  sanitized = sanitized.replace(/\.{2,}/g, '.');
+
+  // Limit length (255 is typical filesystem limit)
+  if (sanitized.length > 255) {
+    const ext = sanitized.substring(sanitized.lastIndexOf('.'));
+    const name = sanitized.substring(0, 255 - ext.length);
+    sanitized = name + ext;
+  }
+
+  return sanitized || 'file';
+}
+
 @Injectable()
 export class PoliciesService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    @Inject(STORAGE_PROVIDER) private storage: StorageProvider,
+    @Inject(STORAGE_PROVIDER) private storage: StorageProvider
   ) {}
 
   async findAll(organizationId: string, filters: PolicyFilterDto) {
@@ -27,8 +58,11 @@ export class PoliciesService {
 
     if (filters.search) {
       // Split search into keywords for more flexible matching
-      const keywords = filters.search.trim().split(/\s+/).filter(k => k.length > 0);
-      
+      const keywords = filters.search
+        .trim()
+        .split(/\s+/)
+        .filter((k) => k.length > 0);
+
       // Build OR conditions for each keyword across multiple fields
       const orConditions: Prisma.PolicyWhereInput[] = [];
       for (const keyword of keywords) {
@@ -38,10 +72,10 @@ export class PoliciesService {
           { category: { contains: keyword, mode: Prisma.QueryMode.insensitive } },
           { filename: { contains: keyword, mode: Prisma.QueryMode.insensitive } },
           { tags: { has: keyword } },
-          { tags: { hasSome: [keyword, keyword.toLowerCase(), keyword.toUpperCase()] } },
+          { tags: { hasSome: [keyword, keyword.toLowerCase(), keyword.toUpperCase()] } }
         );
       }
-      
+
       // Match if ANY keyword matches (OR between keywords)
       if (orConditions.length > 0) {
         andConditions.push({ OR: orConditions });
@@ -125,11 +159,21 @@ export class PoliciesService {
 
   async getStats(organizationId: string) {
     const total = await this.prisma.policy.count({ where: { organizationId, deletedAt: null } });
-    const draft = await this.prisma.policy.count({ where: { organizationId, status: PolicyStatus.draft, deletedAt: null } });
-    const inReview = await this.prisma.policy.count({ where: { organizationId, status: PolicyStatus.in_review, deletedAt: null } });
-    const approved = await this.prisma.policy.count({ where: { organizationId, status: PolicyStatus.approved, deletedAt: null } });
-    const published = await this.prisma.policy.count({ where: { organizationId, status: PolicyStatus.published, deletedAt: null } });
-    const retired = await this.prisma.policy.count({ where: { organizationId, status: PolicyStatus.retired, deletedAt: null } });
+    const draft = await this.prisma.policy.count({
+      where: { organizationId, status: PolicyStatus.draft, deletedAt: null },
+    });
+    const inReview = await this.prisma.policy.count({
+      where: { organizationId, status: PolicyStatus.in_review, deletedAt: null },
+    });
+    const approved = await this.prisma.policy.count({
+      where: { organizationId, status: PolicyStatus.approved, deletedAt: null },
+    });
+    const published = await this.prisma.policy.count({
+      where: { organizationId, status: PolicyStatus.published, deletedAt: null },
+    });
+    const retired = await this.prisma.policy.count({
+      where: { organizationId, status: PolicyStatus.retired, deletedAt: null },
+    });
 
     const overdueReview = await this.prisma.policy.count({
       where: {
@@ -149,11 +193,13 @@ export class PoliciesService {
     file: Express.Multer.File,
     dto: UploadPolicyDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const policyId = generateId();
     const versionNumber = dto.version || '1.0';
-    const storagePath = `policies/${organizationId}/${policyId}/${versionNumber}/${file.originalname}`;
+    // SECURITY: Sanitize filename to prevent path traversal attacks
+    const safeFilename = sanitizeFilename(file.originalname);
+    const storagePath = `policies/${organizationId}/${policyId}/${versionNumber}/${safeFilename}`;
 
     // Upload file to storage
     await this.storage.upload(file.buffer, storagePath, {
@@ -238,7 +284,14 @@ export class PoliciesService {
 
     // Link to controls if specified
     if (dto.controlIds?.length) {
-      await this.linkToControls(policy.id, organizationId, userId, dto.controlIds, userEmail, userName);
+      await this.linkToControls(
+        policy.id,
+        organizationId,
+        userId,
+        dto.controlIds,
+        userEmail,
+        userName
+      );
     }
 
     return policy;
@@ -250,7 +303,7 @@ export class PoliciesService {
     userId: string,
     dto: UpdatePolicyDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const before = await this.findOne(id, organizationId);
 
@@ -293,11 +346,13 @@ export class PoliciesService {
     versionNumber: string,
     changeNotes?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const policy = await this.findOne(id, organizationId);
     const oldVersion = policy.version;
-    const storagePath = `policies/${organizationId}/${id}/${versionNumber}/${file.originalname}`;
+    // SECURITY: Sanitize filename to prevent path traversal attacks
+    const safeFilename = sanitizeFilename(file.originalname);
+    const storagePath = `policies/${organizationId}/${id}/${versionNumber}/${safeFilename}`;
 
     // Upload new version
     await this.storage.upload(file.buffer, storagePath, {
@@ -359,7 +414,7 @@ export class PoliciesService {
     userId: string,
     dto: UpdatePolicyStatusDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const policy = await this.findOne(id, organizationId);
     const fromStatus = policy.status;
@@ -427,7 +482,7 @@ export class PoliciesService {
     organizationId: string,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const policy = await this.findOne(id, organizationId);
 
@@ -475,13 +530,15 @@ export class PoliciesService {
 
   async streamFile(id: string, organizationId: string) {
     const policy = await this.findOne(id, organizationId);
-    
+
     // Check if file exists before attempting to stream
     const fileExists = await this.storage.exists(policy.storagePath);
     if (!fileExists) {
-      throw new NotFoundException(`Policy file not found. The file may not have been uploaded yet.`);
+      throw new NotFoundException(
+        `Policy file not found. The file may not have been uploaded yet.`
+      );
     }
-    
+
     const stream = await this.storage.download(policy.storagePath);
     return { stream, mimetype: policy.mimeType, filename: policy.filename };
   }
@@ -492,7 +549,7 @@ export class PoliciesService {
     userId: string,
     controlIds: string[],
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const policy = await this.findOne(policyId, organizationId);
 
@@ -514,7 +571,7 @@ export class PoliciesService {
     });
 
     // Audit log
-    const linkedControlNames = controls.map(c => `${c.controlId}: ${c.title}`).join(', ');
+    const linkedControlNames = controls.map((c) => `${c.controlId}: ${c.title}`).join(', ');
     await this.auditService.log({
       organizationId,
       userId,
@@ -540,7 +597,7 @@ export class PoliciesService {
     organizationId: string,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const policy = await this.findOne(policyId, organizationId);
 
@@ -573,4 +630,3 @@ export class PoliciesService {
     return this.findOne(policyId, organizationId);
   }
 }
-

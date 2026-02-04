@@ -18,13 +18,44 @@ import {
   getPrismaSkipTake,
 } from '@gigachad-grc/shared';
 
+/**
+ * SECURITY: Sanitize filename to prevent path traversal attacks
+ * Removes path components, null bytes, and special characters
+ */
+function sanitizeFilename(filename: string): string {
+  if (!filename) return 'file';
+
+  // Remove path components (prevents ../../../etc/passwd)
+  let sanitized = filename.replace(/^.*[\\/]/, '');
+
+  // Remove null bytes (prevents null byte injection)
+  // eslint-disable-next-line no-control-regex
+  sanitized = sanitized.replace(/\x00/g, '');
+  sanitized = sanitized.replace(/%00/g, '');
+
+  // Replace special characters with underscore
+  sanitized = sanitized.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+  // Prevent multiple dots that could indicate double extension attacks
+  sanitized = sanitized.replace(/\.{2,}/g, '.');
+
+  // Limit length (255 is typical filesystem limit)
+  if (sanitized.length > 255) {
+    const ext = sanitized.substring(sanitized.lastIndexOf('.'));
+    const name = sanitized.substring(0, 255 - ext.length);
+    sanitized = name + ext;
+  }
+
+  return sanitized || 'file';
+}
+
 @Injectable()
 export class EvidenceService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
     private notificationsService: NotificationsService,
-    @Inject(STORAGE_PROVIDER) private storage: StorageProvider,
+    @Inject(STORAGE_PROVIDER) private storage: StorageProvider
   ) {}
 
   async findAll(organizationId: string, filters: EvidenceFilterDto) {
@@ -110,10 +141,12 @@ export class EvidenceService {
     file: Express.Multer.File,
     dto: UploadEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidenceId = generateId();
-    const storagePath = `evidence/${organizationId}/${evidenceId}/${file.originalname}`;
+    // SECURITY: Sanitize filename to prevent path traversal attacks
+    const safeFilename = sanitizeFilename(file.originalname);
+    const storagePath = `evidence/${organizationId}/${evidenceId}/${safeFilename}`;
 
     // Upload to storage
     await this.storage.upload(file.buffer, storagePath, {
@@ -181,7 +214,7 @@ export class EvidenceService {
     userId: string,
     dto: UpdateEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const before = await this.findOne(id, organizationId);
 
@@ -217,7 +250,7 @@ export class EvidenceService {
     organizationId: string,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidence = await this.findOne(id, organizationId);
 
@@ -259,8 +292,8 @@ export class EvidenceService {
   async getPreviewUrl(id: string, organizationId: string) {
     const evidence = await this.findOne(id, organizationId);
     const url = await this.storage.getSignedUrl(evidence.storagePath, 3600);
-    return { 
-      url, 
+    return {
+      url,
       filename: evidence.filename,
       mimeType: evidence.mimeType,
     };
@@ -282,7 +315,7 @@ export class EvidenceService {
     userId: string,
     dto: ReviewEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const before = await this.findOne(id, organizationId);
 
@@ -308,8 +341,8 @@ export class EvidenceService {
       entityId: updated.id,
       entityName: updated.title,
       description: `Reviewed evidence "${updated.title}" - status changed to ${dto.status}`,
-      changes: { 
-        before: { status: before.status }, 
+      changes: {
+        before: { status: before.status },
         after: { status: updated.status, reviewNotes: dto.notes },
       },
     });
@@ -324,11 +357,12 @@ export class EvidenceService {
         message: `Your evidence "${updated.title}" has been ${dto.status}${dto.notes ? `: ${dto.notes}` : ''}`,
         entityType: 'evidence',
         entityId: updated.id,
-        severity: dto.status === EvidenceStatus.approved
-          ? NotificationSeverity.SUCCESS
-          : dto.status === EvidenceStatus.rejected
-            ? NotificationSeverity.ERROR
-            : NotificationSeverity.INFO,
+        severity:
+          dto.status === EvidenceStatus.approved
+            ? NotificationSeverity.SUCCESS
+            : dto.status === EvidenceStatus.rejected
+              ? NotificationSeverity.ERROR
+              : NotificationSeverity.INFO,
         metadata: {
           evidenceTitle: updated.title,
           reviewStatus: dto.status,
@@ -347,7 +381,7 @@ export class EvidenceService {
     userId: string,
     dto: LinkEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidence = await this.findOne(id, organizationId);
 
@@ -363,7 +397,7 @@ export class EvidenceService {
     });
 
     // Create links
-    const links = implementations.map(impl => ({
+    const links = implementations.map((impl) => ({
       evidenceId: id,
       controlId: impl.controlId,
       implementationId: impl.id,
@@ -377,7 +411,9 @@ export class EvidenceService {
     });
 
     // Audit log
-    const linkedControlNames = implementations.map(i => `${i.control.controlId}: ${i.control.title}`).join(', ');
+    const linkedControlNames = implementations
+      .map((i) => `${i.control.controlId}: ${i.control.title}`)
+      .join(', ');
     await this.auditService.log({
       organizationId,
       userId,
@@ -403,7 +439,7 @@ export class EvidenceService {
     organizationId: string,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidence = await this.findOne(id, organizationId);
 
@@ -440,14 +476,7 @@ export class EvidenceService {
   }
 
   async getStats(organizationId: string) {
-    const [
-      total,
-      byType,
-      bySource,
-      byStatus,
-      expiringSoon,
-      expired,
-    ] = await Promise.all([
+    const [total, byType, bySource, byStatus, expiringSoon, expired] = await Promise.all([
       this.prisma.evidence.count({ where: { organizationId, deletedAt: null } }),
       this.prisma.evidence.groupBy({
         by: ['type'],
@@ -482,9 +511,9 @@ export class EvidenceService {
 
     return {
       total,
-      byType: Object.fromEntries(byType.map(b => [b.type, b._count])),
-      bySource: Object.fromEntries(bySource.map(b => [b.source, b._count])),
-      byStatus: Object.fromEntries(byStatus.map(b => [b.status, b._count])),
+      byType: Object.fromEntries(byType.map((b) => [b.type, b._count])),
+      bySource: Object.fromEntries(bySource.map((b) => [b.source, b._count])),
+      byStatus: Object.fromEntries(byStatus.map((b) => [b.status, b._count])),
       expiringSoon,
       expired,
     };
@@ -501,12 +530,7 @@ export class EvidenceService {
     });
   }
 
-  async createFolder(
-    organizationId: string,
-    userId: string,
-    name: string,
-    parentId?: string,
-  ) {
+  async createFolder(organizationId: string, userId: string, name: string, parentId?: string) {
     let path = `/${name}`;
 
     if (parentId) {
@@ -548,4 +572,3 @@ export class EvidenceService {
     return { success: true };
   }
 }
-

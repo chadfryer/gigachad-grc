@@ -111,7 +111,7 @@ let googleAPIs: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadGoogleAPIs(): Promise<any> {
   if (googleAPIs) return googleAPIs;
-  
+
   try {
     const googleapis = await import('googleapis');
     googleAPIs = { google: googleapis.google };
@@ -140,7 +140,7 @@ export async function collectGoogleWorkspaceEvidence(
 
   if (!serviceAccountKey || !adminEmail) {
     console.warn('Google Workspace credentials not configured - running in demo mode');
-    
+
     return {
       service: 'google_workspace',
       collectedAt: new Date().toISOString(),
@@ -151,8 +151,13 @@ export async function collectGoogleWorkspaceEvidence(
         warnings: 0,
       },
       isMockMode: true,
-      mockModeReason: 'Google Workspace credentials not configured. Set GOOGLE_SERVICE_ACCOUNT_KEY (JSON string or path), GOOGLE_ADMIN_EMAIL (delegated admin), and optionally GOOGLE_CUSTOMER_ID.',
-      requiredCredentials: ['GOOGLE_SERVICE_ACCOUNT_KEY', 'GOOGLE_ADMIN_EMAIL', 'GOOGLE_CUSTOMER_ID (optional)'],
+      mockModeReason:
+        'Google Workspace credentials not configured. Set GOOGLE_SERVICE_ACCOUNT_KEY (JSON string or path), GOOGLE_ADMIN_EMAIL (delegated admin), and optionally GOOGLE_CUSTOMER_ID.',
+      requiredCredentials: [
+        'GOOGLE_SERVICE_ACCOUNT_KEY',
+        'GOOGLE_ADMIN_EMAIL',
+        'GOOGLE_CUSTOMER_ID (optional)',
+      ],
     };
   }
 
@@ -180,9 +185,30 @@ export async function collectGoogleWorkspaceEvidence(
     try {
       credentials = JSON.parse(serviceAccountKey);
     } catch {
-      // Might be a file path
+      // Might be a file path - validate it's within expected directories
       const fs = await import('fs');
-      const credentialsFile = fs.readFileSync(serviceAccountKey, 'utf-8');
+      const pathModule = await import('path');
+
+      // SECURITY: Validate path to prevent path traversal attacks
+      const resolvedPath = pathModule.resolve(serviceAccountKey);
+      const allowedDirs = [
+        pathModule.resolve(process.cwd(), 'config'),
+        pathModule.resolve(process.cwd(), 'credentials'),
+        pathModule.resolve(process.cwd(), 'secrets'),
+        pathModule.resolve(process.env.HOME || '', '.config', 'gcloud'),
+        '/etc/grc-evidence/credentials',
+      ];
+
+      const isAllowedPath = allowedDirs.some(
+        (dir) => resolvedPath.startsWith(dir + pathModule.sep) || resolvedPath === dir
+      );
+      if (!isAllowedPath) {
+        throw new Error(
+          `Service account key path '${serviceAccountKey}' is outside allowed directories. Allowed: ${allowedDirs.join(', ')}`
+        );
+      }
+
+      const credentialsFile = fs.readFileSync(resolvedPath, 'utf-8');
       credentials = JSON.parse(credentialsFile);
     }
 
@@ -269,10 +295,13 @@ export async function collectGoogleWorkspaceEvidence(
     return {
       service: 'google_workspace',
       collectedAt: new Date().toISOString(),
-      findings: [{ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        suggestion: 'Verify service account has domain-wide delegation enabled and the admin email has appropriate permissions.'
-      }],
+      findings: [
+        {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          suggestion:
+            'Verify service account has domain-wide delegation enabled and the admin email has appropriate permissions.',
+        },
+      ],
       summary: {
         totalEvents: 0,
         criticalFindings: 0,
@@ -288,7 +317,8 @@ async function collectAdminAuditLogs(
   reports: AdminReportsAPI,
   timeRange?: { startTime: string; endTime: string }
 ): Promise<unknown> {
-  const startTime = timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const startTime =
+    timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const endTime = timeRange?.endTime || new Date().toISOString();
 
   const response = await reports.activities.list({
@@ -300,7 +330,7 @@ async function collectAdminAuditLogs(
   });
 
   const activities = response.data.items || [];
-  
+
   // Categorize events by criticality
   const criticalEventTypes = [
     'GRANT_ADMIN_PRIVILEGE',
@@ -310,10 +340,10 @@ async function collectAdminAuditLogs(
     'CHANGE_ALLOWED_TWO_STEP_VERIFICATION_METHODS',
     'ENFORCE_STRONG_AUTHENTICATION',
   ];
-  
+
   const warningEventTypes = [
     'CREATE_USER',
-    'DELETE_USER', 
+    'DELETE_USER',
     'SUSPEND_USER',
     'UNSUSPEND_USER',
     'CHANGE_PASSWORD',
@@ -326,12 +356,12 @@ async function collectAdminAuditLogs(
 
   const categorizedEvents = activities.map((activity: unknown) => {
     const act = activity as Record<string, unknown>;
-    const events = act.events as Array<{ name?: string }> || [];
-    const eventNames = events.map(e => e.name).filter(Boolean);
-    
-    const isCritical = eventNames.some(name => criticalEventTypes.includes(name || ''));
-    const isWarning = eventNames.some(name => warningEventTypes.includes(name || ''));
-    
+    const events = (act.events as Array<{ name?: string }>) || [];
+    const eventNames = events.map((e) => e.name).filter(Boolean);
+
+    const isCritical = eventNames.some((name) => criticalEventTypes.includes(name || ''));
+    const isWarning = eventNames.some((name) => warningEventTypes.includes(name || ''));
+
     if (isCritical) criticalCount++;
     else if (isWarning) warningCount++;
 
@@ -348,11 +378,15 @@ async function collectAdminAuditLogs(
     totalEvents: activities.length,
     criticalCount,
     warningCount,
-    eventTypes: [...new Set(activities.flatMap((a: unknown) => {
-      const act = a as Record<string, unknown>;
-      const events = act.events as Array<{ name?: string }> || [];
-      return events.map(e => e.name).filter(Boolean);
-    }))],
+    eventTypes: [
+      ...new Set(
+        activities.flatMap((a: unknown) => {
+          const act = a as Record<string, unknown>;
+          const events = (act.events as Array<{ name?: string }>) || [];
+          return events.map((e) => e.name).filter(Boolean);
+        })
+      ),
+    ],
   };
 }
 
@@ -360,7 +394,8 @@ async function collectLoginAuditLogs(
   reports: AdminReportsAPI,
   timeRange?: { startTime: string; endTime: string }
 ): Promise<unknown> {
-  const startTime = timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const startTime =
+    timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const endTime = timeRange?.endTime || new Date().toISOString();
 
   const response = await reports.activities.list({
@@ -380,8 +415,12 @@ async function collectLoginAuditLogs(
 
   for (const activity of activities) {
     const act = activity as Record<string, unknown>;
-    const events = act.events as Array<{ name?: string; parameters?: Array<{ name?: string; value?: string }> }> || [];
-    
+    const events =
+      (act.events as Array<{
+        name?: string;
+        parameters?: Array<{ name?: string; value?: string }>;
+      }>) || [];
+
     for (const event of events) {
       if (event.name === 'login_failure') {
         failedLogins++;
@@ -390,7 +429,7 @@ async function collectLoginAuditLogs(
         suspiciousLogins++;
       }
       const params = event.parameters || [];
-      const isLegacy = params.some(p => p.name === 'is_second_factor' && p.value === 'false');
+      const isLegacy = params.some((p) => p.name === 'is_second_factor' && p.value === 'false');
       if (isLegacy) legacyProtocolLogins++;
     }
   }
@@ -424,18 +463,29 @@ async function collectDriveSharingSettings(drive: DriveAPI): Promise<unknown> {
 
   // Categorize by risk
   const sensitivePatterns = [
-    /password/i, /credential/i, /secret/i, /key/i, /token/i,
-    /financial/i, /payroll/i, /salary/i, /ssn/i, /social.?security/i,
-    /hipaa/i, /pii/i, /confidential/i, /private/i,
+    /password/i,
+    /credential/i,
+    /secret/i,
+    /key/i,
+    /token/i,
+    /financial/i,
+    /payroll/i,
+    /salary/i,
+    /ssn/i,
+    /social.?security/i,
+    /hipaa/i,
+    /pii/i,
+    /confidential/i,
+    /private/i,
   ];
 
   let criticalCount = 0;
   let warningCount = 0;
 
-  const categorizedFiles = publicFiles.map(file => {
-    const isSensitive = sensitivePatterns.some(pattern => pattern.test(file.name || ''));
-    const hasAnyonePermission = file.permissions?.some(p => p.type === 'anyone');
-    
+  const categorizedFiles = publicFiles.map((file) => {
+    const isSensitive = sensitivePatterns.some((pattern) => pattern.test(file.name || ''));
+    const hasAnyonePermission = file.permissions?.some((p) => p.type === 'anyone');
+
     if (isSensitive && hasAnyonePermission) {
       criticalCount++;
       return { ...file, risk: 'critical', reason: 'Sensitive file publicly accessible' };
@@ -476,7 +526,7 @@ async function collectMobileDeviceStatus(
   let criticalCount = 0;
   let warningCount = 0;
 
-  const categorizedDevices = devices.map(device => {
+  const categorizedDevices = devices.map((device) => {
     const isManaged = device.status === 'APPROVED';
     const isEncrypted = device.encryptionStatus === 'ENCRYPTED';
     const isCompromised = device.deviceCompromisedStatus === 'COMPROMISED';
@@ -543,7 +593,7 @@ async function collectUserSecurityStatus(
   let criticalCount = 0;
   let warningCount = 0;
 
-  const categorizedUsers = users.map(user => {
+  const categorizedUsers = users.map((user) => {
     if (user.isEnrolledIn2Sv) with2FA++;
     if (user.isEnforcedIn2Sv) enforced2FA++;
     if (user.isAdmin) admins++;
@@ -587,7 +637,7 @@ async function collectUserSecurityStatus(
 }
 
 function getDemoFindings(checks: string[]): unknown[] {
-  return checks.map(check => ({
+  return checks.map((check) => ({
     type: check,
     events: [],
     status: 'demo_mode',
