@@ -1,0 +1,246 @@
+rules:
+  # =============================================================================
+  # AUTHENTICATION BYPASS RULES
+  # =============================================================================
+
+  - id: jwt-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: jwt.decode($TOKEN)
+          - pattern: jwt.decode($TOKEN, { complete: true })
+      - pattern-not: jwt.verify(...)
+    message: |
+      jwt.decode() does not verify the token signature. Use jwt.verify() for authentication.
+      jwt.decode() should only be used when the token has already been verified elsewhere.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-345: Insufficient Verification of Data Authenticity"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+
+  - id: bcrypt-low-rounds
+    patterns:
+      - pattern: bcrypt.hash($PASSWORD, $ROUNDS)
+      - metavariable-comparison:
+          metavariable: $ROUNDS
+          comparison: $ROUNDS < 10
+    message: |
+      bcrypt salt rounds below 10 are considered weak. Use at least 10-12 rounds.
+      Example: bcrypt.hash(password, 12)
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-916: Use of Password Hash With Insufficient Computational Effort"
+
+  - id: session-cookie-insecure
+    patterns:
+      - pattern-either:
+          - pattern: "{ ..., httpOnly: false, ... }"
+          - pattern: "{ ..., secure: false, ... }"
+          - pattern: "{ ..., sameSite: 'none', ... }"
+      - pattern-inside: |
+          $SESSION({ cookie: { ... } })
+    message: |
+      Session cookie missing security flags. Ensure httpOnly: true, secure: true, and sameSite: 'strict' or 'lax'.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-614: Sensitive Cookie in HTTPS Session Without 'Secure' Attribute"
+
+  # =============================================================================
+  # API KEY / TOKEN HANDLING
+  # =============================================================================
+
+  - id: api-key-in-query-param
+    patterns:
+      - pattern-either:
+          - pattern: $URL + "?api_key=" + $KEY
+          - pattern: $URL + "?apiKey=" + $KEY
+          - pattern: $URL + "?token=" + $KEY
+          - pattern: "`${$URL}?api_key=${$KEY}`"
+          - pattern: "`${$URL}?apiKey=${$KEY}`"
+          - pattern: "`${$URL}?token=${$KEY}`"
+    message: |
+      API keys in query parameters are logged in server logs and browser history.
+      Use Authorization header instead: headers: { 'Authorization': 'Bearer ' + token }
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-598: Use of GET Request Method With Sensitive Query Strings"
+
+  - id: token-in-localstorage
+    patterns:
+      - pattern-either:
+          - pattern: localStorage.setItem("token", ...)
+          - pattern: localStorage.setItem("jwt", ...)
+          - pattern: localStorage.setItem("access_token", ...)
+          - pattern: localStorage.setItem("refresh_token", ...)
+          - pattern: localStorage.setItem("apiKey", ...)
+    message: |
+      Storing authentication tokens in localStorage is vulnerable to XSS attacks.
+      Consider using httpOnly cookies or secure session storage.
+    languages: [typescript, javascript, tsx, jsx]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-922: Insecure Storage of Sensitive Information"
+
+  # =============================================================================
+  # AUTHORIZATION RULES
+  # =============================================================================
+
+  - id: missing-role-check
+    patterns:
+      - pattern: |
+          @$DECORATOR(...)
+          async $METHOD(@User() $USER: ..., ...) {
+            ...
+          }
+      - pattern-not: |
+          @$DECORATOR(...)
+          @Roles(...)
+          async $METHOD(...) { ... }
+      - pattern-not: |
+          @$DECORATOR(...)
+          async $METHOD(@User() $USER: ..., ...) {
+            ...
+            if ($USER.role...) { ... }
+            ...
+          }
+    message: |
+      Endpoint may be missing role-based access control. Use @Roles() decorator or check user.role in the method.
+    languages: [typescript]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-862: Missing Authorization"
+
+  - id: admin-endpoint-exposure
+    patterns:
+      - pattern-either:
+          - pattern: "@Controller('admin')"
+          - pattern: "@Controller('/admin')"
+          - pattern: "@Controller('api/admin')"
+      - pattern-not-inside: |
+          @UseGuards(...)
+          ...
+    message: |
+      Admin controller should have authentication guards at the class level.
+      Add @UseGuards(JwtAuthGuard, RolesGuard) and @Roles('admin') decorators.
+    languages: [typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-306: Missing Authentication for Critical Function"
+
+  # =============================================================================
+  # PASSWORD HANDLING
+  # =============================================================================
+
+  - id: plaintext-password-storage
+    patterns:
+      - pattern-either:
+          - pattern: "{ ..., password: $INPUT, ... }"
+          - pattern: "data: { ..., password: $REQ.body.password, ... }"
+      - pattern-not: "{ ..., password: await bcrypt.hash(...), ... }"
+      - pattern-not: "{ ..., password: bcrypt.hashSync(...), ... }"
+      - pattern-not: "{ ..., password: $HASHED, ... }"
+      - pattern-inside: |
+          $PRISMA.$MODEL.create(...)
+    message: |
+      Password may be stored in plaintext. Hash passwords with bcrypt before storage.
+      Example: const hashedPassword = await bcrypt.hash(password, 12)
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-256: Plaintext Storage of a Password"
+      owasp: "A02:2021 - Cryptographic Failures"
+
+  - id: password-in-response
+    patterns:
+      - pattern-either:
+          - pattern: "return { ..., password: $VAR, ... }"
+          - pattern: "res.json({ ..., password: $VAR, ... })"
+          - pattern: "res.send({ ..., password: $VAR, ... })"
+    message: |
+      Password field included in API response. Remove sensitive fields before returning data.
+      Use DTOs with @Exclude() decorator or explicit field selection.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-200: Exposure of Sensitive Information"
+
+  # =============================================================================
+  # OAUTH/OIDC RULES
+  # =============================================================================
+
+  - id: oauth-state-missing
+    patterns:
+      - pattern: |
+          $OAUTH.getAuthorizationUrl(...)
+      - pattern-not: |
+          $OAUTH.getAuthorizationUrl({ ..., state: ..., ... })
+    message: |
+      OAuth authorization request missing state parameter for CSRF protection.
+      Generate a random state and validate it on callback.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-352: Cross-Site Request Forgery"
+
+  - id: redirect-uri-not-validated
+    patterns:
+      - pattern: |
+          const redirectUri = $REQ.$PROP.$FIELD
+          ...
+          $OAUTH.getToken({ ..., redirect_uri: $REDIRECT, ... })
+    message: |
+      Redirect URI from request may be vulnerable to open redirect. Validate against allowed list.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site"
+
+  # =============================================================================
+  # KEYCLOAK SPECIFIC RULES
+  # =============================================================================
+
+  - id: keycloak-public-client
+    patterns:
+      - pattern: '"publicClient": true'
+    paths:
+      include:
+        - "**/realm-export.json"
+        - "**/keycloak*.json"
+    message: |
+      Keycloak client configured as public. Public clients cannot securely authenticate.
+      Use confidential clients with client secrets for backend services.
+    languages: [json]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-287: Improper Authentication"
+
+  - id: keycloak-direct-grants
+    patterns:
+      - pattern: '"directAccessGrantsEnabled": true'
+    paths:
+      include:
+        - "**/realm-export.json"
+        - "**/keycloak*.json"
+    message: |
+      Direct access grants (Resource Owner Password Credentials) enabled.
+      This flow is deprecated and less secure. Use authorization code flow instead.
+    languages: [json]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-287: Improper Authentication"

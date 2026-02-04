@@ -15,3 +15,7 @@ package-lock.json
 coverage/
 playwright-report/
 test-results/
+
+# Security tool configs (special syntax)
+.semgrep/
+.gitleaks.toml
