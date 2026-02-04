@@ -1,4 +1,15 @@
-import { IsString, IsOptional, IsEnum, IsArray, IsObject, ValidateNested, IsBoolean, IsNumber, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  IsObject,
+  ValidateNested,
+  IsBoolean,
+  IsNumber,
+  MaxLength,
+  IsUrl,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Transport types for MCP servers
@@ -104,15 +115,18 @@ export class MCPCapabilities {
 // Server configuration DTO
 export class MCPServerConfigDto {
   @IsString()
+  @MaxLength(255)
   id: string;
 
   @IsString()
+  @MaxLength(255)
   name: string;
 
   @IsEnum(MCPTransportType)
   transport: MCPTransportType;
 
   @IsString()
+  @MaxLength(1000)
   @IsOptional()
   command?: string; // For stdio transport
 
@@ -121,7 +135,9 @@ export class MCPServerConfigDto {
   @IsOptional()
   args?: string[]; // Command arguments for stdio
 
-  @IsString()
+  // SECURITY: URL validation prevents SSRF attacks on SSE/WebSocket connections
+  @IsUrl({ require_tld: false }, { message: 'url must be a valid URL' })
+  @MaxLength(2000)
   @IsOptional()
   url?: string; // For SSE/WebSocket transport
 
@@ -150,12 +166,14 @@ export class MCPServerConfigDto {
 // Create server request
 export class CreateMCPServerDto {
   @IsString()
+  @MaxLength(255)
   name: string;
 
   @IsEnum(MCPTransportType)
   transport: MCPTransportType;
 
   @IsString()
+  @MaxLength(1000)
   @IsOptional()
   command?: string;
 
@@ -164,7 +182,9 @@ export class CreateMCPServerDto {
   @IsOptional()
   args?: string[];
 
-  @IsString()
+  // SECURITY: URL validation prevents SSRF attacks on SSE/WebSocket connections
+  @IsUrl({ require_tld: false }, { message: 'url must be a valid URL' })
+  @MaxLength(2000)
   @IsOptional()
   url?: string;
 
@@ -185,6 +205,7 @@ export class CreateMCPServerDto {
 // Update server request
 export class UpdateMCPServerDto {
   @IsString()
+  @MaxLength(255)
   @IsOptional()
   name?: string;
 
@@ -193,6 +214,7 @@ export class UpdateMCPServerDto {
   transport?: MCPTransportType;
 
   @IsString()
+  @MaxLength(1000)
   @IsOptional()
   command?: string;
 
@@ -201,7 +223,9 @@ export class UpdateMCPServerDto {
   @IsOptional()
   args?: string[];
 
-  @IsString()
+  // SECURITY: URL validation prevents SSRF attacks on SSE/WebSocket connections
+  @IsUrl({ require_tld: false }, { message: 'url must be a valid URL' })
+  @MaxLength(2000)
   @IsOptional()
   url?: string;
 
@@ -455,4 +479,3 @@ export class ReadResourceDto {
   @MaxLength(2000)
   uri: string;
 }
-

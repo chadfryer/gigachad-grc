@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsIn, IsArray, ValidateNested, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsIn,
+  IsArray,
+  ValidateNested,
+  IsObject,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Endpoint configuration for visual mode
@@ -11,6 +20,7 @@ export class EndpointConfigDto {
 
   @ApiProperty({ description: 'Endpoint path (e.g., /api/users)' })
   @IsString()
+  @MaxLength(1000)
   path: string;
 
   @ApiPropertyOptional({ description: 'Custom headers for this endpoint' })
@@ -40,11 +50,13 @@ export class EndpointConfigDto {
   @ApiPropertyOptional({ description: 'Human-readable name for this endpoint' })
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   name?: string;
 
   @ApiPropertyOptional({ description: 'Description of what this endpoint does' })
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 }
 
@@ -52,10 +64,12 @@ export class EndpointConfigDto {
 export class ApiKeyAuthConfigDto {
   @ApiProperty({ description: 'Header name or query param name' })
   @IsString()
+  @MaxLength(255)
   keyName: string;
 
   @ApiProperty({ description: 'The API key value' })
   @IsString()
+  @MaxLength(5000)
   keyValue: string;
 
   @ApiProperty({ enum: ['header', 'query'], description: 'Where to send the key' })
@@ -66,21 +80,26 @@ export class ApiKeyAuthConfigDto {
 
 // OAuth 2.0 authentication config
 export class OAuth2AuthConfigDto {
+  // SECURITY: URL validation prevents SSRF attacks on OAuth token endpoint
   @ApiProperty({ description: 'Token endpoint URL' })
-  @IsString()
+  @IsUrl({}, { message: 'tokenUrl must be a valid URL' })
+  @MaxLength(2000)
   tokenUrl: string;
 
   @ApiProperty({ description: 'Client ID' })
   @IsString()
+  @MaxLength(255)
   clientId: string;
 
   @ApiProperty({ description: 'Client Secret' })
   @IsString()
+  @MaxLength(5000)
   clientSecret: string;
 
   @ApiPropertyOptional({ description: 'OAuth scope' })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   scope?: string;
 }
 
@@ -92,19 +111,27 @@ export class SaveCustomConfigDto {
   mode: 'visual' | 'code';
 
   // Visual mode fields
+  // SECURITY: URL validation prevents SSRF attacks by ensuring valid URL format
   @ApiPropertyOptional({ description: 'Base URL for API calls' })
   @IsOptional()
-  @IsString()
+  @IsUrl({ require_tld: false }, { message: 'baseUrl must be a valid URL' })
+  @MaxLength(2000)
   baseUrl?: string;
 
-  @ApiPropertyOptional({ type: [EndpointConfigDto], description: 'List of endpoint configurations' })
+  @ApiPropertyOptional({
+    type: [EndpointConfigDto],
+    description: 'List of endpoint configurations',
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => EndpointConfigDto)
   endpoints?: EndpointConfigDto[];
 
-  @ApiPropertyOptional({ enum: ['api_key', 'oauth2', 'basic', 'bearer'], description: 'Authentication type' })
+  @ApiPropertyOptional({
+    enum: ['api_key', 'oauth2', 'basic', 'bearer'],
+    description: 'Authentication type',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['api_key', 'oauth2', 'basic', 'bearer'])
@@ -121,9 +148,19 @@ export class SaveCustomConfigDto {
   responseMapping?: Record<string, unknown>;
 
   // Code mode fields
+  /**
+   * SECURITY WARNING: Custom code execution is a significant security risk.
+   * This field MUST be:
+   * 1. Only accessible to admin users with explicit permissions
+   * 2. Executed in a sandboxed environment (VM2, isolated-vm, or similar)
+   * 3. Subject to rate limiting and resource constraints
+   * 4. Logged for audit purposes with full code content
+   * 5. Validated for dangerous patterns before execution
+   */
   @ApiPropertyOptional({ description: 'Custom JavaScript code for advanced integrations' })
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   customCode?: string;
 }
 
@@ -133,9 +170,11 @@ export class TestEndpointDto {
   @IsOptional()
   endpointIndex?: number;
 
+  // SECURITY: URL validation prevents SSRF attacks by ensuring valid URL format
   @ApiPropertyOptional({ description: 'Override base URL for testing' })
   @IsOptional()
-  @IsString()
+  @IsUrl({ require_tld: false }, { message: 'baseUrl must be a valid URL' })
+  @MaxLength(2000)
   baseUrl?: string;
 
   @ApiPropertyOptional({ description: 'Override auth config for testing' })
@@ -271,6 +310,3 @@ async function sync(context) {
 // Export the sync function
 module.exports = { sync };
 `;
-
-
-

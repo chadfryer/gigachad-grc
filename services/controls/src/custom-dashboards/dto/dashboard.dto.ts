@@ -8,6 +8,8 @@ import {
   IsNumber,
   ValidateNested,
   IsEnum,
+  IsUrl,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -168,9 +170,19 @@ export class DataQueryDto {
   @Type(() => TimeRange)
   timeRange?: TimeRange;
 
+  /**
+   * SECURITY WARNING: Raw SQL queries are a significant SQL injection risk.
+   * This field MUST be:
+   * 1. Only accessible to admin users with explicit permissions
+   * 2. Parameterized or run through a query sanitizer before execution
+   * 3. Limited to SELECT statements only (no INSERT/UPDATE/DELETE/DROP)
+   * 4. Logged for audit purposes with full query content
+   * 5. Subject to query timeout and row limits
+   */
   @ApiPropertyOptional({ description: 'Raw SQL for advanced users' })
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   rawQuery?: string;
 }
 
@@ -229,11 +241,14 @@ export class WidgetConfigDto {
   @ApiPropertyOptional({ description: 'Markdown content' })
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   markdownContent?: string;
 
+  // SECURITY: URL validation prevents loading malicious external content
   @ApiPropertyOptional({ description: 'IFrame URL' })
   @IsOptional()
-  @IsString()
+  @IsUrl({}, { message: 'iframeUrl must be a valid URL' })
+  @MaxLength(2000)
   iframeUrl?: string;
 
   @ApiPropertyOptional({ description: 'Show legend' })
@@ -285,6 +300,7 @@ export class CreateWidgetDto {
 
   @ApiProperty()
   @IsString()
+  @MaxLength(255)
   title: string;
 
   @ApiPropertyOptional({ type: WidgetConfigDto })
@@ -321,6 +337,7 @@ export class UpdateWidgetDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   title?: string;
 
   @ApiPropertyOptional({ type: WidgetConfigDto })
@@ -351,11 +368,13 @@ export class UpdateWidgetDto {
 export class CreateDashboardDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(255)
   name: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiPropertyOptional()
@@ -386,11 +405,13 @@ export class UpdateDashboardDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiPropertyOptional()
@@ -468,4 +489,3 @@ export class DataSourceDefinitionDto {
     aggregatable: boolean;
   }[];
 }
-
