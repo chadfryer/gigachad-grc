@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable } from '@nestjs/common';
 import { BaseConnector } from './base-connector';
-import axios from 'axios';
+import { safeFetch } from '@gigachad-grc/shared';
 
 // =============================================================================
 // DevOps & CI/CD Connectors - Fully Implemented
@@ -458,19 +458,23 @@ export class CheckmarxConnector extends BaseConnector {
           'Checkmarx client secret required. Set CHECKMARX_CLIENT_SECRET environment variable or provide clientSecret in config.',
       };
     try {
-      const tokenResponse = await axios.post(
+      const tokenResponse = await safeFetch(
         `${config.baseUrl}/cxrestapi/auth/identity/connect/token`,
-        new URLSearchParams({
-          username: config.username,
-          password: config.password,
-          grant_type: 'password',
-          scope: 'sast_rest_api',
-          client_id: 'resource_owner_client',
-          client_secret: clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            username: config.username,
+            password: config.password,
+            grant_type: 'password',
+            scope: 'sast_rest_api',
+            client_id: 'resource_owner_client',
+            client_secret: clientSecret,
+          }).toString(),
+        }
       );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -511,19 +515,23 @@ export class CheckmarxConnector extends BaseConnector {
         ],
       };
     try {
-      const tokenResponse = await axios.post(
+      const tokenResponse = await safeFetch(
         `${config.baseUrl}/cxrestapi/auth/identity/connect/token`,
-        new URLSearchParams({
-          username: config.username,
-          password: config.password,
-          grant_type: 'password',
-          scope: 'sast_rest_api',
-          client_id: 'resource_owner_client',
-          client_secret: clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            username: config.username,
+            password: config.password,
+            grant_type: 'password',
+            scope: 'sast_rest_api',
+            client_id: 'resource_owner_client',
+            client_secret: clientSecret,
+          }).toString(),
+        }
       );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           projects: { total: 0, items: [] },
@@ -585,12 +593,13 @@ export class AquaSecurityConnector extends BaseConnector {
   }): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.baseUrl) return { success: false, message: 'Base URL required' };
     try {
-      const tokenResponse = await axios.post(
-        `${config.baseUrl}/api/v1/login`,
-        { id: config.username, password: config.password },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const token = tokenResponse.data?.token;
+      const tokenResponse = await safeFetch(`${config.baseUrl}/api/v1/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: config.username, password: config.password }),
+      });
+      const tokenData = await tokenResponse.json();
+      const token = tokenData?.token;
       if (!token) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
       this.setBaseURL(config.baseUrl);
@@ -612,12 +621,13 @@ export class AquaSecurityConnector extends BaseConnector {
     const registries: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
-        `${config.baseUrl}/api/v1/login`,
-        { id: config.username, password: config.password },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const token = tokenResponse.data?.token;
+      const tokenResponse = await safeFetch(`${config.baseUrl}/api/v1/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: config.username, password: config.password }),
+      });
+      const tokenData = await tokenResponse.json();
+      const token = tokenData?.token;
       if (!token)
         return {
           images: { total: 0, vulnerable: 0, items: [] },
@@ -666,12 +676,13 @@ export class PrismaCloudConnector extends BaseConnector {
     if (!config.apiUrl || !config.accessKey)
       return { success: false, message: 'API URL and credentials required' };
     try {
-      const tokenResponse = await axios.post(
-        `${config.apiUrl}/login`,
-        { username: config.accessKey, password: config.secretKey },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const token = tokenResponse.data?.token;
+      const tokenResponse = await safeFetch(`${config.apiUrl}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: config.accessKey, password: config.secretKey }),
+      });
+      const tokenData = await tokenResponse.json();
+      const token = tokenData?.token;
       if (!token) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
       this.setBaseURL(config.apiUrl);
@@ -693,12 +704,13 @@ export class PrismaCloudConnector extends BaseConnector {
     const compliance: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
-        `${config.apiUrl}/login`,
-        { username: config.accessKey, password: config.secretKey },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const token = tokenResponse.data?.token;
+      const tokenResponse = await safeFetch(`${config.apiUrl}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: config.accessKey, password: config.secretKey }),
+      });
+      const tokenData = await tokenResponse.json();
+      const token = tokenData?.token;
       if (!token)
         return {
           alerts: { total: 0, high: 0, items: [] },

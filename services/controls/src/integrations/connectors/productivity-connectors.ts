@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable } from '@nestjs/common';
 import { BaseConnector } from './base-connector';
+import { safeFetch } from '@gigachad-grc/shared';
 import axios from 'axios';
 
 // =============================================================================
@@ -1144,16 +1145,17 @@ export class RingCentralConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.clientId) return { success: false, message: 'Credentials required' };
     try {
-      const tokenResponse = await axios.post(
-        `${config.serverUrl}/rest/oauth/token`,
-        new URLSearchParams({
+      const tokenResponse = await safeFetch(`${config.serverUrl}/rest/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: config.clientId,
           client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }).toString(),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to obtain access token' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -1177,16 +1179,17 @@ export class RingCentralConnector extends BaseConnector {
     const callLogs: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
-        `${config.serverUrl}/rest/oauth/token`,
-        new URLSearchParams({
+      const tokenResponse = await safeFetch(`${config.serverUrl}/rest/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: config.clientId,
           client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }).toString(),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           extensions: { total: 0, items: [] },

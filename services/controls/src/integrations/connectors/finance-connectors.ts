@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable } from '@nestjs/common';
 import { BaseConnector } from './base-connector';
+import { safeFetch } from '@gigachad-grc/shared';
 import axios from 'axios';
 
 // =============================================================================
@@ -974,19 +975,20 @@ export class SugarCRMConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.baseUrl) return { success: false, message: 'Base URL required' };
     try {
-      const loginResponse = await axios.post(
-        `${config.baseUrl}/rest/v11/oauth2/token`,
-        {
+      const loginResponse = await safeFetch(`${config.baseUrl}/rest/v11/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           grant_type: 'password',
           client_id: 'sugar',
           client_secret: '',
           username: config.username,
           password: config.password,
           platform: 'base',
-        },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = loginResponse.data?.access_token;
+        }),
+      });
+      const loginData = await loginResponse.json();
+      const accessToken = loginData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({ 'OAuth-Token': accessToken, 'Content-Type': 'application/json' });
       this.setBaseURL(config.baseUrl);
@@ -1008,19 +1010,20 @@ export class SugarCRMConnector extends BaseConnector {
     const opportunities: any[] = [];
     const errors: string[] = [];
     try {
-      const loginResponse = await axios.post(
-        `${config.baseUrl}/rest/v11/oauth2/token`,
-        {
+      const loginResponse = await safeFetch(`${config.baseUrl}/rest/v11/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           grant_type: 'password',
           client_id: 'sugar',
           client_secret: '',
           username: config.username,
           password: config.password,
           platform: 'base',
-        },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = loginResponse.data?.access_token;
+        }),
+      });
+      const loginData = await loginResponse.json();
+      const accessToken = loginData?.access_token;
       if (!accessToken)
         return {
           accounts: { total: 0, items: [] },
@@ -1575,18 +1578,19 @@ export class TableauConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.serverUrl) return { success: false, message: 'Server URL required' };
     try {
-      const signInResponse = await axios.post(
-        `${config.serverUrl}/api/3.21/auth/signin`,
-        {
+      const signInResponse = await safeFetch(`${config.serverUrl}/api/3.21/auth/signin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           credentials: {
             name: config.username,
             password: config.password,
             site: { contentUrl: config.siteName },
           },
-        },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const token = signInResponse.data?.credentials?.token;
+        }),
+      });
+      const signInData = await signInResponse.json();
+      const token = signInData?.credentials?.token;
       if (!token) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({ 'X-Tableau-Auth': token, 'Content-Type': 'application/json' });
       this.setBaseURL(config.serverUrl);
@@ -1604,18 +1608,19 @@ export class TableauConnector extends BaseConnector {
     const datasources: any[] = [];
     const errors: string[] = [];
     try {
-      const signInResponse = await axios.post(
-        `${config.serverUrl}/api/3.21/auth/signin`,
-        {
+      const signInResponse = await safeFetch(`${config.serverUrl}/api/3.21/auth/signin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           credentials: {
             name: config.username,
             password: config.password,
             site: { contentUrl: config.siteName },
           },
-        },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const token = signInResponse.data?.credentials?.token;
+        }),
+      });
+      const signInData = await signInResponse.json();
+      const token = signInData?.credentials?.token;
       if (!token)
         return {
           workbooks: { total: 0, items: [] },
@@ -1755,12 +1760,13 @@ export class LookerConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.baseUrl) return { success: false, message: 'Base URL required' };
     try {
-      const tokenResponse = await axios.post(
-        `${config.baseUrl}/api/3.1/login`,
-        { client_id: config.clientId, client_secret: config.clientSecret },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenResponse = await safeFetch(`${config.baseUrl}/api/3.1/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: config.clientId, client_secret: config.clientSecret }),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to obtain access token' };
       this.setHeaders({
         Authorization: `Token ${accessToken}`,
@@ -1785,12 +1791,13 @@ export class LookerConnector extends BaseConnector {
     const users: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
-        `${config.baseUrl}/api/3.1/login`,
-        { client_id: config.clientId, client_secret: config.clientSecret },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenResponse = await safeFetch(`${config.baseUrl}/api/3.1/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: config.clientId, client_secret: config.clientSecret }),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           looks: { total: 0, items: [] },
@@ -1933,12 +1940,13 @@ export class MetabaseConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.baseUrl) return { success: false, message: 'Base URL required' };
     try {
-      const sessionResponse = await axios.post(
-        `${config.baseUrl}/api/session`,
-        { username: config.username, password: config.password },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const sessionToken = sessionResponse.data?.id;
+      const sessionResponse = await safeFetch(`${config.baseUrl}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: config.username, password: config.password }),
+      });
+      const sessionData = await sessionResponse.json();
+      const sessionToken = sessionData?.id;
       if (!sessionToken) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({ 'X-Metabase-Session': sessionToken, 'Content-Type': 'application/json' });
       this.setBaseURL(config.baseUrl);
@@ -1960,12 +1968,13 @@ export class MetabaseConnector extends BaseConnector {
     const questions: any[] = [];
     const errors: string[] = [];
     try {
-      const sessionResponse = await axios.post(
-        `${config.baseUrl}/api/session`,
-        { username: config.username, password: config.password },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const sessionToken = sessionResponse.data?.id;
+      const sessionResponse = await safeFetch(`${config.baseUrl}/api/session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: config.username, password: config.password }),
+      });
+      const sessionData = await sessionResponse.json();
+      const sessionToken = sessionData?.id;
       if (!sessionToken)
         return {
           databases: { total: 0, items: [] },
@@ -2079,12 +2088,18 @@ export class SupersetConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.baseUrl) return { success: false, message: 'Base URL required' };
     try {
-      const loginResponse = await axios.post(
-        `${config.baseUrl}/api/v1/security/login`,
-        { username: config.username, password: config.password, provider: 'db', refresh: true },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = loginResponse.data?.access_token;
+      const loginResponse = await safeFetch(`${config.baseUrl}/api/v1/security/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: config.username,
+          password: config.password,
+          provider: 'db',
+          refresh: true,
+        }),
+      });
+      const loginData = await loginResponse.json();
+      const accessToken = loginData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -2109,12 +2124,18 @@ export class SupersetConnector extends BaseConnector {
     const databases: any[] = [];
     const errors: string[] = [];
     try {
-      const loginResponse = await axios.post(
-        `${config.baseUrl}/api/v1/security/login`,
-        { username: config.username, password: config.password, provider: 'db', refresh: true },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = loginResponse.data?.access_token;
+      const loginResponse = await safeFetch(`${config.baseUrl}/api/v1/security/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: config.username,
+          password: config.password,
+          provider: 'db',
+          refresh: true,
+        }),
+      });
+      const loginData = await loginResponse.json();
+      const accessToken = loginData?.access_token;
       if (!accessToken)
         return {
           charts: { total: 0, items: [] },

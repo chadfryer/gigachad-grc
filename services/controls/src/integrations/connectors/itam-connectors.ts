@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable } from '@nestjs/common';
 import { BaseConnector } from './base-connector';
+import { safeFetch } from '@gigachad-grc/shared';
 import axios from 'axios';
 
 // =============================================================================
@@ -343,16 +344,17 @@ export class SnowSoftwareConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.apiUrl) return { success: false, message: 'API URL required' };
     try {
-      const tokenResponse = await axios.post(
-        `${config.apiUrl}/oauth/token`,
-        new URLSearchParams({
+      const tokenResponse = await safeFetch(`${config.apiUrl}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: config.clientId,
           client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }).toString(),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to obtain access token' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -377,16 +379,17 @@ export class SnowSoftwareConnector extends BaseConnector {
     const licenses: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
-        `${config.apiUrl}/oauth/token`,
-        new URLSearchParams({
+      const tokenResponse = await safeFetch(`${config.apiUrl}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: config.clientId,
           client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }).toString(),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           computers: { total: 0, items: [] },
@@ -813,16 +816,17 @@ export class CitrixEndpointConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.apiUrl) return { success: false, message: 'API URL required' };
     try {
-      const tokenResponse = await axios.post(
-        `${config.apiUrl}/Citrix/Monitor/OAuth2/Token`,
-        new URLSearchParams({
+      const tokenResponse = await safeFetch(`${config.apiUrl}/Citrix/Monitor/OAuth2/Token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: config.clientId,
           client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }).toString(),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to obtain access token' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -847,16 +851,17 @@ export class CitrixEndpointConnector extends BaseConnector {
     const apps: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
-        `${config.apiUrl}/Citrix/Monitor/OAuth2/Token`,
-        new URLSearchParams({
+      const tokenResponse = await safeFetch(`${config.apiUrl}/Citrix/Monitor/OAuth2/Token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: config.clientId,
           client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }).toString(),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           devices: { total: 0, items: [] },
@@ -1214,16 +1219,20 @@ export class KeycloakConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.serverUrl) return { success: false, message: 'Server URL required' };
     try {
-      const tokenResponse = await axios.post(
+      const tokenResponse = await safeFetch(
         `${config.serverUrl}/realms/${config.realm}/protocol/openid-connect/token`,
-        new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+          }).toString(),
+        }
       );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to obtain access token' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -1248,16 +1257,20 @@ export class KeycloakConnector extends BaseConnector {
     const clients: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
+      const tokenResponse = await safeFetch(
         `${config.serverUrl}/realms/${config.realm}/protocol/openid-connect/token`,
-        new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+          }).toString(),
+        }
       );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           users: { total: 0, items: [] },
@@ -1521,12 +1534,16 @@ export class CyberArkConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.baseUrl) return { success: false, message: 'Base URL required' };
     try {
-      const loginResponse = await axios.post(
+      const loginResponse = await safeFetch(
         `${config.baseUrl}/PasswordVault/WebServices/PIMServices.svc/Logon`,
-        { username: config.username, password: config.password },
-        { headers: { 'Content-Type': 'application/json' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: config.username, password: config.password }),
+        }
       );
-      const token = loginResponse.data?.LogonResult;
+      const loginData = await loginResponse.json();
+      const token = loginData?.LogonResult;
       if (!token) return { success: false, message: 'Failed to authenticate' };
       this.setHeaders({ Authorization: token, 'Content-Type': 'application/json' });
       this.setBaseURL(config.baseUrl);
@@ -1548,12 +1565,16 @@ export class CyberArkConnector extends BaseConnector {
     const users: any[] = [];
     const errors: string[] = [];
     try {
-      const loginResponse = await axios.post(
+      const loginResponse = await safeFetch(
         `${config.baseUrl}/PasswordVault/WebServices/PIMServices.svc/Logon`,
-        { username: config.username, password: config.password },
-        { headers: { 'Content-Type': 'application/json' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: config.username, password: config.password }),
+        }
       );
-      const token = loginResponse.data?.LogonResult;
+      const loginData = await loginResponse.json();
+      const token = loginData?.LogonResult;
       if (!token)
         return {
           safes: { total: 0, items: [] },
@@ -1714,17 +1735,21 @@ export class SharePointConnector extends BaseConnector {
   async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.siteUrl) return { success: false, message: 'Site URL required' };
     try {
-      const tokenResponse = await axios.post(
+      const tokenResponse = await safeFetch(
         `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`,
-        new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-          scope: 'https://graph.microsoft.com/.default',
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            scope: 'https://graph.microsoft.com/.default',
+          }).toString(),
+        }
       );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to obtain access token' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -1749,17 +1774,21 @@ export class SharePointConnector extends BaseConnector {
     const files: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
+      const tokenResponse = await safeFetch(
         `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`,
-        new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-          scope: 'https://graph.microsoft.com/.default',
-        }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            scope: 'https://graph.microsoft.com/.default',
+          }).toString(),
+        }
       );
-      const accessToken = tokenResponse.data?.access_token;
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           sites: { total: 0, items: [] },
@@ -1849,17 +1878,18 @@ export class Auth0Connector extends BaseConnector {
     if (!config.domain || !config.clientId || !config.clientSecret)
       return { success: false, message: 'Domain, Client ID, and Client Secret required' };
     try {
-      const tokenResponse = await axios.post(
-        `https://${config.domain}/oauth/token`,
-        {
+      const tokenResponse = await safeFetch(`https://${config.domain}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           client_id: config.clientId,
           client_secret: config.clientSecret,
           audience: `https://${config.domain}/api/v2/`,
           grant_type: 'client_credentials',
-        },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken) return { success: false, message: 'Failed to obtain access token' };
       this.setHeaders({
         Authorization: `Bearer ${accessToken}`,
@@ -1885,17 +1915,18 @@ export class Auth0Connector extends BaseConnector {
     const logs: any[] = [];
     const errors: string[] = [];
     try {
-      const tokenResponse = await axios.post(
-        `https://${config.domain}/oauth/token`,
-        {
+      const tokenResponse = await safeFetch(`https://${config.domain}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           client_id: config.clientId,
           client_secret: config.clientSecret,
           audience: `https://${config.domain}/api/v2/`,
           grant_type: 'client_credentials',
-        },
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const accessToken = tokenResponse.data?.access_token;
+        }),
+      });
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData?.access_token;
       if (!accessToken)
         return {
           users: { total: 0, items: [] },
@@ -2094,9 +2125,13 @@ export class CustomIntegrationConnector extends BaseConnector {
     const errors: string[] = [];
     try {
       if (config.webhookUrl) {
-        await axios.post(config.webhookUrl, {
-          action: 'sync',
-          timestamp: new Date().toISOString(),
+        await safeFetch(config.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'sync',
+            timestamp: new Date().toISOString(),
+          }),
         });
       }
       return { data, collectedAt: new Date().toISOString(), errors };
