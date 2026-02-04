@@ -1,4 +1,5 @@
 import { Controller, Get, Optional, Inject } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { PrismaHealthIndicator } from './prisma.health';
 import { RedisHealthIndicator } from './redis.health';
 
@@ -13,7 +14,7 @@ interface HealthCheckResponse {
 export class HealthController {
   constructor(
     private prisma: PrismaHealthIndicator,
-    @Optional() @Inject(RedisHealthIndicator) private redis?: RedisHealthIndicator,
+    @Optional() @Inject(RedisHealthIndicator) private redis?: RedisHealthIndicator
   ) {}
 
   /**
@@ -55,6 +56,7 @@ export class HealthController {
    * Liveness probe - indicates the service is running
    * Used by container orchestrators to restart unhealthy containers
    */
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   @Get('live')
   async checkLive(): Promise<HealthCheckResponse> {
     const memoryCheck = this.checkMemory(
@@ -76,10 +78,11 @@ export class HealthController {
    * Readiness probe - indicates the service is ready to accept traffic
    * Checks database connectivity, Redis, and other dependencies
    */
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   @Get('ready')
   async checkReady(): Promise<HealthCheckResponse> {
     const dbCheck = await this.prisma.isHealthy('database');
-    const redisCheck = this.redis 
+    const redisCheck = this.redis
       ? await this.redis.isHealthy('redis')
       : { redis: { status: 'up' as const, message: 'Redis not configured' } };
     const memoryCheck = this.checkMemory(
@@ -90,8 +93,8 @@ export class HealthController {
     const dbHealthy = dbCheck.database?.status === 'up';
     // Redis is considered healthy if status is 'up' (includes degraded state)
     const redisHealthy = redisCheck.redis?.status === 'up';
-    const memoryHealthy = memoryCheck.memory_heap.status === 'up' && 
-                          memoryCheck.memory_rss.status === 'up';
+    const memoryHealthy =
+      memoryCheck.memory_heap.status === 'up' && memoryCheck.memory_rss.status === 'up';
     const isHealthy = dbHealthy && redisHealthy && memoryHealthy;
 
     const info: Record<string, unknown> = {};
@@ -132,6 +135,7 @@ export class HealthController {
   /**
    * Full health check - comprehensive status including all dependencies
    */
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
   @Get()
   async check(): Promise<HealthCheckResponse> {
     return this.checkReady();

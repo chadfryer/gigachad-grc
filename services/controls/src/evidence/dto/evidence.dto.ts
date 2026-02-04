@@ -51,6 +51,7 @@ export class UploadEvidenceDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiProperty({ enum: EvidenceType, example: EvidenceType.SCREENSHOT })
@@ -101,6 +102,7 @@ export class UpdateEvidenceDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiPropertyOptional({ enum: EvidenceType })
@@ -234,6 +236,3 @@ export class EvidenceFilterDto {
   @IsOptional()
   sortOrder?: 'asc' | 'desc';
 }
-
-
-

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsEnum, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEnum, IsArray, MaxLength } from 'class-validator';
 
 export class CreateAuditRequestDto {
   @IsString()
@@ -15,9 +15,11 @@ export class CreateAuditRequestDto {
   category: string;
 
   @IsString()
+  @MaxLength(255)
   title: string;
 
   @IsString()
+  @MaxLength(5000)
   description: string;
 
   @IsString()

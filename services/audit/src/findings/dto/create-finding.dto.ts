@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsArray, MaxLength } from 'class-validator';
 
 export class CreateFindingDto {
   @IsString()
@@ -8,9 +8,11 @@ export class CreateFindingDto {
   auditId: string;
 
   @IsString()
+  @MaxLength(255)
   title: string;
 
   @IsString()
+  @MaxLength(5000)
   description: string;
 
   @IsString()
@@ -29,6 +31,7 @@ export class CreateFindingDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   remediationPlan?: string;
 
   @IsOptional()
@@ -41,14 +44,17 @@ export class CreateFindingDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   rootCause?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   impact?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   recommendation?: string;
 
   @IsOptional()
@@ -56,8 +62,3 @@ export class CreateFindingDto {
   @IsString({ each: true })
   tags?: string[];
 }
-
-
-
-
-
