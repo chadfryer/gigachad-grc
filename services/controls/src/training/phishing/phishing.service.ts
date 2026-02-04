@@ -693,8 +693,11 @@ export class PhishingService {
 
     for (const target of targetsArray) {
       try {
-        const trackingUrl = `http://${trackingDomain}/api/phishing/track/click?t=${target.trackingToken}`;
-        const openTrackingUrl = `http://${trackingDomain}/api/phishing/track/open?t=${target.trackingToken}`;
+        const protocol =
+          process.env.PHISHING_TRACKING_PROTOCOL ||
+          (process.env.NODE_ENV === 'production' ? 'https' : 'http');
+        const trackingUrl = `${protocol}://${trackingDomain}/api/phishing/track/click?t=${target.trackingToken}`;
+        const openTrackingUrl = `${protocol}://${trackingDomain}/api/phishing/track/open?t=${target.trackingToken}`;
 
         const htmlBody =
           template.htmlBody

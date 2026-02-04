@@ -273,10 +273,9 @@ export class JamfConnector {
 
       const responseText = await response.text();
       this.logger.log(`Jamf OAuth response status: ${response.status}`);
-      this.logger.log(`Jamf OAuth response body: ${responseText.substring(0, 500)}`);
 
       if (!response.ok) {
-        this.logger.error(`Jamf OAuth failed: ${response.status} - ${responseText}`);
+        this.logger.error(`Jamf OAuth failed with status: ${response.status}`);
 
         // Try to parse error for better message
         try {
