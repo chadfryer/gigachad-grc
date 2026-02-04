@@ -1,20 +1,6 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { WebhooksService } from './webhooks.service';
 import {
   CreateWebhookDto,
@@ -44,10 +30,7 @@ export class WebhooksController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a webhook by ID' })
   @ApiResponse({ status: 200, type: WebhookDto })
-  async findOne(
-    @CurrentUser() user: UserContext,
-    @Param('id') id: string,
-  ): Promise<WebhookDto> {
+  async findOne(@CurrentUser() user: UserContext, @Param('id') id: string): Promise<WebhookDto> {
     return this.webhooksService.findOne(user.organizationId, id);
   }
 
@@ -57,7 +40,7 @@ export class WebhooksController {
   @ApiResponse({ status: 201, type: WebhookDto })
   async create(
     @CurrentUser() user: UserContext,
-    @Body() dto: CreateWebhookDto,
+    @Body() dto: CreateWebhookDto
   ): Promise<WebhookDto> {
     return this.webhooksService.create(user.organizationId, dto);
   }
@@ -69,7 +52,7 @@ export class WebhooksController {
   async update(
     @CurrentUser() user: UserContext,
     @Param('id') id: string,
-    @Body() dto: UpdateWebhookDto,
+    @Body() dto: UpdateWebhookDto
   ): Promise<WebhookDto> {
     return this.webhooksService.update(user.organizationId, id, dto);
   }
@@ -78,21 +61,19 @@ export class WebhooksController {
   @Roles('admin')
   @ApiOperation({ summary: 'Delete a webhook' })
   @ApiResponse({ status: 200 })
-  async delete(
-    @CurrentUser() user: UserContext,
-    @Param('id') id: string,
-  ): Promise<void> {
+  async delete(@CurrentUser() user: UserContext, @Param('id') id: string): Promise<void> {
     return this.webhooksService.delete(user.organizationId, id);
   }
 
   @Post(':id/test')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Roles('admin', 'compliance_manager')
   @ApiOperation({ summary: 'Send a test event to webhook' })
   @ApiResponse({ status: 200, type: TestWebhookResultDto })
   async testWebhook(
     @CurrentUser() user: UserContext,
     @Param('id') id: string,
-    @Body() dto: TestWebhookDto,
+    @Body() dto: TestWebhookDto
   ): Promise<TestWebhookResultDto> {
     return this.webhooksService.testWebhook(user.organizationId, id, dto);
   }
@@ -102,7 +83,7 @@ export class WebhooksController {
   async getDeliveries(
     @CurrentUser() user: UserContext,
     @Param('id') id: string,
-    @Query() query: WebhookDeliveryQueryDto,
+    @Query() query: WebhookDeliveryQueryDto
   ) {
     return this.webhooksService.getDeliveries(user.organizationId, id, query);
   }
@@ -114,7 +95,7 @@ export class WebhooksController {
   async retryDelivery(
     @CurrentUser() user: UserContext,
     @Param('webhookId') webhookId: string,
-    @Param('deliveryId') deliveryId: string,
+    @Param('deliveryId') deliveryId: string
   ): Promise<TestWebhookResultDto> {
     return this.webhooksService.retryDelivery(user.organizationId, webhookId, deliveryId);
   }

@@ -11,6 +11,7 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { UsersService } from './users.service';
 import { PermissionsService } from '../permissions/permissions.service';
 import { GroupsService } from '../permissions/groups.service';
@@ -87,6 +88,7 @@ export class UsersController {
     return this.permissionsService.getUserPermissions(id, user.organizationId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute for user creation
   @Post()
   @RequirePermission(Resource.USERS, Action.CREATE)
   async createUser(@Body() dto: CreateUserDto, @User() user: UserContext) {
@@ -103,6 +105,7 @@ export class UsersController {
     return this.usersService.update(id, user.organizationId, dto, user.userId, user.email);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for user deactivation
   @Post(':id/deactivate')
   @RequirePermission(Resource.USERS, Action.UPDATE)
   @HttpCode(HttpStatus.NO_CONTENT)

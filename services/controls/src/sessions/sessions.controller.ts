@@ -9,12 +9,8 @@ import {
   UseGuards,
   Headers,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { SessionsService } from './sessions.service';
 import {
   SessionListQueryDto,
@@ -38,45 +34,47 @@ export class SessionsController {
   async getMySessions(
     @CurrentUser() user: UserContext,
     @Headers('x-session-id') sessionId: string,
-    @Query() query: SessionListQueryDto,
+    @Query() query: SessionListQueryDto
   ) {
     return this.sessionsService.getUserSessions(
       user.organizationId,
       user.userId,
       sessionId || '',
-      query,
+      query
     );
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute
   @Delete('me/:sessionId')
   @ApiOperation({ summary: 'Invalidate one of my sessions' })
   async invalidateMySession(
     @CurrentUser() user: UserContext,
     @Headers('x-session-id') currentSessionId: string,
     @Param('sessionId') sessionId: string,
-    @Body() dto: InvalidateSessionDto,
+    @Body() dto: InvalidateSessionDto
   ): Promise<void> {
     return this.sessionsService.invalidateSession(
       user.organizationId,
       sessionId,
       currentSessionId || '',
-      dto.reason,
+      dto.reason
     );
   }
 
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
   @Delete('me')
   @ApiOperation({ summary: 'Invalidate all my sessions except current' })
   @ApiResponse({ status: 200, description: 'Number of sessions invalidated' })
   async invalidateAllMySessions(
     @CurrentUser() user: UserContext,
     @Headers('x-session-id') currentSessionId: string,
-    @Body() dto: InvalidateSessionDto,
+    @Body() dto: InvalidateSessionDto
   ): Promise<{ invalidated: number }> {
     const count = await this.sessionsService.invalidateAllUserSessions(
       user.organizationId,
       user.userId,
       currentSessionId || '',
-      dto.reason,
+      dto.reason
     );
     return { invalidated: count };
   }
@@ -85,10 +83,7 @@ export class SessionsController {
   @Get()
   @Roles('admin')
   @ApiOperation({ summary: 'List all sessions (admin only)' })
-  async getAllSessions(
-    @CurrentUser() user: UserContext,
-    @Query() query: SessionListQueryDto,
-  ) {
+  async getAllSessions(@CurrentUser() user: UserContext, @Query() query: SessionListQueryDto) {
     return this.sessionsService.getAllSessions(user.organizationId, query);
   }
 
@@ -114,7 +109,7 @@ export class SessionsController {
   @ApiResponse({ status: 200, type: SessionSettingsDto })
   async updateSettings(
     @CurrentUser() user: UserContext,
-    @Body() dto: UpdateSessionSettingsDto,
+    @Body() dto: UpdateSessionSettingsDto
   ): Promise<SessionSettingsDto> {
     return this.sessionsService.updateSessionSettings(user.organizationId, dto);
   }
@@ -126,29 +121,30 @@ export class SessionsController {
     @CurrentUser() user: UserContext,
     @Headers('x-session-id') currentSessionId: string,
     @Param('userId') userId: string,
-    @Body() dto: InvalidateSessionDto,
+    @Body() dto: InvalidateSessionDto
   ): Promise<{ invalidated: number }> {
     const count = await this.sessionsService.invalidateAllUserSessions(
       user.organizationId,
       userId,
       currentSessionId || '',
-      dto.reason,
+      dto.reason
     );
     return { invalidated: count };
   }
 
+  @Throttle({ default: { limit: 1, ttl: 60000 } }) // 1 request per minute - highly destructive operation
   @Delete('all')
   @Roles('admin')
   @ApiOperation({ summary: 'Invalidate all sessions (except current)' })
   async invalidateAllSessions(
     @CurrentUser() user: UserContext,
     @Headers('x-session-id') currentSessionId: string,
-    @Body() dto: InvalidateSessionDto,
+    @Body() dto: InvalidateSessionDto
   ): Promise<{ invalidated: number }> {
     const count = await this.sessionsService.invalidateAllSessions(
       user.organizationId,
       currentSessionId || '',
-      dto.reason,
+      dto.reason
     );
     return { invalidated: count };
   }
@@ -160,13 +156,13 @@ export class SessionsController {
     @CurrentUser() user: UserContext,
     @Headers('x-session-id') currentSessionId: string,
     @Param('sessionId') sessionId: string,
-    @Body() dto: InvalidateSessionDto,
+    @Body() dto: InvalidateSessionDto
   ): Promise<void> {
     return this.sessionsService.invalidateSession(
       user.organizationId,
       sessionId,
       currentSessionId || '',
-      dto.reason,
+      dto.reason
     );
   }
 }

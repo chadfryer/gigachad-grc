@@ -8,12 +8,8 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Request } from 'express';
 import { DevAuthGuard } from './dev-auth.guard';
 import { LogoutService } from './logout.service';
@@ -36,6 +32,7 @@ export class LogoutController {
 
   constructor(private readonly logoutService: LogoutService) {}
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout current session and revoke token' })
@@ -44,7 +41,7 @@ export class LogoutController {
   async logout(
     @CurrentUser() user: UserContext,
     @Req() request: AuthenticatedRequest,
-    @Body() dto: LogoutDto,
+    @Body() dto: LogoutDto
   ): Promise<LogoutResponseDto> {
     const jti = request.tokenJti;
     const exp = request.tokenExp;
@@ -57,7 +54,7 @@ export class LogoutController {
         jti,
         user.userId,
         expiresAt,
-        dto.reason || 'logout',
+        dto.reason || 'logout'
       );
     }
 
@@ -68,6 +65,7 @@ export class LogoutController {
     };
   }
 
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout all sessions and revoke all tokens for current user' })
@@ -76,7 +74,7 @@ export class LogoutController {
   async logoutAll(
     @CurrentUser() user: UserContext,
     @Req() request: AuthenticatedRequest,
-    @Body() dto: LogoutAllDevicesDto,
+    @Body() dto: LogoutAllDevicesDto
   ): Promise<LogoutResponseDto> {
     const exp = request.tokenExp;
 
@@ -88,7 +86,7 @@ export class LogoutController {
     const revokedCount = await this.logoutService.revokeAllUserTokens(
       user.userId,
       expiresAt,
-      dto.reason || 'logout_all_devices',
+      dto.reason || 'logout_all_devices'
     );
 
     return {

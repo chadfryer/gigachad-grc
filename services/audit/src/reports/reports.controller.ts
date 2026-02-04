@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Query, Param, Body, UseGuards, Req, Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { ReportsService, ReportOptions } from './reports.service';
@@ -15,6 +16,7 @@ interface AuthenticatedRequest extends Request {
 @ApiBearerAuth()
 @UseGuards(DevAuthGuard)
 @Controller('reports')
+@Throttle({ default: { limit: 5, ttl: 60000 } })
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
@@ -32,13 +34,13 @@ export class ReportsController {
     @Query('format') format: string,
     @Body() options: ReportOptions,
     @Req() req: AuthenticatedRequest,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     const report = await this.reportsService.generateAuditReport(
       auditId,
       req.user.organizationId,
       type || 'full',
-      options,
+      options
     );
 
     if (format === 'download') {
@@ -59,13 +61,20 @@ export class ReportsController {
   @Get(':auditId/management-letter')
   @ApiOperation({ summary: 'Generate management letter' })
   async getManagementLetter(@Param('auditId') auditId: string, @Req() req: AuthenticatedRequest) {
-    return this.reportsService.generateAuditReport(auditId, req.user.organizationId, 'management_letter');
+    return this.reportsService.generateAuditReport(
+      auditId,
+      req.user.organizationId,
+      'management_letter'
+    );
   }
 
   @Get(':auditId/findings')
   @ApiOperation({ summary: 'Generate findings summary' })
   async getFindingsSummary(@Param('auditId') auditId: string, @Req() req: AuthenticatedRequest) {
-    return this.reportsService.generateAuditReport(auditId, req.user.organizationId, 'findings_summary');
+    return this.reportsService.generateAuditReport(
+      auditId,
+      req.user.organizationId,
+      'findings_summary'
+    );
   }
 }
-

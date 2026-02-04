@@ -16,12 +16,8 @@ import {
   Logger,
   OnModuleInit,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiHeader,
-} from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { ScimService } from './scim.service';
 import {
   ScimUserResource,
@@ -38,14 +34,15 @@ import { ConfigService } from '@nestjs/config';
 
 /**
  * SCIM 2.0 API Controller
- * 
+ *
  * Implements RFC 7643 (SCIM Core Schema) and RFC 7644 (SCIM Protocol)
- * 
+ *
  * Authentication: Bearer token in Authorization header
  * The token should be configured per-organization in the SCIM settings
  */
 @ApiTags('SCIM 2.0')
 @ApiHeader({ name: 'Authorization', description: 'Bearer <SCIM_TOKEN>' })
+@Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute for all SCIM endpoints
 @Controller('scim/v2')
 export class ScimController implements OnModuleInit {
   private readonly logger = new Logger(ScimController.name);
@@ -54,7 +51,7 @@ export class ScimController implements OnModuleInit {
 
   constructor(
     private readonly scimService: ScimService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
     // In production, tokens would be stored in database per-organization
     // For now, use environment variable - but REQUIRE it to be set
@@ -71,7 +68,7 @@ export class ScimController implements OnModuleInit {
     if (!this.scimEnabled) {
       this.logger.warn(
         'SCIM_TOKEN environment variable is not set. SCIM endpoints are disabled. ' +
-          'Set SCIM_TOKEN to enable SCIM provisioning.',
+          'Set SCIM_TOKEN to enable SCIM provisioning.'
       );
     } else {
       this.logger.log('SCIM provisioning is enabled');
@@ -81,7 +78,7 @@ export class ScimController implements OnModuleInit {
   private ensureScimEnabled(): void {
     if (!this.scimEnabled) {
       throw new ServiceUnavailableException(
-        'SCIM provisioning is not configured. Please contact your administrator to enable SCIM.',
+        'SCIM provisioning is not configured. Please contact your administrator to enable SCIM.'
       );
     }
   }
@@ -110,7 +107,7 @@ export class ScimController implements OnModuleInit {
   @ApiResponse({ status: 200, description: 'SCIM ListResponse' })
   async listUsers(
     @Headers('authorization') authHeader: string,
-    @Query() query: ScimQueryDto,
+    @Query() query: ScimQueryDto
   ): Promise<ScimListResponse<ScimUserResource>> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.listUsers(organizationId, query);
@@ -121,19 +118,20 @@ export class ScimController implements OnModuleInit {
   @ApiResponse({ status: 200, type: ScimUserResource })
   async getUser(
     @Headers('authorization') authHeader: string,
-    @Param('id') id: string,
+    @Param('id') id: string
   ): Promise<ScimUserResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.getUser(organizationId, id);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute for user creation
   @Post('Users')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create user (SCIM)' })
   @ApiResponse({ status: 201, type: ScimUserResource })
   async createUser(
     @Headers('authorization') authHeader: string,
-    @Body() dto: CreateScimUserDto,
+    @Body() dto: CreateScimUserDto
   ): Promise<ScimUserResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.createUser(organizationId, dto);
@@ -145,7 +143,7 @@ export class ScimController implements OnModuleInit {
   async updateUser(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
-    @Body() dto: UpdateScimUserDto,
+    @Body() dto: UpdateScimUserDto
   ): Promise<ScimUserResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.updateUser(organizationId, id, dto);
@@ -157,19 +155,20 @@ export class ScimController implements OnModuleInit {
   async patchUser(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
-    @Body() dto: PatchScimDto,
+    @Body() dto: PatchScimDto
   ): Promise<ScimUserResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.patchUser(organizationId, id, dto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for user deletion
   @Delete('Users/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete user (SCIM)' })
   @ApiResponse({ status: 204 })
   async deleteUser(
     @Headers('authorization') authHeader: string,
-    @Param('id') id: string,
+    @Param('id') id: string
   ): Promise<void> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.deleteUser(organizationId, id);
@@ -182,7 +181,7 @@ export class ScimController implements OnModuleInit {
   @ApiResponse({ status: 200, description: 'SCIM ListResponse' })
   async listGroups(
     @Headers('authorization') authHeader: string,
-    @Query() query: ScimQueryDto,
+    @Query() query: ScimQueryDto
   ): Promise<ScimListResponse<ScimGroupResource>> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.listGroups(organizationId, query);
@@ -193,19 +192,20 @@ export class ScimController implements OnModuleInit {
   @ApiResponse({ status: 200, type: ScimGroupResource })
   async getGroup(
     @Headers('authorization') authHeader: string,
-    @Param('id') id: string,
+    @Param('id') id: string
   ): Promise<ScimGroupResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.getGroup(organizationId, id);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute for group creation
   @Post('Groups')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create group (SCIM)' })
   @ApiResponse({ status: 201, type: ScimGroupResource })
   async createGroup(
     @Headers('authorization') authHeader: string,
-    @Body() dto: CreateScimGroupDto,
+    @Body() dto: CreateScimGroupDto
   ): Promise<ScimGroupResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.createGroup(organizationId, dto);
@@ -217,7 +217,7 @@ export class ScimController implements OnModuleInit {
   async updateGroup(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
-    @Body() dto: UpdateScimGroupDto,
+    @Body() dto: UpdateScimGroupDto
   ): Promise<ScimGroupResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.updateGroup(organizationId, id, dto);
@@ -229,19 +229,20 @@ export class ScimController implements OnModuleInit {
   async patchGroup(
     @Headers('authorization') authHeader: string,
     @Param('id') id: string,
-    @Body() dto: PatchScimDto,
+    @Body() dto: PatchScimDto
   ): Promise<ScimGroupResource> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.patchGroup(organizationId, id, dto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for group deletion
   @Delete('Groups/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete group (SCIM)' })
   @ApiResponse({ status: 204 })
   async deleteGroup(
     @Headers('authorization') authHeader: string,
-    @Param('id') id: string,
+    @Param('id') id: string
   ): Promise<void> {
     const organizationId = this.validateToken(authHeader);
     return this.scimService.deleteGroup(organizationId, id);

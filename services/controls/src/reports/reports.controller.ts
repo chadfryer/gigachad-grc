@@ -1,19 +1,6 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Query, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService, GenerateReportDto } from './reports.service';
 import { CurrentUser, UserContext } from '@gigachad-grc/shared';
@@ -27,9 +14,12 @@ import { Resource, Action } from '../permissions/dto/permission.dto';
  * Prevents header injection attacks via malicious filenames
  */
 function sanitizeFilename(filename: string): string {
-  return filename
-    .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control chars
-    .replace(/["\\/]/g, '_'); // Replace problematic chars
+  return (
+    filename
+      // eslint-disable-next-line no-control-regex -- Intentionally matching control chars for security
+      .replace(/[\r\n\x00-\x1f\x7f]/g, '') // Remove control chars
+      .replace(/["\\/]/g, '_')
+  ); // Replace problematic chars
 }
 
 @ApiTags('reports')
@@ -48,6 +38,7 @@ export class ReportsController {
   }
 
   @Post('generate')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Generate a compliance report' })
   @ApiResponse({ status: 200, description: 'PDF report generated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid report parameters' })
@@ -55,14 +46,14 @@ export class ReportsController {
   async generateReport(
     @CurrentUser() user: UserContext,
     @Body() dto: GenerateReportDto,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     const { buffer, filename } = await this.reportsService.generateReport(
       user.organizationId,
       user.userId,
       dto,
       user.email,
-      user.name,
+      user.name
     );
 
     res.set({
@@ -75,13 +66,14 @@ export class ReportsController {
   }
 
   @Get('generate/compliance-summary')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Generate compliance summary report (quick access)' })
   @ApiQuery({ name: 'confidential', required: false, type: Boolean })
   @RequirePermission(Resource.REPORTS, Action.EXPORT)
   async generateComplianceSummary(
     @CurrentUser() user: UserContext,
     @Query('confidential') confidential: string,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     const { buffer, filename } = await this.reportsService.generateReport(
       user.organizationId,
@@ -91,7 +83,7 @@ export class ReportsController {
         confidential: confidential !== 'false',
       },
       user.email,
-      user.name,
+      user.name
     );
 
     res.set({
@@ -112,7 +104,7 @@ export class ReportsController {
     @CurrentUser() user: UserContext,
     @Query('frameworkId') frameworkId: string,
     @Query('confidential') confidential: string,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     const { buffer, filename } = await this.reportsService.generateReport(
       user.organizationId,
@@ -123,7 +115,7 @@ export class ReportsController {
         confidential: confidential !== 'false',
       },
       user.email,
-      user.name,
+      user.name
     );
 
     res.set({
@@ -142,7 +134,7 @@ export class ReportsController {
   async generateRiskRegister(
     @CurrentUser() user: UserContext,
     @Query('confidential') confidential: string,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     const { buffer, filename } = await this.reportsService.generateReport(
       user.organizationId,
@@ -152,7 +144,7 @@ export class ReportsController {
         confidential: confidential !== 'false',
       },
       user.email,
-      user.name,
+      user.name
     );
 
     res.set({
@@ -171,7 +163,7 @@ export class ReportsController {
   async generateControlStatus(
     @CurrentUser() user: UserContext,
     @Query('confidential') confidential: string,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     const { buffer, filename } = await this.reportsService.generateReport(
       user.organizationId,
@@ -181,7 +173,7 @@ export class ReportsController {
         confidential: confidential !== 'false',
       },
       user.email,
-      user.name,
+      user.name
     );
 
     res.set({
@@ -193,4 +185,3 @@ export class ReportsController {
     res.end(buffer);
   }
 }
-

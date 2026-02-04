@@ -11,6 +11,7 @@ import {
   Req,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { IntegrationsService } from './integrations.service';
@@ -34,7 +35,7 @@ interface AuthenticatedRequest extends Request {
 export class IntegrationsController {
   constructor(
     private readonly integrationsService: IntegrationsService,
-    private readonly customIntegrationService: CustomIntegrationService,
+    private readonly customIntegrationService: CustomIntegrationService
   ) {}
 
   @Get()
@@ -64,11 +65,7 @@ export class IntegrationsController {
   @Post()
   @ApiOperation({ summary: 'Create a new integration' })
   create(@Req() req: AuthenticatedRequest, @Body() dto: CreateIntegrationDto) {
-    return this.integrationsService.create(
-      req.user.organizationId,
-      req.user.userId,
-      dto
-    );
+    return this.integrationsService.create(req.user.organizationId, req.user.userId, dto);
   }
 
   @Put(':id')
@@ -78,12 +75,7 @@ export class IntegrationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateIntegrationDto
   ) {
-    return this.integrationsService.update(
-      id,
-      req.user.organizationId,
-      req.user.userId,
-      dto
-    );
+    return this.integrationsService.update(id, req.user.organizationId, req.user.userId, dto);
   }
 
   @Delete(':id')
@@ -93,19 +85,17 @@ export class IntegrationsController {
   }
 
   @Post(':id/test')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Test integration connection' })
   testConnection(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.integrationsService.testConnection(id, req.user.organizationId);
   }
 
   @Post(':id/sync')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Trigger a manual sync' })
   triggerSync(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
-    return this.integrationsService.triggerSync(
-      id,
-      req.user.organizationId,
-      req.user.userId
-    );
+    return this.integrationsService.triggerSync(id, req.user.organizationId, req.user.userId);
   }
 
   // ============================================
@@ -123,13 +113,13 @@ export class IntegrationsController {
   saveCustomConfig(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: SaveCustomConfigDto,
+    @Body() dto: SaveCustomConfigDto
   ) {
     return this.customIntegrationService.saveConfig(
       id,
       req.user.organizationId,
       req.user.userId,
-      dto,
+      dto
     );
   }
 
@@ -138,13 +128,13 @@ export class IntegrationsController {
   testCustomEndpoint(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: TestEndpointDto,
+    @Body() dto: TestEndpointDto
   ) {
     return this.customIntegrationService.testEndpoint(
       id,
       req.user.organizationId,
       req.user.userId,
-      dto,
+      dto
     );
   }
 
@@ -163,11 +153,6 @@ export class IntegrationsController {
   @Post(':id/custom-sync')
   @ApiOperation({ summary: 'Execute custom integration sync' })
   executeCustomSync(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: string) {
-    return this.customIntegrationService.executeSync(
-      id,
-      req.user.organizationId,
-      req.user.userId,
-    );
+    return this.customIntegrationService.executeSync(id, req.user.organizationId, req.user.userId);
   }
 }
-

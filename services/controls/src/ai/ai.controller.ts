@@ -9,18 +9,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
   user: { userId: string; organizationId: string; email?: string };
 }
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AIService } from './ai.service';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 import { PermissionGuard } from '../auth/permission.guard';
@@ -47,6 +42,7 @@ import {
 @ApiBearerAuth()
 @Controller('api/ai')
 @UseGuards(DevAuthGuard, PermissionGuard)
+@Throttle({ default: { limit: 20, ttl: 60000 } })
 export class AIController {
   constructor(private readonly aiService: AIService) {}
 
@@ -121,7 +117,8 @@ export class AIController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'AI-powered risk analysis and scoring',
-    description: 'Analyzes a risk description and suggests likelihood, impact scores with rationale',
+    description:
+      'Analyzes a risk description and suggests likelihood, impact scores with rationale',
   })
   @ApiResponse({ status: 200, description: 'Risk scoring result', type: RiskScoringResponseDto })
   @ApiBody({ type: RiskScoringRequestDto })
@@ -141,9 +138,14 @@ export class AIController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Auto-categorize an entity',
-    description: 'Uses AI to suggest categories, tags, and framework mappings for controls, risks, policies, etc.',
+    description:
+      'Uses AI to suggest categories, tags, and framework mappings for controls, risks, policies, etc.',
   })
-  @ApiResponse({ status: 200, description: 'Categorization result', type: CategorizationResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Categorization result',
+    type: CategorizationResponseDto,
+  })
   @ApiBody({ type: CategorizationRequestDto })
   @RequirePermission(Resource.AI, Action.CREATE)
   async categorize(
@@ -161,7 +163,8 @@ export class AIController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Natural language smart search',
-    description: 'Search across controls, risks, policies, evidence, and vendors using natural language',
+    description:
+      'Search across controls, risks, policies, evidence, and vendors using natural language',
   })
   @ApiResponse({ status: 200, description: 'Search results', type: SmartSearchResponseDto })
   @ApiBody({ type: SmartSearchRequestDto })
@@ -179,6 +182,7 @@ export class AIController {
 
   @Post('draft-policy')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
     summary: 'Generate policy draft',
     description: 'AI-assisted policy document generation based on requirements and frameworks',
@@ -199,11 +203,16 @@ export class AIController {
 
   @Post('suggest-controls')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: 'Get control recommendations',
     description: 'AI suggests security controls based on risks, framework requirements, or gaps',
   })
-  @ApiResponse({ status: 200, description: 'Control suggestions', type: ControlSuggestionResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Control suggestions',
+    type: ControlSuggestionResponseDto,
+  })
   @ApiBody({ type: ControlSuggestionRequestDto })
   @RequirePermission(Resource.AI, Action.CREATE)
   async suggestControls(
@@ -219,6 +228,7 @@ export class AIController {
 
   @Post('complete')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: 'Generic AI completion',
     description: 'Direct AI completion for custom prompts (advanced use)',
@@ -236,7 +246,7 @@ export class AIController {
       dto.prompt,
       dto.systemPrompt
     );
-    
+
     return {
       content: result.content,
       model: result.model,
