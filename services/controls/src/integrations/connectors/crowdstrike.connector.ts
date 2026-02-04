@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable, Logger } from '@nestjs/common';
+import { safeFetch } from '@gigachad-grc/shared';
 
 /**
  * CrowdStrike Integration Configuration
@@ -7,7 +8,7 @@ import { Injectable, Logger } from '@nestjs/common';
 export interface CrowdStrikeConfig {
   clientId: string;
   clientSecret: string;
-  baseUrl?: string;  // e.g., https://api.crowdstrike.com or https://api.us-2.crowdstrike.com
+  baseUrl?: string; // e.g., https://api.crowdstrike.com or https://api.us-2.crowdstrike.com
 }
 
 /**
@@ -180,7 +181,7 @@ export class CrowdStrikeConnector {
 
       // Test by getting sensor info
       const baseUrl = config.baseUrl || this.DEFAULT_BASE_URL;
-      const response = await fetch(`${baseUrl}/sensors/queries/sensors/v1?limit=1`, {
+      const response = await safeFetch(`${baseUrl}/sensors/queries/sensors/v1?limit=1`, {
         headers: this.buildHeaders(token),
       });
 
@@ -217,54 +218,61 @@ export class CrowdStrikeConnector {
 
     // Collect data in parallel
     const [devices, detections, vulnerabilities] = await Promise.all([
-      this.getDevices(baseUrl, token).catch(e => {
+      this.getDevices(baseUrl, token).catch((e) => {
         errors.push(`Devices: ${e.message}`);
         return [] as CrowdStrikeDevice[];
       }),
-      this.getDetections(baseUrl, token).catch(e => {
+      this.getDetections(baseUrl, token).catch((e) => {
         errors.push(`Detections: ${e.message}`);
         return [] as CrowdStrikeDetection[];
       }),
-      this.getVulnerabilities(baseUrl, token).catch(e => {
+      this.getVulnerabilities(baseUrl, token).catch((e) => {
         errors.push(`Vulnerabilities: ${e.message}`);
         return [] as CrowdStrikeVulnerability[];
       }),
     ]);
 
     // Process devices
-    const onlineDevices = devices.filter(d => d.status === 'normal' || d.status === 'contained');
-    const offlineDevices = devices.filter(d => d.status === 'offline' || d.status === 'unknown');
-    const reducedFunctionality = devices.filter(d => d.reduced_functionality_mode === 'yes');
-    
+    const onlineDevices = devices.filter((d) => d.status === 'normal' || d.status === 'contained');
+    const offlineDevices = devices.filter((d) => d.status === 'offline' || d.status === 'unknown');
+    const reducedFunctionality = devices.filter((d) => d.reduced_functionality_mode === 'yes');
+
     const byPlatform: Record<string, number> = {};
     for (const device of devices) {
       byPlatform[device.platform_name] = (byPlatform[device.platform_name] || 0) + 1;
     }
 
-    const withPrevention = devices.filter(d => d.device_policies?.prevention?.applied).length;
+    const withPrevention = devices.filter((d) => d.device_policies?.prevention?.applied).length;
 
     // Process detections
     const severityMap: Record<number, string> = {
-      1: 'informational', 2: 'informational',
-      3: 'low', 4: 'low',
-      5: 'medium', 6: 'medium',
-      7: 'high', 8: 'high',
-      9: 'critical', 10: 'critical',
+      1: 'informational',
+      2: 'informational',
+      3: 'low',
+      4: 'low',
+      5: 'medium',
+      6: 'medium',
+      7: 'high',
+      8: 'high',
+      9: 'critical',
+      10: 'critical',
     };
 
-    const criticalDetections = detections.filter(d => d.max_severity >= 9);
-    const highDetections = detections.filter(d => d.max_severity >= 7 && d.max_severity < 9);
-    const mediumDetections = detections.filter(d => d.max_severity >= 5 && d.max_severity < 7);
-    const lowDetections = detections.filter(d => d.max_severity >= 3 && d.max_severity < 5);
-    const infoDetections = detections.filter(d => d.max_severity < 3);
+    const criticalDetections = detections.filter((d) => d.max_severity >= 9);
+    const highDetections = detections.filter((d) => d.max_severity >= 7 && d.max_severity < 9);
+    const mediumDetections = detections.filter((d) => d.max_severity >= 5 && d.max_severity < 7);
+    const lowDetections = detections.filter((d) => d.max_severity >= 3 && d.max_severity < 5);
+    const infoDetections = detections.filter((d) => d.max_severity < 3);
 
     // Process vulnerabilities
-    const criticalVulns = vulnerabilities.filter(v => v.cve?.severity === 'CRITICAL');
-    const highVulns = vulnerabilities.filter(v => v.cve?.severity === 'HIGH');
-    const mediumVulns = vulnerabilities.filter(v => v.cve?.severity === 'MEDIUM');
-    const lowVulns = vulnerabilities.filter(v => v.cve?.severity === 'LOW');
+    const criticalVulns = vulnerabilities.filter((v) => v.cve?.severity === 'CRITICAL');
+    const highVulns = vulnerabilities.filter((v) => v.cve?.severity === 'HIGH');
+    const mediumVulns = vulnerabilities.filter((v) => v.cve?.severity === 'MEDIUM');
+    const lowVulns = vulnerabilities.filter((v) => v.cve?.severity === 'LOW');
 
-    this.logger.log(`CrowdStrike sync complete: ${devices.length} devices, ${detections.length} detections`);
+    this.logger.log(
+      `CrowdStrike sync complete: ${devices.length} devices, ${detections.length} detections`
+    );
 
     return {
       devices: {
@@ -274,7 +282,7 @@ export class CrowdStrikeConnector {
         reduced_functionality: reducedFunctionality.length,
         byPlatform,
         withPreventionPolicy: withPrevention,
-        items: devices.slice(0, 100).map(d => ({
+        items: devices.slice(0, 100).map((d) => ({
           id: d.device_id,
           hostname: d.hostname,
           platform: d.platform_name,
@@ -292,10 +300,13 @@ export class CrowdStrikeConnector {
         medium: mediumDetections.length,
         low: lowDetections.length,
         informational: infoDetections.length,
-        newDetections: detections.filter(d => d.status === 'new').length,
-        inProgress: detections.filter(d => d.status === 'in_progress').length,
-        resolved: detections.filter(d => d.status === 'closed' || d.status === 'true_positive' || d.status === 'false_positive').length,
-        items: detections.slice(0, 50).map(d => ({
+        newDetections: detections.filter((d) => d.status === 'new').length,
+        inProgress: detections.filter((d) => d.status === 'in_progress').length,
+        resolved: detections.filter(
+          (d) =>
+            d.status === 'closed' || d.status === 'true_positive' || d.status === 'false_positive'
+        ).length,
+        items: detections.slice(0, 50).map((d) => ({
           id: d.detection_id,
           hostname: d.device?.hostname || 'Unknown',
           severity: severityMap[d.max_severity] || 'unknown',
@@ -312,7 +323,7 @@ export class CrowdStrikeConnector {
         high: highVulns.length,
         medium: mediumVulns.length,
         low: lowVulns.length,
-        items: vulnerabilities.slice(0, 100).map(v => ({
+        items: vulnerabilities.slice(0, 100).map((v) => ({
           cveId: v.cve?.id || v.id,
           severity: v.cve?.severity || 'unknown',
           score: v.cve?.base_score || 0,
@@ -324,9 +335,8 @@ export class CrowdStrikeConnector {
       prevention: {
         policiesApplied: withPrevention,
         devicesProtected: withPrevention,
-        protectionPercentage: devices.length > 0 
-          ? Math.round((withPrevention / devices.length) * 100) 
-          : 0,
+        protectionPercentage:
+          devices.length > 0 ? Math.round((withPrevention / devices.length) * 100) : 0,
       },
       collectedAt: new Date().toISOString(),
       errors,
@@ -340,7 +350,7 @@ export class CrowdStrikeConnector {
     const baseUrl = config.baseUrl || this.DEFAULT_BASE_URL;
 
     try {
-      const response = await fetch(`${baseUrl}/oauth2/token`, {
+      const response = await safeFetch(`${baseUrl}/oauth2/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -369,10 +379,9 @@ export class CrowdStrikeConnector {
    */
   private async getDevices(baseUrl: string, token: string): Promise<CrowdStrikeDevice[]> {
     // First get device IDs
-    const idsResponse = await fetch(
-      `${baseUrl}/devices/queries/devices/v1?limit=500`,
-      { headers: this.buildHeaders(token) },
-    );
+    const idsResponse = await safeFetch(`${baseUrl}/devices/queries/devices/v1?limit=500`, {
+      headers: this.buildHeaders(token),
+    });
 
     if (!idsResponse.ok) {
       throw new Error(`Failed to fetch device IDs: ${idsResponse.status}`);
@@ -389,14 +398,11 @@ export class CrowdStrikeConnector {
     const devices: CrowdStrikeDevice[] = [];
     for (let i = 0; i < deviceIds.length; i += 100) {
       const batch = deviceIds.slice(i, i + 100);
-      const detailsResponse = await fetch(
-        `${baseUrl}/devices/entities/devices/v2`,
-        {
-          method: 'POST',
-          headers: this.buildHeaders(token),
-          body: JSON.stringify({ ids: batch }),
-        },
-      );
+      const detailsResponse = await safeFetch(`${baseUrl}/devices/entities/devices/v2`, {
+        method: 'POST',
+        headers: this.buildHeaders(token),
+        body: JSON.stringify({ ids: batch }),
+      });
 
       if (detailsResponse.ok) {
         const detailsData = await detailsResponse.json();
@@ -413,10 +419,10 @@ export class CrowdStrikeConnector {
   private async getDetections(baseUrl: string, token: string): Promise<CrowdStrikeDetection[]> {
     // Get detection IDs from last 30 days
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    
-    const idsResponse = await fetch(
+
+    const idsResponse = await safeFetch(
       `${baseUrl}/detects/queries/detects/v1?limit=200&filter=created_timestamp:>'${thirtyDaysAgo}'`,
-      { headers: this.buildHeaders(token) },
+      { headers: this.buildHeaders(token) }
     );
 
     if (!idsResponse.ok) {
@@ -431,14 +437,11 @@ export class CrowdStrikeConnector {
     }
 
     // Get detection details
-    const detailsResponse = await fetch(
-      `${baseUrl}/detects/entities/summaries/GET/v1`,
-      {
-        method: 'POST',
-        headers: this.buildHeaders(token),
-        body: JSON.stringify({ ids: detectionIds.slice(0, 100) }),
-      },
-    );
+    const detailsResponse = await safeFetch(`${baseUrl}/detects/entities/summaries/GET/v1`, {
+      method: 'POST',
+      headers: this.buildHeaders(token),
+      body: JSON.stringify({ ids: detectionIds.slice(0, 100) }),
+    });
 
     if (!detailsResponse.ok) {
       throw new Error(`Failed to fetch detection details: ${detailsResponse.status}`);
@@ -451,11 +454,14 @@ export class CrowdStrikeConnector {
   /**
    * Get vulnerabilities (Spotlight)
    */
-  private async getVulnerabilities(baseUrl: string, token: string): Promise<CrowdStrikeVulnerability[]> {
+  private async getVulnerabilities(
+    baseUrl: string,
+    token: string
+  ): Promise<CrowdStrikeVulnerability[]> {
     try {
-      const response = await fetch(
+      const response = await safeFetch(
         `${baseUrl}/spotlight/queries/vulnerabilities/v1?limit=200&filter=status:'open'`,
-        { headers: this.buildHeaders(token) },
+        { headers: this.buildHeaders(token) }
       );
 
       if (!response.ok) {
@@ -474,9 +480,9 @@ export class CrowdStrikeConnector {
       }
 
       // Get vulnerability details
-      const detailsResponse = await fetch(
+      const detailsResponse = await safeFetch(
         `${baseUrl}/spotlight/entities/vulnerabilities/v2?ids=${vulnIds.slice(0, 100).join('&ids=')}`,
-        { headers: this.buildHeaders(token) },
+        { headers: this.buildHeaders(token) }
       );
 
       if (!detailsResponse.ok) {
@@ -496,10 +502,9 @@ export class CrowdStrikeConnector {
    */
   private buildHeaders(token: string): Record<string, string> {
     return {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json',
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     };
   }
 }
-

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable, Logger } from '@nestjs/common';
+import { safeFetch } from '@gigachad-grc/shared';
 
 interface JamfConfig {
   serverUrl: string;
@@ -112,7 +113,9 @@ export class JamfConnector {
   /**
    * Test connection to Jamf Pro by attempting to get an access token
    */
-  async testConnection(config: JamfConfig): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(
+    config: JamfConfig
+  ): Promise<{ success: boolean; message: string; details?: any }> {
     // Validate config
     if (!config.serverUrl) {
       return { success: false, message: 'Server URL is required' };
@@ -130,40 +133,43 @@ export class JamfConnector {
     try {
       // Step 1: Get access token
       const token = await this.getAccessToken(config);
-      
+
       if (!token) {
-        return { success: false, message: 'Failed to obtain access token - check your Client ID and Secret' };
+        return {
+          success: false,
+          message: 'Failed to obtain access token - check your Client ID and Secret',
+        };
       }
 
       // Step 2: Verify token works by calling version endpoint
-      const response = await fetch(`${baseUrl}/api/v1/jamf-pro-version`, {
+      const response = await safeFetch(`${baseUrl}/api/v1/jamf-pro-version`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
         },
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        return { 
-          success: false, 
-          message: `Token obtained but API request failed: ${response.status} - ${errorText.substring(0, 100)}` 
+        return {
+          success: false,
+          message: `Token obtained but API request failed: ${response.status} - ${errorText.substring(0, 100)}`,
         };
       }
 
       const versionInfo = await response.json();
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         message: `Connected to Jamf Pro ${versionInfo.version || 'successfully'}`,
         details: versionInfo,
       };
     } catch (error: any) {
       this.logger.error('Jamf connection test failed', error);
-      
+
       // Provide helpful error messages
       let message = error.message || 'Connection failed';
-      
+
       if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) {
         message = `Cannot reach server: ${config.serverUrl} - check the URL is correct`;
       } else if (message.includes('ECONNREFUSED')) {
@@ -175,9 +181,9 @@ export class JamfConnector {
       } else if (message.includes('403')) {
         message = 'Access forbidden - check API client permissions in Jamf Pro';
       }
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         message,
       };
     }
@@ -193,7 +199,7 @@ export class JamfConnector {
     }
 
     const baseUrl = this.normalizeUrl(config.serverUrl);
-    
+
     // Fetch computers and mobile devices in parallel
     const [computers, mobileDevices] = await Promise.all([
       this.fetchComputers(baseUrl, token),
@@ -206,18 +212,20 @@ export class JamfConnector {
     return {
       computers: {
         total: computers.length,
-        managed: computers.filter(c => c.general?.managed).length,
-        encrypted: computers.filter(c => 
-          c.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State === 'ENCRYPTED'
+        managed: computers.filter((c) => c.general?.managed).length,
+        encrypted: computers.filter(
+          (c) =>
+            c.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State ===
+            'ENCRYPTED'
         ).length,
         compliant: this.countCompliantComputers(computers),
-        devices: computers.map(c => this.summarizeComputer(c)),
+        devices: computers.map((c) => this.summarizeComputer(c)),
       },
       mobileDevices: {
         total: mobileDevices.length,
-        managed: mobileDevices.filter(d => d.managed).length,
-        supervised: mobileDevices.filter(d => d.supervised).length,
-        devices: mobileDevices.map(d => this.summarizeMobileDevice(d)),
+        managed: mobileDevices.filter((d) => d.managed).length,
+        supervised: mobileDevices.filter((d) => d.supervised).length,
+        devices: mobileDevices.map((d) => this.summarizeMobileDevice(d)),
       },
       securitySummary,
       collectedAt: new Date().toISOString(),
@@ -229,26 +237,33 @@ export class JamfConnector {
    */
   private async getAccessToken(config: JamfConfig): Promise<string | null> {
     const baseUrl = this.normalizeUrl(config.serverUrl);
-    
+
     // Trim whitespace from credentials (common copy/paste issue)
     const clientId = config.clientId.trim();
     const clientSecret = config.clientSecret.trim();
-    
+
     const tokenUrl = `${baseUrl}/api/oauth/token`;
-    
+
     this.logger.log(`Attempting Jamf OAuth to: ${tokenUrl}`);
-    this.logger.log(`Client ID length: ${clientId.length}, starts with: ${clientId.substring(0, 8)}...`);
-    
+    this.logger.log(
+      `Client ID length: ${clientId.length}, starts with: ${clientId.substring(0, 8)}...`
+    );
+
     try {
       // Build payload exactly like the working Google Apps Script does:
       // Raw string concatenation, grant_type first, no URL encoding
-      const payload = 'grant_type=client_credentials' +
-                      '&client_id=' + clientId +
-                      '&client_secret=' + clientSecret;
+      const payload =
+        'grant_type=client_credentials' +
+        '&client_id=' +
+        clientId +
+        '&client_secret=' +
+        clientSecret;
 
-      this.logger.log(`Request payload format: grant_type=client_credentials&client_id=${clientId}&client_secret=***`);
+      this.logger.log(
+        `Request payload format: grant_type=client_credentials&client_id=${clientId}&client_secret=***`
+      );
 
-      const response = await fetch(tokenUrl, {
+      const response = await safeFetch(tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -262,28 +277,36 @@ export class JamfConnector {
 
       if (!response.ok) {
         this.logger.error(`Jamf OAuth failed: ${response.status} - ${responseText}`);
-        
+
         // Try to parse error for better message
         try {
           const errorJson = JSON.parse(responseText);
-          const errorMsg = errorJson.error_description || errorJson.error || errorJson.message || `HTTP ${response.status}`;
+          const errorMsg =
+            errorJson.error_description ||
+            errorJson.error ||
+            errorJson.message ||
+            `HTTP ${response.status}`;
           throw new Error(errorMsg);
         } catch {
           // If we can't parse JSON, check for common HTML error pages
           if (responseText.includes('<!DOCTYPE') || responseText.includes('<html')) {
-            throw new Error(`Server returned HTML instead of JSON - check if URL ${baseUrl} is correct`);
+            throw new Error(
+              `Server returned HTML instead of JSON - check if URL ${baseUrl} is correct`
+            );
           }
-          throw new Error(`Authentication failed: HTTP ${response.status} - ${responseText.substring(0, 200)}`);
+          throw new Error(
+            `Authentication failed: HTTP ${response.status} - ${responseText.substring(0, 200)}`
+          );
         }
       }
 
       const data: JamfTokenResponse = JSON.parse(responseText);
-      
+
       if (!data.access_token) {
         this.logger.error('Jamf OAuth response missing access_token', data);
         throw new Error('Invalid response from Jamf - no access token received');
       }
-      
+
       this.logger.log('Jamf OAuth successful, token obtained');
       return data.access_token;
     } catch (error: any) {
@@ -303,12 +326,12 @@ export class JamfConnector {
       let hasMore = true;
 
       while (hasMore) {
-        const response = await fetch(
+        const response = await safeFetch(
           `${baseUrl}/api/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=SECURITY&section=DISK_ENCRYPTION&page=${page}&page-size=${pageSize}`,
           {
             headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/json',
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
             },
           }
         );
@@ -321,10 +344,10 @@ export class JamfConnector {
         const data = await response.json();
         const results = data.results || [];
         computers.push(...results);
-        
+
         hasMore = results.length === pageSize;
         page++;
-        
+
         // Safety limit
         if (page > 100) break;
       }
@@ -348,12 +371,12 @@ export class JamfConnector {
       let hasMore = true;
 
       while (hasMore) {
-        const response = await fetch(
+        const response = await safeFetch(
           `${baseUrl}/api/v2/mobile-devices?page=${page}&page-size=${pageSize}`,
           {
             headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/json',
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/json',
             },
           }
         );
@@ -366,10 +389,10 @@ export class JamfConnector {
         const data = await response.json();
         const results = data.results || [];
         devices.push(...results);
-        
+
         hasMore = results.length === pageSize;
         page++;
-        
+
         // Safety limit
         if (page > 100) break;
       }
@@ -399,7 +422,8 @@ export class JamfConnector {
 
     for (const computer of computers) {
       // FileVault
-      const fvState = computer.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State;
+      const fvState =
+        computer.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State;
       if (fvState === 'ENCRYPTED') {
         summary.fileVaultEnabled++;
       } else {
@@ -416,7 +440,11 @@ export class JamfConnector {
 
       // Gatekeeper
       const gkStatus = computer.security?.gatekeeperStatus?.toLowerCase();
-      if (gkStatus === 'app store and identified developers' || gkStatus === 'enabled' || gkStatus?.includes('app store')) {
+      if (
+        gkStatus === 'app store and identified developers' ||
+        gkStatus === 'enabled' ||
+        gkStatus?.includes('app store')
+      ) {
         summary.gatekeeperEnabled++;
       } else {
         summary.gatekeeperDisabled++;
@@ -430,8 +458,9 @@ export class JamfConnector {
    * Count computers that meet compliance criteria
    */
   private countCompliantComputers(computers: JamfComputer[]): number {
-    return computers.filter(c => {
-      const hasFileVault = c.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State === 'ENCRYPTED';
+    return computers.filter((c) => {
+      const hasFileVault =
+        c.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State === 'ENCRYPTED';
       const hasSIP = c.security?.sipStatus?.toLowerCase() === 'enabled';
       const hasGatekeeper = c.security?.gatekeeperStatus?.toLowerCase()?.includes('app store');
       return hasFileVault && hasSIP && hasGatekeeper;
@@ -451,7 +480,9 @@ export class JamfConnector {
       managed: computer.general?.managed,
       lastContactTime: computer.general?.lastContactTime,
       security: {
-        fileVaultEnabled: computer.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State === 'ENCRYPTED',
+        fileVaultEnabled:
+          computer.diskEncryption?.bootPartitionEncryptionDetails?.partitionFileVault2State ===
+          'ENCRYPTED',
         sipEnabled: computer.security?.sipStatus?.toLowerCase() === 'enabled',
         gatekeeperStatus: computer.security?.gatekeeperStatus,
         autoLoginDisabled: computer.security?.autoLoginDisabled,
@@ -487,4 +518,3 @@ export class JamfConnector {
     return normalized.replace(/\/+$/, ''); // Remove trailing slashes
   }
 }
-

@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable, Logger } from '@nestjs/common';
+import { safeFetch } from '@gigachad-grc/shared';
 
 export interface WizConfig {
   clientId: string;
   clientSecret: string;
-  apiEndpoint?: string;  // e.g., https://api.us1.app.wiz.io
+  apiEndpoint?: string; // e.g., https://api.us1.app.wiz.io
 }
 
 export interface WizSyncResult {
@@ -64,7 +65,9 @@ export class WizConnector {
   private readonly logger = new Logger(WizConnector.name);
   private readonly defaultEndpoint = 'https://api.us1.app.wiz.io';
 
-  async testConnection(config: WizConfig): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(
+    config: WizConfig
+  ): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.clientId || !config.clientSecret) {
       return { success: false, message: 'Client ID and Client Secret are required' };
     }
@@ -95,9 +98,18 @@ export class WizConnector {
 
     const endpoint = config.apiEndpoint || this.defaultEndpoint;
     const [issues, vulnerabilities, resources] = await Promise.all([
-      this.getIssues(endpoint, token).catch(e => { errors.push(`Issues: ${e.message}`); return []; }),
-      this.getVulnerabilities(endpoint, token).catch(e => { errors.push(`Vulns: ${e.message}`); return { total: 0, critical: 0, high: 0, exploitable: 0, fixAvailable: 0 }; }),
-      this.getCloudResources(endpoint, token).catch(e => { errors.push(`Resources: ${e.message}`); return { total: 0, byProvider: {}, byType: {} }; }),
+      this.getIssues(endpoint, token).catch((e) => {
+        errors.push(`Issues: ${e.message}`);
+        return [];
+      }),
+      this.getVulnerabilities(endpoint, token).catch((e) => {
+        errors.push(`Vulns: ${e.message}`);
+        return { total: 0, critical: 0, high: 0, exploitable: 0, fixAvailable: 0 };
+      }),
+      this.getCloudResources(endpoint, token).catch((e) => {
+        errors.push(`Resources: ${e.message}`);
+        return { total: 0, byProvider: {}, byType: {} };
+      }),
     ]);
 
     return {
@@ -133,7 +145,7 @@ export class WizConnector {
   private async getAccessToken(config: WizConfig): Promise<string | null> {
     try {
       const authUrl = 'https://auth.app.wiz.io/oauth/token';
-      const response = await fetch(authUrl, {
+      const response = await safeFetch(authUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -154,9 +166,9 @@ export class WizConnector {
 
   private async getIssues(endpoint: string, token: string): Promise<any[]> {
     const query = `query { issues(first: 100, filterBy: { status: [OPEN, IN_PROGRESS] }) { nodes { id severity status type createdAt control { name } entity { name type } } } }`;
-    const response = await fetch(`${endpoint}/graphql`, {
+    const response = await safeFetch(`${endpoint}/graphql`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
     });
     if (!response.ok) throw new Error(`Failed: ${response.status}`);
@@ -174,4 +186,3 @@ export class WizConnector {
     return { total: 0, byProvider: {}, byType: {} };
   }
 }
-
