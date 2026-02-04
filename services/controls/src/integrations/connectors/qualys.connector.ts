@@ -9,7 +9,13 @@ export interface QualysConfig {
 }
 
 export interface QualysSyncResult {
-  vulnerabilities: { total: number; severity5: number; severity4: number; severity3: number; items: any[] };
+  vulnerabilities: {
+    total: number;
+    severity5: number;
+    severity4: number;
+    severity3: number;
+    items: any[];
+  };
   assets: { total: number; items: any[] };
   webApps: { total: number; items: any[] };
   compliance: { passed: number; failed: number; items: any[] };
@@ -23,7 +29,7 @@ export class QualysConnector extends BaseConnector {
     super('QualysConnector');
   }
 
-  async testConnection(config: QualysConfig): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.username || !config.password || !config.apiUrl) {
       return { success: false, message: 'Username, password, and API URL required' };
     }
@@ -37,7 +43,7 @@ export class QualysConnector extends BaseConnector {
       });
       this.setBaseURL(config.apiUrl);
 
-      const result = await this.get('/api/2.0/fo/user');
+      const result = await this.get<any>('/api/2.0/fo/user');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -52,7 +58,7 @@ export class QualysConnector extends BaseConnector {
     }
   }
 
-  async sync(config: QualysConfig): Promise<QualysSyncResult> {
+  async sync(config: any): Promise<any> {
     const vulnerabilities: any[] = [];
     const assets: any[] = [];
     const webApps: any[] = [];
@@ -69,7 +75,7 @@ export class QualysConnector extends BaseConnector {
       this.setBaseURL(config.apiUrl);
 
       // Fetch vulnerabilities
-      const vulnsResult = await this.get('/api/2.0/fo/asset/host/vm/detection/?action=list');
+      const vulnsResult = await this.get<any>('/api/2.0/fo/asset/host/vm/detection/?action=list');
       if (vulnsResult.data) {
         // Parse XML response (simplified - in production use xml2js or similar)
         const vulnData = vulnsResult.data;
@@ -81,7 +87,7 @@ export class QualysConnector extends BaseConnector {
       }
 
       // Fetch assets
-      const assetsResult = await this.get('/api/2.0/fo/asset/host/?action=list');
+      const assetsResult = await this.get<any>('/api/2.0/fo/asset/host/?action=list');
       if (assetsResult.data) {
         const assetData = assetsResult.data;
         if (Array.isArray(assetData)) {
@@ -92,7 +98,7 @@ export class QualysConnector extends BaseConnector {
       }
 
       // Fetch web apps
-      const webAppsResult = await this.get('/api/2.0/fo/was/webapp/?action=list');
+      const webAppsResult = await this.get<any>('/api/2.0/fo/was/webapp/?action=list');
       if (webAppsResult.data) {
         const webAppData = webAppsResult.data;
         if (Array.isArray(webAppData)) {
@@ -103,7 +109,7 @@ export class QualysConnector extends BaseConnector {
       }
 
       // Fetch compliance
-      const complianceResult = await this.get('/api/2.0/fo/compliance/policy/?action=list');
+      const complianceResult = await this.get<any>('/api/2.0/fo/compliance/policy/?action=list');
       if (complianceResult.data) {
         const complianceData = complianceResult.data;
         if (Array.isArray(complianceData)) {
@@ -120,7 +126,13 @@ export class QualysConnector extends BaseConnector {
       const failed = compliance.filter((c: any) => c.status === 'FAILED').length;
 
       return {
-        vulnerabilities: { total: vulnerabilities.length, severity5, severity4, severity3, items: vulnerabilities },
+        vulnerabilities: {
+          total: vulnerabilities.length,
+          severity5,
+          severity4,
+          severity3,
+          items: vulnerabilities,
+        },
         assets: { total: assets.length, items: assets },
         webApps: { total: webApps.length, items: webApps },
         compliance: { passed, failed, items: compliance },

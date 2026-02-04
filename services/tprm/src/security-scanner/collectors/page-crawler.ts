@@ -29,12 +29,30 @@ export class PageCrawler {
   private readonly MAX_PAGES = 50;
   private readonly TIMEOUT = 8000;
 
+  /**
+   * Controls whether TLS certificate validation is bypassed.
+   *
+   * SECURITY WARNING: Disabling TLS validation (ALLOW_INSECURE_TLS=true) should ONLY be used when:
+   * - Scanning external sites with known self-signed or invalid certificates
+   * - Testing in development environments
+   * - Never in production unless explicitly required for security scanning
+   *
+   * Default: false (secure - TLS validation enabled)
+   */
+  private readonly allowInsecureTLS = process.env.ALLOW_INSECURE_TLS === 'true';
+
+  constructor() {
+    if (this.allowInsecureTLS) {
+      this.logger.warn(
+        'TLS certificate validation is disabled (ALLOW_INSECURE_TLS=true) - this may allow MITM attacks'
+      );
+    }
+  }
+
   async crawl(subdomainUrl: string): Promise<CrawlResult> {
     const startTime = Date.now();
-    const baseUrl = subdomainUrl.startsWith('http') 
-      ? subdomainUrl 
-      : `https://${subdomainUrl}`;
-    
+    const baseUrl = subdomainUrl.startsWith('http') ? subdomainUrl : `https://${subdomainUrl}`;
+
     const url = new URL(baseUrl);
     const subdomain = url.hostname;
 
@@ -51,14 +69,12 @@ export class PageCrawler {
     };
 
     const visited = new Set<string>();
-    const toVisit: Array<{ url: string; foundOn?: string; linkText?: string }> = [
-      { url: baseUrl }
-    ];
+    const toVisit: Array<{ url: string; foundOn?: string; linkText?: string }> = [{ url: baseUrl }];
 
     // BFS crawl with limit
     while (toVisit.length > 0 && visited.size < this.MAX_PAGES) {
       const batch = toVisit.splice(0, 5); // Process 5 at a time
-      
+
       const promises = batch.map(async (item) => {
         const normalizedUrl = this.normalizeUrl(item.url);
         if (visited.has(normalizedUrl)) return;
@@ -69,7 +85,7 @@ export class PageCrawler {
           if (!pageData) return;
 
           const isExternal = !this.isSameDomain(item.url, subdomain);
-          
+
           const page: DiscoveredPage = {
             url: item.url,
             title: pageData.title,
@@ -85,13 +101,16 @@ export class PageCrawler {
             result.externalLinks.push(page);
           } else {
             result.pages.push(page);
-            
+
             // Extract links from internal pages only
             if (pageData.html && result.pages.length < this.MAX_PAGES) {
               const links = this.extractLinks(pageData.html, item.url, subdomain);
               for (const link of links) {
                 const normalizedLink = this.normalizeUrl(link.url);
-                if (!visited.has(normalizedLink) && !toVisit.some(t => this.normalizeUrl(t.url) === normalizedLink)) {
+                if (
+                  !visited.has(normalizedLink) &&
+                  !toVisit.some((t) => this.normalizeUrl(t.url) === normalizedLink)
+                ) {
                   toVisit.push({
                     url: link.url,
                     foundOn: item.url,
@@ -116,7 +135,9 @@ export class PageCrawler {
     }
 
     result.pagesDiscovered = result.pages.length;
-    this.logger.log(`Crawl complete: ${result.pages.length} pages, ${result.externalLinks.length} external links`);
+    this.logger.log(
+      `Crawl complete: ${result.pages.length} pages, ${result.externalLinks.length} external links`
+    );
 
     return result;
   }
@@ -131,67 +152,76 @@ export class PageCrawler {
     return new Promise((resolve) => {
       const isHttps = url.startsWith('https');
       const lib = isHttps ? https : http;
-      
+
       const timeout = setTimeout(() => resolve(null), this.TIMEOUT);
 
-      const req = lib.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; GRC-SecurityBot/1.0)',
-          'Accept': 'text/html,application/xhtml+xml',
+      const req = lib.get(
+        url,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; GRC-SecurityBot/1.0)',
+            Accept: 'text/html,application/xhtml+xml',
+          },
+          timeout: this.TIMEOUT,
+          rejectUnauthorized: !this.allowInsecureTLS, // Default: true (secure)
         },
-        timeout: this.TIMEOUT,
-        rejectUnauthorized: false,
-      }, (res) => {
-        // Handle redirects
-        if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          clearTimeout(timeout);
-          const redirectUrl = this.resolveUrl(res.headers.location, url);
-          this.fetchPage(redirectUrl).then(resolve);
-          return;
-        }
-
-        const contentType = res.headers['content-type'] || '';
-        
-        // Only process HTML
-        if (!contentType.includes('text/html')) {
-          clearTimeout(timeout);
-          resolve({
-            html: '',
-            statusCode: res.statusCode || 200,
-            contentType,
-            size: parseInt(res.headers['content-length'] || '0', 10),
-          });
-          return;
-        }
-
-        let data = '';
-        let size = 0;
-        const maxSize = 500000; // 500KB limit
-
-        res.on('data', (chunk) => {
-          size += chunk.length;
-          if (size < maxSize) {
-            data += chunk;
+        (res) => {
+          // Handle redirects
+          if (
+            res.statusCode &&
+            res.statusCode >= 300 &&
+            res.statusCode < 400 &&
+            res.headers.location
+          ) {
+            clearTimeout(timeout);
+            const redirectUrl = this.resolveUrl(res.headers.location, url);
+            this.fetchPage(redirectUrl).then(resolve);
+            return;
           }
-        });
 
-        res.on('end', () => {
-          clearTimeout(timeout);
-          const title = this.extractTitle(data);
-          resolve({
-            html: data,
-            title,
-            statusCode: res.statusCode || 200,
-            contentType,
-            size,
+          const contentType = res.headers['content-type'] || '';
+
+          // Only process HTML
+          if (!contentType.includes('text/html')) {
+            clearTimeout(timeout);
+            resolve({
+              html: '',
+              statusCode: res.statusCode || 200,
+              contentType,
+              size: parseInt(res.headers['content-length'] || '0', 10),
+            });
+            return;
+          }
+
+          let data = '';
+          let size = 0;
+          const maxSize = 500000; // 500KB limit
+
+          res.on('data', (chunk) => {
+            size += chunk.length;
+            if (size < maxSize) {
+              data += chunk;
+            }
           });
-        });
 
-        res.on('error', () => {
-          clearTimeout(timeout);
-          resolve(null);
-        });
-      });
+          res.on('end', () => {
+            clearTimeout(timeout);
+            const title = this.extractTitle(data);
+            resolve({
+              html: data,
+              title,
+              statusCode: res.statusCode || 200,
+              contentType,
+              size,
+            });
+          });
+
+          res.on('error', () => {
+            clearTimeout(timeout);
+            resolve(null);
+          });
+        }
+      );
 
       req.on('error', () => {
         clearTimeout(timeout);
@@ -211,7 +241,11 @@ export class PageCrawler {
     return match ? match[1].trim().substring(0, 200) : undefined;
   }
 
-  private extractLinks(html: string, baseUrl: string, _targetDomain: string): Array<{ url: string; text: string }> {
+  private extractLinks(
+    html: string,
+    baseUrl: string,
+    _targetDomain: string
+  ): Array<{ url: string; text: string }> {
     const links: Array<{ url: string; text: string }> = [];
     const seen = new Set<string>();
 
@@ -224,17 +258,19 @@ export class PageCrawler {
       const text = match[2].trim().substring(0, 100);
 
       // Skip javascript:, mailto:, tel:, #anchors
-      if (href.startsWith('javascript:') || 
-          href.startsWith('mailto:') || 
-          href.startsWith('tel:') ||
-          href.startsWith('#')) {
+      if (
+        href.startsWith('javascript:') ||
+        href.startsWith('mailto:') ||
+        href.startsWith('tel:') ||
+        href.startsWith('#')
+      ) {
         continue;
       }
 
       try {
         const resolvedUrl = this.resolveUrl(href, baseUrl);
         const normalized = this.normalizeUrl(resolvedUrl);
-        
+
         if (!seen.has(normalized)) {
           seen.add(normalized);
           links.push({ url: resolvedUrl, text: text || href });
@@ -260,7 +296,10 @@ export class PageCrawler {
       const parsed = new URL(url);
       // Remove trailing slash, lowercase hostname
       let normalized = `${parsed.protocol}//${parsed.hostname.toLowerCase()}${parsed.pathname}`;
-      if (normalized.endsWith('/') && normalized.length > parsed.protocol.length + 3 + parsed.hostname.length) {
+      if (
+        normalized.endsWith('/') &&
+        normalized.length > parsed.protocol.length + 3 + parsed.hostname.length
+      ) {
         normalized = normalized.slice(0, -1);
       }
       return normalized;

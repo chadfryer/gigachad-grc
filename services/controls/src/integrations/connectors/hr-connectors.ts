@@ -13,7 +13,7 @@ export class GustoConnector extends BaseConnector {
     super('GustoConnector');
   }
 
-  async testConnection(config: { apiKey: string; companyId?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -29,7 +29,7 @@ export class GustoConnector extends BaseConnector {
       });
       this.setBaseURL('https://api.gusto.com');
 
-      const result = await this.get('/v1/companies');
+      const result = await this.get<any>('/v1/companies');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -44,7 +44,7 @@ export class GustoConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; companyId?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -59,7 +59,7 @@ export class GustoConnector extends BaseConnector {
       // Get companies if companyId not provided
       let companyIds = config.companyId ? [config.companyId] : [];
       if (!config.companyId) {
-        const companiesResult = await this.get('/v1/companies');
+        const companiesResult = await this.get<any>('/v1/companies');
         if (companiesResult.data) {
           companyIds = companiesResult.data.map((c: any) => c.id);
         }
@@ -67,15 +67,17 @@ export class GustoConnector extends BaseConnector {
 
       // Fetch employees for each company
       for (const companyId of companyIds) {
-        const employeesResult = await this.get(`/v1/companies/${companyId}/employees`);
+        const employeesResult = await this.get<any>(`/v1/companies/${companyId}/employees`);
         if (employeesResult.data) {
           employees.push(...(Array.isArray(employeesResult.data) ? employeesResult.data : []));
         } else if (employeesResult.error) {
-          errors.push(`Failed to fetch employees for company ${companyId}: ${employeesResult.error}`);
+          errors.push(
+            `Failed to fetch employees for company ${companyId}: ${employeesResult.error}`
+          );
         }
 
         // Fetch payroll runs
-        const payrollResult = await this.get(`/v1/companies/${companyId}/payrolls`);
+        const payrollResult = await this.get<any>(`/v1/companies/${companyId}/payrolls`);
         if (payrollResult.data) {
           payroll.push(...(Array.isArray(payrollResult.data) ? payrollResult.data : []));
         }
@@ -104,7 +106,7 @@ export class ADPConnector extends BaseConnector {
     super('ADPConnector');
   }
 
-  async testConnection(config: { clientId: string; clientSecret: string; baseUrl?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -125,7 +127,7 @@ export class ADPConnector extends BaseConnector {
         }),
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        },
+        }
       );
 
       if (tokenResponse.data?.access_token) {
@@ -140,18 +142,19 @@ export class ADPConnector extends BaseConnector {
     } catch (error: any) {
       return {
         success: false,
-        message: error.response?.data?.error_description || error.message || 'Connection test failed',
+        message:
+          error.response?.data?.error_description || error.message || 'Connection test failed',
       };
     }
   }
 
-  async sync(config: { clientId: string; clientSecret: string; baseUrl?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     const workers: any[] = [];
     const errors: string[] = [];
 
     try {
       const baseUrl = config.baseUrl || 'https://api.adp.com';
-      
+
       // Get access token
       const tokenResponse = await axios.post(
         `${baseUrl}/auth/oauth/v2/token`,
@@ -162,7 +165,7 @@ export class ADPConnector extends BaseConnector {
         }),
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        },
+        }
       );
 
       const accessToken = tokenResponse.data?.access_token;
@@ -181,7 +184,7 @@ export class ADPConnector extends BaseConnector {
       });
       this.setBaseURL(baseUrl);
 
-      const workersResult = await this.get('/hr/v2/workers');
+      const workersResult = await this.get<any>('/hr/v2/workers');
       if (workersResult.data) {
         const workerData = workersResult.data.workers || workersResult.data;
         workers.push(...(Array.isArray(workerData) ? workerData : [workerData]));
@@ -210,7 +213,7 @@ export class PaychexConnector extends BaseConnector {
     super('PaychexConnector');
   }
 
-  async testConnection(config: { apiKey: string; baseUrl?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -226,7 +229,7 @@ export class PaychexConnector extends BaseConnector {
       });
       this.setBaseURL(config.baseUrl || 'https://api.paychex.com');
 
-      const result = await this.get('/companies');
+      const result = await this.get<any>('/companies');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -241,7 +244,7 @@ export class PaychexConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; baseUrl?: string; companyId?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -256,7 +259,7 @@ export class PaychexConnector extends BaseConnector {
       // Get companies if companyId not provided
       let companyIds = config.companyId ? [config.companyId] : [];
       if (!config.companyId) {
-        const companiesResult = await this.get('/companies');
+        const companiesResult = await this.get<any>('/companies');
         if (companiesResult.data?.content) {
           companyIds = companiesResult.data.content.map((c: any) => c.companyId);
         }
@@ -264,14 +267,14 @@ export class PaychexConnector extends BaseConnector {
 
       // Fetch employees and payroll for each company
       for (const companyId of companyIds) {
-        const employeesResult = await this.get(`/companies/${companyId}/workers`);
+        const employeesResult = await this.get<any>(`/companies/${companyId}/workers`);
         if (employeesResult.data?.content) {
           employees.push(...employeesResult.data.content);
         } else if (employeesResult.error) {
           errors.push(`Failed to fetch employees: ${employeesResult.error}`);
         }
 
-        const payrollResult = await this.get(`/companies/${companyId}/payperiods`);
+        const payrollResult = await this.get<any>(`/companies/${companyId}/payperiods`);
         if (payrollResult.data?.content) {
           payroll.push(...payrollResult.data.content);
         }
@@ -300,7 +303,7 @@ export class TriNetConnector extends BaseConnector {
     super('TriNetConnector');
   }
 
-  async testConnection(config: { apiKey: string; environment?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -310,9 +313,10 @@ export class TriNetConnector extends BaseConnector {
     }
 
     try {
-      const baseUrl = config.environment === 'sandbox' 
-        ? 'https://api-sandbox.trinet.com' 
-        : 'https://api.trinet.com';
+      const baseUrl =
+        config.environment === 'sandbox'
+          ? 'https://api-sandbox.trinet.com'
+          : 'https://api.trinet.com';
 
       this.setHeaders({
         Authorization: `Bearer ${config.apiKey}`,
@@ -320,7 +324,7 @@ export class TriNetConnector extends BaseConnector {
       });
       this.setBaseURL(baseUrl);
 
-      const result = await this.get('/v1/companies');
+      const result = await this.get<any>('/v1/companies');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -335,10 +339,11 @@ export class TriNetConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; environment?: string; companyId?: string }): Promise<any> {
-    const baseUrl = config.environment === 'sandbox' 
-      ? 'https://api-sandbox.trinet.com' 
-      : 'https://api.trinet.com';
+  async sync(config: any): Promise<any> {
+    const baseUrl =
+      config.environment === 'sandbox'
+        ? 'https://api-sandbox.trinet.com'
+        : 'https://api.trinet.com';
 
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
@@ -351,11 +356,11 @@ export class TriNetConnector extends BaseConnector {
 
     try {
       const companyId = config.companyId || 'default';
-      const employeesResult = await this.get(`/v1/companies/${companyId}/employees`);
-      
+      const employeesResult = await this.get<any>(`/v1/companies/${companyId}/employees`);
+
       if (employeesResult.data) {
-        const employeeData = Array.isArray(employeesResult.data) 
-          ? employeesResult.data 
+        const employeeData = Array.isArray(employeesResult.data)
+          ? employeesResult.data
           : employeesResult.data.employees || [];
         employees.push(...employeeData);
       } else if (employeesResult.error) {
@@ -383,7 +388,7 @@ export class NamelyConnector extends BaseConnector {
     super('NamelyConnector');
   }
 
-  async testConnection(config: { apiKey: string; subdomain: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -399,7 +404,7 @@ export class NamelyConnector extends BaseConnector {
       });
       this.setBaseURL(`https://${config.subdomain}.namely.com/api/v1`);
 
-      const result = await this.get('/profiles');
+      const result = await this.get<any>('/profiles');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -414,7 +419,7 @@ export class NamelyConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; subdomain: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -429,7 +434,7 @@ export class NamelyConnector extends BaseConnector {
       let hasMore = true;
 
       while (hasMore) {
-        const result = await this.get(`/profiles?page=${page}&per_page=50`);
+        const result = await this.get<any>(`/profiles?page=${page}&per_page=50`);
         if (result.data?.profiles) {
           profiles.push(...result.data.profiles);
           hasMore = result.data.profiles.length === 50;
@@ -463,7 +468,7 @@ export class PersonioConnector extends BaseConnector {
     super('PersonioConnector');
   }
 
-  async testConnection(config: { clientId: string; clientSecret: string; baseUrl?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -474,7 +479,7 @@ export class PersonioConnector extends BaseConnector {
 
     try {
       const baseUrl = config.baseUrl || 'https://api.personio.de';
-      
+
       // Get OAuth token
       const tokenResponse = await axios.post(
         `${baseUrl}/v1/auth`,
@@ -484,7 +489,7 @@ export class PersonioConnector extends BaseConnector {
         },
         {
           headers: { 'Content-Type': 'application/json' },
-        },
+        }
       );
 
       if (tokenResponse.data?.data?.token) {
@@ -504,13 +509,13 @@ export class PersonioConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { clientId: string; clientSecret: string; baseUrl?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     const employees: any[] = [];
     const errors: string[] = [];
 
     try {
       const baseUrl = config.baseUrl || 'https://api.personio.de';
-      
+
       // Get access token
       const tokenResponse = await axios.post(
         `${baseUrl}/v1/auth`,
@@ -520,7 +525,7 @@ export class PersonioConnector extends BaseConnector {
         },
         {
           headers: { 'Content-Type': 'application/json' },
-        },
+        }
       );
 
       const accessToken = tokenResponse.data?.data?.token;
@@ -538,10 +543,10 @@ export class PersonioConnector extends BaseConnector {
       });
       this.setBaseURL(baseUrl);
 
-      const employeesResult = await this.get('/v1/company/employees');
+      const employeesResult = await this.get<any>('/v1/company/employees');
       if (employeesResult.data?.data) {
-        const employeeData = Array.isArray(employeesResult.data.data) 
-          ? employeesResult.data.data 
+        const employeeData = Array.isArray(employeesResult.data.data)
+          ? employeesResult.data.data
           : [];
         employees.push(...employeeData);
       } else if (employeesResult.error) {
@@ -569,7 +574,7 @@ export class FactorialConnector extends BaseConnector {
     super('FactorialConnector');
   }
 
-  async testConnection(config: { apiKey: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -585,7 +590,7 @@ export class FactorialConnector extends BaseConnector {
       });
       this.setBaseURL('https://api.factorialhr.com');
 
-      const result = await this.get('/employees');
+      const result = await this.get<any>('/employees');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -600,7 +605,7 @@ export class FactorialConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       'X-API-KEY': config.apiKey,
       'Content-Type': 'application/json',
@@ -611,7 +616,7 @@ export class FactorialConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const employeesResult = await this.get('/employees');
+      const employeesResult = await this.get<any>('/employees');
       if (employeesResult.data) {
         employees.push(...(Array.isArray(employeesResult.data) ? employeesResult.data : []));
       } else if (employeesResult.error) {
@@ -639,7 +644,7 @@ export class CharlieHRConnector extends BaseConnector {
     super('CharlieHRConnector');
   }
 
-  async testConnection(config: { apiKey: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -655,7 +660,7 @@ export class CharlieHRConnector extends BaseConnector {
       });
       this.setBaseURL('https://api.charliehr.com');
 
-      const result = await this.get('/employees');
+      const result = await this.get<any>('/employees');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -670,7 +675,7 @@ export class CharlieHRConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -681,7 +686,7 @@ export class CharlieHRConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const employeesResult = await this.get('/employees');
+      const employeesResult = await this.get<any>('/employees');
       if (employeesResult.data) {
         employees.push(...(Array.isArray(employeesResult.data) ? employeesResult.data : []));
       } else if (employeesResult.error) {
@@ -709,7 +714,7 @@ export class ZenefitsConnector extends BaseConnector {
     super('ZenefitsConnector');
   }
 
-  async testConnection(config: { apiKey: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -725,7 +730,7 @@ export class ZenefitsConnector extends BaseConnector {
       });
       this.setBaseURL('https://api.zenefits.com');
 
-      const result = await this.get('/core/people');
+      const result = await this.get<any>('/core/people');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -740,7 +745,7 @@ export class ZenefitsConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -755,7 +760,7 @@ export class ZenefitsConnector extends BaseConnector {
       let hasMore = true;
 
       while (hasMore) {
-        const result = await this.get(url);
+        const result = await this.get<any>(url);
         if (result.data?.data) {
           people.push(...result.data.data);
           url = result.data.next;
@@ -789,7 +794,7 @@ export class UKGConnector extends BaseConnector {
     super('UKGConnector');
   }
 
-  async testConnection(config: { apiKey: string; companyId: string; baseUrl?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -805,7 +810,7 @@ export class UKGConnector extends BaseConnector {
       });
       this.setBaseURL(config.baseUrl || 'https://api.ukg.com');
 
-      const result = await this.get(`/personnel/v1/companies/${config.companyId}`);
+      const result = await this.get<any>(`/personnel/v1/companies/${config.companyId}`);
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -820,7 +825,7 @@ export class UKGConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; companyId: string; baseUrl?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -831,10 +836,12 @@ export class UKGConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const employeesResult = await this.get(`/personnel/v1/companies/${config.companyId}/employees`);
+      const employeesResult = await this.get<any>(
+        `/personnel/v1/companies/${config.companyId}/employees`
+      );
       if (employeesResult.data) {
-        const employeeData = Array.isArray(employeesResult.data) 
-          ? employeesResult.data 
+        const employeeData = Array.isArray(employeesResult.data)
+          ? employeesResult.data
           : employeesResult.data.employees || [];
         employees.push(...employeeData);
       } else if (employeesResult.error) {
@@ -862,7 +869,7 @@ export class SAPSuccessFactorsConnector extends BaseConnector {
     super('SAPSuccessFactorsConnector');
   }
 
-  async testConnection(config: { apiKey: string; companyId: string; baseUrl?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -878,7 +885,7 @@ export class SAPSuccessFactorsConnector extends BaseConnector {
       });
       this.setBaseURL(config.baseUrl || 'https://api.successfactors.eu');
 
-      const result = await this.get('/odata/v2/User');
+      const result = await this.get<any>('/odata/v2/User');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -893,7 +900,7 @@ export class SAPSuccessFactorsConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; companyId: string; baseUrl?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -908,7 +915,7 @@ export class SAPSuccessFactorsConnector extends BaseConnector {
       let hasMore = true;
 
       while (hasMore) {
-        const result = await this.get(url);
+        const result = await this.get<any>(url);
         if (result.data?.d?.results) {
           users.push(...result.data.d.results);
           url = result.data.d.__next;
@@ -942,7 +949,7 @@ export class OracleHCMConnector extends BaseConnector {
     super('OracleHCMConnector');
   }
 
-  async testConnection(config: { username: string; password: string; baseUrl: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -960,7 +967,7 @@ export class OracleHCMConnector extends BaseConnector {
       });
       this.setBaseURL(config.baseUrl);
 
-      const result = await this.get('/hcmRestApi/resources/11.13.18.05/workers');
+      const result = await this.get<any>('/hcmRestApi/resources/11.13.18.05/workers');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -975,7 +982,7 @@ export class OracleHCMConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { username: string; password: string; baseUrl: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
     this.setHeaders({
       Authorization: `Basic ${auth}`,
@@ -991,7 +998,7 @@ export class OracleHCMConnector extends BaseConnector {
       let hasMore = true;
 
       while (hasMore) {
-        const result = await this.get(url);
+        const result = await this.get<any>(url);
         if (result.data?.items) {
           workers.push(...result.data.items);
           url = result.data.links?.find((l: any) => l.rel === 'next')?.href;
@@ -1029,7 +1036,7 @@ export class CheckrConnector extends BaseConnector {
     super('CheckrConnector');
   }
 
-  async testConnection(config: { apiKey: string; environment?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -1039,9 +1046,8 @@ export class CheckrConnector extends BaseConnector {
     }
 
     try {
-      const baseUrl = config.environment === 'sandbox' 
-        ? 'https://api.checkr.com' 
-        : 'https://api.checkr.com';
+      const baseUrl =
+        config.environment === 'sandbox' ? 'https://api.checkr.com' : 'https://api.checkr.com';
 
       this.setHeaders({
         Authorization: `Basic ${Buffer.from(`${config.apiKey}:`).toString('base64')}`,
@@ -1049,7 +1055,7 @@ export class CheckrConnector extends BaseConnector {
       });
       this.setBaseURL(baseUrl);
 
-      const result = await this.get('/v1/candidates');
+      const result = await this.get<any>('/v1/candidates');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -1064,10 +1070,9 @@ export class CheckrConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; environment?: string }): Promise<any> {
-    const baseUrl = config.environment === 'sandbox' 
-      ? 'https://api.checkr.com' 
-      : 'https://api.checkr.com';
+  async sync(config: any): Promise<any> {
+    const baseUrl =
+      config.environment === 'sandbox' ? 'https://api.checkr.com' : 'https://api.checkr.com';
 
     this.setHeaders({
       Authorization: `Basic ${Buffer.from(`${config.apiKey}:`).toString('base64')}`,
@@ -1080,14 +1085,14 @@ export class CheckrConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const candidatesResult = await this.get('/v1/candidates');
+      const candidatesResult = await this.get<any>('/v1/candidates');
       if (candidatesResult.data?.data) {
         candidates.push(...candidatesResult.data.data);
       } else if (candidatesResult.error) {
         errors.push(candidatesResult.error);
       }
 
-      const reportsResult = await this.get('/v1/reports');
+      const reportsResult = await this.get<any>('/v1/reports');
       if (reportsResult.data?.data) {
         reports.push(...reportsResult.data.data);
       } else if (reportsResult.error) {
@@ -1117,7 +1122,7 @@ export class SterlingConnector extends BaseConnector {
     super('SterlingConnector');
   }
 
-  async testConnection(config: { apiKey: string; baseUrl?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -1133,7 +1138,7 @@ export class SterlingConnector extends BaseConnector {
       });
       this.setBaseURL(config.baseUrl || 'https://api.sterlingcheck.com');
 
-      const result = await this.get('/v1/screenings');
+      const result = await this.get<any>('/v1/screenings');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -1148,7 +1153,7 @@ export class SterlingConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; baseUrl?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       'X-Sterling-Auth-Token': config.apiKey,
       'Content-Type': 'application/json',
@@ -1159,7 +1164,7 @@ export class SterlingConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const screeningsResult = await this.get('/v1/screenings');
+      const screeningsResult = await this.get<any>('/v1/screenings');
       if (screeningsResult.data) {
         screenings.push(...(Array.isArray(screeningsResult.data) ? screeningsResult.data : []));
       } else if (screeningsResult.error) {
@@ -1187,7 +1192,7 @@ export class GoodHireConnector extends BaseConnector {
     super('GoodHireConnector');
   }
 
-  async testConnection(config: { apiKey: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -1203,7 +1208,7 @@ export class GoodHireConnector extends BaseConnector {
       });
       this.setBaseURL('https://api.goodhire.com');
 
-      const result = await this.get('/v1/reports');
+      const result = await this.get<any>('/v1/reports');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -1218,7 +1223,7 @@ export class GoodHireConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -1229,7 +1234,7 @@ export class GoodHireConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const reportsResult = await this.get('/v1/reports');
+      const reportsResult = await this.get<any>('/v1/reports');
       if (reportsResult.data) {
         reports.push(...(Array.isArray(reportsResult.data) ? reportsResult.data : []));
       } else if (reportsResult.error) {
@@ -1257,7 +1262,7 @@ export class HireRightConnector extends BaseConnector {
     super('HireRightConnector');
   }
 
-  async testConnection(config: { apiKey: string; baseUrl?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -1273,7 +1278,7 @@ export class HireRightConnector extends BaseConnector {
       });
       this.setBaseURL(config.baseUrl || 'https://api.hireright.com');
 
-      const result = await this.get('/v1/orders');
+      const result = await this.get<any>('/v1/orders');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -1288,7 +1293,7 @@ export class HireRightConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; baseUrl?: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',
@@ -1299,7 +1304,7 @@ export class HireRightConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const ordersResult = await this.get('/v1/orders');
+      const ordersResult = await this.get<any>('/v1/orders');
       if (ordersResult.data) {
         orders.push(...(Array.isArray(ordersResult.data) ? ordersResult.data : []));
       } else if (ordersResult.error) {
@@ -1327,7 +1332,7 @@ export class CertnConnector extends BaseConnector {
     super('CertnConnector');
   }
 
-  async testConnection(config: { apiKey: string; environment?: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -1337,9 +1342,8 @@ export class CertnConnector extends BaseConnector {
     }
 
     try {
-      const baseUrl = config.environment === 'sandbox' 
-        ? 'https://api-sandbox.certn.co' 
-        : 'https://api.certn.co';
+      const baseUrl =
+        config.environment === 'sandbox' ? 'https://api-sandbox.certn.co' : 'https://api.certn.co';
 
       this.setHeaders({
         Authorization: `Bearer ${config.apiKey}`,
@@ -1347,7 +1351,7 @@ export class CertnConnector extends BaseConnector {
       });
       this.setBaseURL(baseUrl);
 
-      const result = await this.get('/v1/applications');
+      const result = await this.get<any>('/v1/applications');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -1362,10 +1366,9 @@ export class CertnConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; environment?: string }): Promise<any> {
-    const baseUrl = config.environment === 'sandbox' 
-      ? 'https://api-sandbox.certn.co' 
-      : 'https://api.certn.co';
+  async sync(config: any): Promise<any> {
+    const baseUrl =
+      config.environment === 'sandbox' ? 'https://api-sandbox.certn.co' : 'https://api.certn.co';
 
     this.setHeaders({
       Authorization: `Bearer ${config.apiKey}`,
@@ -1377,7 +1380,7 @@ export class CertnConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const applicationsResult = await this.get('/v1/applications');
+      const applicationsResult = await this.get<any>('/v1/applications');
       if (applicationsResult.data?.data) {
         applications.push(...applicationsResult.data.data);
       } else if (applicationsResult.error) {
@@ -1405,7 +1408,7 @@ export class IntelifiConnector extends BaseConnector {
     super('IntelifiConnector');
   }
 
-  async testConnection(config: { apiKey: string; companyId: string }): Promise<{
+  async testConnection(config: any): Promise<{
     success: boolean;
     message: string;
     details?: any;
@@ -1422,7 +1425,7 @@ export class IntelifiConnector extends BaseConnector {
       });
       this.setBaseURL('https://api.intelifi.com');
 
-      const result = await this.get('/v1/screenings');
+      const result = await this.get<any>('/v1/screenings');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -1437,7 +1440,7 @@ export class IntelifiConnector extends BaseConnector {
     }
   }
 
-  async sync(config: { apiKey: string; companyId: string }): Promise<any> {
+  async sync(config: any): Promise<any> {
     this.setHeaders({
       'X-API-Key': config.apiKey,
       'X-Company-ID': config.companyId,
@@ -1449,7 +1452,7 @@ export class IntelifiConnector extends BaseConnector {
     const errors: string[] = [];
 
     try {
-      const screeningsResult = await this.get('/v1/screenings');
+      const screeningsResult = await this.get<any>('/v1/screenings');
       if (screeningsResult.data) {
         screenings.push(...(Array.isArray(screeningsResult.data) ? screeningsResult.data : []));
       } else if (screeningsResult.error) {

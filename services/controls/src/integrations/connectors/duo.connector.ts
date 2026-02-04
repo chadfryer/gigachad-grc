@@ -24,9 +24,21 @@ export class DuoConnector extends BaseConnector {
     super('DuoConnector');
   }
 
-  private signRequest(method: string, host: string, path: string, params: Record<string, string>, secretKey: string): string {
+  private signRequest(
+    method: string,
+    host: string,
+    path: string,
+    params: Record<string, string>,
+    secretKey: string
+  ): string {
     const now = new Date().toUTCString();
-    const canonical = [now, method.toUpperCase(), host.toLowerCase(), path, this.canonicalizeParams(params)].join('\n');
+    const canonical = [
+      now,
+      method.toUpperCase(),
+      host.toLowerCase(),
+      path,
+      this.canonicalizeParams(params),
+    ].join('\n');
     const hmac = crypto.createHmac('sha1', secretKey);
     hmac.update(canonical);
     return Buffer.from(`${now}:${hmac.digest('hex')}`).toString('base64');
@@ -39,23 +51,26 @@ export class DuoConnector extends BaseConnector {
       .join('&');
   }
 
-  async testConnection(config: DuoConfig): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.integrationKey || !config.secretKey || !config.apiHostname) {
-      return { success: false, message: 'Integration Key, Secret Key, and API Hostname are required' };
+      return {
+        success: false,
+        message: 'Integration Key, Secret Key, and API Hostname are required',
+      };
     }
 
     try {
       const path = '/admin/v1/users';
       const params: Record<string, string> = {};
       const auth = this.signRequest('GET', config.apiHostname, path, params, config.secretKey);
-      
+
       this.setHeaders({
         Authorization: `Basic ${Buffer.from(`${config.integrationKey}:${auth}`).toString('base64')}`,
         'Content-Type': 'application/json',
       });
       this.setBaseURL(`https://${config.apiHostname}`);
 
-      const result = await this.get(path);
+      const result = await this.get<any>(path);
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -70,7 +85,7 @@ export class DuoConnector extends BaseConnector {
     }
   }
 
-  async sync(config: DuoConfig): Promise<DuoSyncResult> {
+  async sync(config: any): Promise<any> {
     const users: any[] = [];
     const phones: any[] = [];
     const tokens: any[] = [];
@@ -88,28 +103,28 @@ export class DuoConnector extends BaseConnector {
       });
       this.setBaseURL(`https://${config.apiHostname}`);
 
-      const usersResult = await this.get('/admin/v1/users');
+      const usersResult = await this.get<any>('/admin/v1/users');
       if (usersResult.data?.response) {
         users.push(...usersResult.data.response);
       } else if (usersResult.error) {
         errors.push(usersResult.error);
       }
 
-      const phonesResult = await this.get('/admin/v1/phones');
+      const phonesResult = await this.get<any>('/admin/v1/phones');
       if (phonesResult.data?.response) {
         phones.push(...phonesResult.data.response);
       } else if (phonesResult.error) {
         errors.push(phonesResult.error);
       }
 
-      const tokensResult = await this.get('/admin/v1/tokens');
+      const tokensResult = await this.get<any>('/admin/v1/tokens');
       if (tokensResult.data?.response) {
         tokens.push(...tokensResult.data.response);
       } else if (tokensResult.error) {
         errors.push(tokensResult.error);
       }
 
-      const authLogsResult = await this.get('/admin/v1/logs/authentication');
+      const authLogsResult = await this.get<any>('/admin/v1/logs/authentication');
       if (authLogsResult.data?.response) {
         authLogs.push(...authLogsResult.data.response);
       } else if (authLogsResult.error) {

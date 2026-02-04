@@ -1490,6 +1490,18 @@
   <div class="scorm-status" id="scormStatus">SCORM: Disconnected</div>
 
   <script>
+    /**
+     * SECURITY NOTE: innerHTML usage in this file is acceptable
+     * 
+     * This training module uses innerHTML for rendering quiz feedback and scenarios.
+     * All content is sourced from hardcoded JavaScript arrays within this file (scenarios, 
+     * options, feedback messages). No user input or external data is interpolated into 
+     * the HTML. This is a self-contained static training module with no XSS risk.
+     * 
+     * If this module is modified to accept external data, DOMPurify sanitization 
+     * should be added.
+     */
+    
     // SCORM API wrapper
     var scorm = {
       version: null, api: null,

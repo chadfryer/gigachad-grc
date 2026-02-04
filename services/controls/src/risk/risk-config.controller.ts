@@ -1,18 +1,11 @@
- 
-import {
-  Controller,
-  Get,
-  Put,
-  Post,
-  Delete,
-  Body,
-  Param,
-  Headers,
-} from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { RiskConfigService } from './risk-config.service';
 import { UpdateRiskConfigurationDto, RiskCategoryDto } from './dto/risk-config.dto';
+import { DevAuthGuard, User } from '../auth/dev-auth.guard';
+import type { UserContext } from '@gigachad-grc/shared';
 
 @Controller('api/risk-config')
+@UseGuards(DevAuthGuard)
 export class RiskConfigController {
   constructor(private readonly riskConfigService: RiskConfigService) {}
 
@@ -20,66 +13,40 @@ export class RiskConfigController {
    * Get risk configuration for organization
    */
   @Get()
-  async getConfiguration(
-    @Headers('x-organization-id') organizationId: string,
-  ) {
-    const orgId = organizationId || 'default-org';
-    return this.riskConfigService.getConfiguration(orgId);
+  async getConfiguration(@User() user: UserContext) {
+    return this.riskConfigService.getConfiguration(user.organizationId);
   }
 
   /**
    * Update risk configuration
    */
   @Put()
-  async updateConfiguration(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
-    @Body() dto: UpdateRiskConfigurationDto,
-  ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.riskConfigService.updateConfiguration(orgId, dto, user);
+  async updateConfiguration(@User() user: UserContext, @Body() dto: UpdateRiskConfigurationDto) {
+    return this.riskConfigService.updateConfiguration(user.organizationId, dto, user.userId);
   }
 
   /**
    * Reset configuration to defaults
    */
   @Post('reset')
-  async resetToDefaults(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
-  ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.riskConfigService.resetToDefaults(orgId, user);
+  async resetToDefaults(@User() user: UserContext) {
+    return this.riskConfigService.resetToDefaults(user.organizationId, user.userId);
   }
 
   /**
    * Add a new category
    */
   @Post('categories')
-  async addCategory(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
-    @Body() category: Omit<RiskCategoryDto, 'id'>,
-  ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.riskConfigService.addCategory(orgId, category, user);
+  async addCategory(@User() user: UserContext, @Body() category: Omit<RiskCategoryDto, 'id'>) {
+    return this.riskConfigService.addCategory(user.organizationId, category, user.userId);
   }
 
   /**
    * Remove a category
    */
   @Delete('categories/:categoryId')
-  async removeCategory(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
-    @Param('categoryId') categoryId: string,
-  ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.riskConfigService.removeCategory(orgId, categoryId, user);
+  async removeCategory(@User() user: UserContext, @Param('categoryId') categoryId: string) {
+    return this.riskConfigService.removeCategory(user.organizationId, categoryId, user.userId);
   }
 
   /**
@@ -87,20 +54,16 @@ export class RiskConfigController {
    */
   @Put('appetite/:category')
   async updateRiskAppetite(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
+    @User() user: UserContext,
     @Param('category') category: string,
-    @Body() body: { level: string; description?: string },
+    @Body() body: { level: string; description?: string }
   ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
     return this.riskConfigService.updateRiskAppetite(
-      orgId,
+      user.organizationId,
       category,
       body.level,
       body.description,
-      user,
+      user.userId
     );
   }
 }
-

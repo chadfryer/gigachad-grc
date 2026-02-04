@@ -21,9 +21,10 @@ import {
   CalendarEventFilterDto,
 } from './dto/calendar-event.dto';
 import { PermissionGuard } from '../auth/permission.guard';
-import { DevAuthGuard } from '../auth/dev-auth.guard';
+import { DevAuthGuard, User } from '../auth/dev-auth.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
+import type { UserContext } from '@gigachad-grc/shared';
 
 @Controller('api/calendar')
 @UseGuards(DevAuthGuard, PermissionGuard)
@@ -37,10 +38,10 @@ export class CalendarController {
   @RequirePermission(Resource.CONTROLS, Action.READ)
   async listEvents(
     @Query() filters: CalendarEventFilterDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-workspace-id') workspaceId?: string,
+    @User() user: UserContext,
+    @Headers('x-workspace-id') workspaceId?: string
   ) {
-    return this.calendarService.findAll(orgId, filters, workspaceId);
+    return this.calendarService.findAll(user.organizationId, filters, workspaceId);
   }
 
   /**
@@ -48,11 +49,8 @@ export class CalendarController {
    */
   @Get('events/:id')
   @RequirePermission(Resource.CONTROLS, Action.READ)
-  async getEvent(
-    @Param('id') id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.calendarService.findOne(id, orgId);
+  async getEvent(@Param('id') id: string, @User() user: UserContext) {
+    return this.calendarService.findOne(id, user.organizationId);
   }
 
   /**
@@ -62,12 +60,16 @@ export class CalendarController {
   @RequirePermission(Resource.CONTROLS, Action.CREATE)
   async createEvent(
     @Body() dto: CreateCalendarEventDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId: string,
-    @Headers('x-user-email') actorEmail?: string,
-    @Headers('x-workspace-id') workspaceId?: string,
+    @User() user: UserContext,
+    @Headers('x-workspace-id') workspaceId?: string
   ) {
-    return this.calendarService.create(orgId, dto, actorId, actorEmail, workspaceId);
+    return this.calendarService.create(
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email,
+      workspaceId
+    );
   }
 
   /**
@@ -78,11 +80,9 @@ export class CalendarController {
   async updateEvent(
     @Param('id') id: string,
     @Body() dto: UpdateCalendarEventDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.calendarService.update(id, orgId, dto, actorId, actorEmail);
+    return this.calendarService.update(id, user.organizationId, dto, user.userId, user.email);
   }
 
   /**
@@ -91,13 +91,8 @@ export class CalendarController {
   @Delete('events/:id')
   @RequirePermission(Resource.CONTROLS, Action.DELETE)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteEvent(
-    @Param('id') id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    await this.calendarService.delete(id, orgId, actorId, actorEmail);
+  async deleteEvent(@Param('id') id: string, @User() user: UserContext) {
+    await this.calendarService.delete(id, user.organizationId, user.userId, user.email);
   }
 
   /**
@@ -108,10 +103,14 @@ export class CalendarController {
   async exportIcal(
     @Res() res: Response,
     @Query() filters: CalendarEventFilterDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-workspace-id') workspaceId?: string,
+    @User() user: UserContext,
+    @Headers('x-workspace-id') workspaceId?: string
   ) {
-    const icalContent = await this.calendarService.exportIcal(orgId, filters, workspaceId);
+    const icalContent = await this.calendarService.exportIcal(
+      user.organizationId,
+      filters,
+      workspaceId
+    );
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="compliance-calendar.ics"');
@@ -123,9 +122,7 @@ export class CalendarController {
    */
   @Get('feed')
   @RequirePermission(Resource.CONTROLS, Action.READ)
-  async getCalendarFeed(
-    @Headers('x-organization-id') _orgId: string = 'default',
-  ) {
+  async getCalendarFeed(@User() _user: UserContext) {
     // Return the URL that external calendars can subscribe to
     const baseUrl = process.env.API_URL || 'http://localhost:3000';
     return {

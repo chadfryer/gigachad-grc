@@ -8,6 +8,26 @@ export class SSLCollector {
   private readonly logger = new Logger(SSLCollector.name);
 
   /**
+   * Controls whether TLS certificate validation is bypassed during SSL inspection.
+   *
+   * SECURITY WARNING: Disabling TLS validation (ALLOW_INSECURE_TLS=true) should ONLY be used when:
+   * - Scanning external sites with known self-signed or invalid certificates
+   * - Testing in development environments
+   * - Never in production unless explicitly required for security scanning
+   *
+   * Default: false (secure - TLS validation enabled)
+   */
+  private readonly allowInsecureTLS = process.env.ALLOW_INSECURE_TLS === 'true';
+
+  constructor() {
+    if (this.allowInsecureTLS) {
+      this.logger.warn(
+        'TLS certificate validation is disabled (ALLOW_INSECURE_TLS=true) - this may allow MITM attacks'
+      );
+    }
+  }
+
+  /**
    * Collect SSL/TLS information for a target URL
    */
   async collect(targetUrl: string): Promise<SSLInfo> {
@@ -39,7 +59,10 @@ export class SSLCollector {
     return result;
   }
 
-  private async checkTLS(hostname: string, port: number): Promise<{
+  private async checkTLS(
+    hostname: string,
+    port: number
+  ): Promise<{
     enabled: boolean;
     issuer?: string;
     expiry?: string;
@@ -60,7 +83,7 @@ export class SSLCollector {
           host: hostname,
           port,
           servername: hostname,
-          rejectUnauthorized: false, // Allow invalid certs for inspection
+          rejectUnauthorized: !this.allowInsecureTLS, // Default: true (secure)
           timeout: 10000,
         },
         () => {

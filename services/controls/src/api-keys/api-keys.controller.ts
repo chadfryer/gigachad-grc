@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -21,11 +20,12 @@ import {
   API_KEY_SCOPES,
 } from './dto/api-key.dto';
 import { PermissionGuard } from '../auth/permission.guard';
-import { DevAuthGuard } from '../auth/dev-auth.guard';
+import { DevAuthGuard, User } from '../auth/dev-auth.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
 import { PaginationLimitPipe, PaginationPagePipe } from '../common/pagination.pipe';
 import { EndpointRateLimit, ENDPOINT_RATE_LIMITS } from '@gigachad-grc/shared';
+import type { UserContext } from '@gigachad-grc/shared';
 
 @Controller('api/api-keys')
 @UseGuards(DevAuthGuard, PermissionGuard)
@@ -41,9 +41,9 @@ export class ApiKeysController {
     @Query() filters: ApiKeyFilterDto,
     @Query('page', new PaginationPagePipe()) page: number,
     @Query('limit', new PaginationLimitPipe({ default: 50 })) limit: number,
-    @Headers('x-organization-id') orgId: string = 'default',
+    @User() user: UserContext
   ) {
-    return this.apiKeysService.findAll(orgId, filters, page, limit);
+    return this.apiKeysService.findAll(user.organizationId, filters, page, limit);
   }
 
   /**
@@ -51,10 +51,8 @@ export class ApiKeysController {
    */
   @Get('stats')
   @RequirePermission(Resource.SETTINGS, Action.READ)
-  async getApiKeyStats(
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.apiKeysService.getStats(orgId);
+  async getApiKeyStats(@User() user: UserContext) {
+    return this.apiKeysService.getStats(user.organizationId);
   }
 
   /**
@@ -73,11 +71,8 @@ export class ApiKeysController {
    */
   @Get(':id')
   @RequirePermission(Resource.SETTINGS, Action.READ)
-  async getApiKey(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.apiKeysService.findOne(id, orgId);
+  async getApiKey(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    return this.apiKeysService.findOne(id, user.organizationId);
   }
 
   /**
@@ -87,13 +82,8 @@ export class ApiKeysController {
   @Post()
   @EndpointRateLimit(ENDPOINT_RATE_LIMITS.API_KEY)
   @RequirePermission(Resource.SETTINGS, Action.CREATE)
-  async createApiKey(
-    @Body() dto: CreateApiKeyDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    return this.apiKeysService.create(orgId, dto, actorId, actorEmail);
+  async createApiKey(@Body() dto: CreateApiKeyDto, @User() user: UserContext) {
+    return this.apiKeysService.create(user.organizationId, dto, user.userId, user.email);
   }
 
   /**
@@ -104,11 +94,9 @@ export class ApiKeysController {
   async updateApiKey(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateApiKeyDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.apiKeysService.update(id, orgId, dto, actorId, actorEmail);
+    return this.apiKeysService.update(id, user.organizationId, dto, user.userId, user.email);
   }
 
   /**
@@ -117,13 +105,8 @@ export class ApiKeysController {
   @Post(':id/revoke')
   @RequirePermission(Resource.SETTINGS, Action.UPDATE)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async revokeApiKey(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    await this.apiKeysService.revoke(id, orgId, actorId, actorEmail);
+  async revokeApiKey(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    await this.apiKeysService.revoke(id, user.organizationId, user.userId, user.email);
   }
 
   /**
@@ -134,13 +117,8 @@ export class ApiKeysController {
   @Post(':id/regenerate')
   @EndpointRateLimit(ENDPOINT_RATE_LIMITS.API_KEY)
   @RequirePermission(Resource.SETTINGS, Action.UPDATE)
-  async regenerateApiKey(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    return this.apiKeysService.regenerate(id, orgId, actorId, actorEmail);
+  async regenerateApiKey(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    return this.apiKeysService.regenerate(id, user.organizationId, user.userId, user.email);
   }
 
   /**
@@ -149,12 +127,7 @@ export class ApiKeysController {
   @Delete(':id')
   @RequirePermission(Resource.SETTINGS, Action.DELETE)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteApiKey(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    await this.apiKeysService.delete(id, orgId, actorId, actorEmail);
+  async deleteApiKey(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    await this.apiKeysService.delete(id, user.organizationId, user.userId, user.email);
   }
 }

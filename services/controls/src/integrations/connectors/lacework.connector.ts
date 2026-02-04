@@ -9,7 +9,14 @@ export interface LaceworkConfig {
 }
 
 export interface LaceworkSyncResult {
-  alerts: { total: number; critical: number; high: number; medium: number; low: number; items: any[] };
+  alerts: {
+    total: number;
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    items: any[];
+  };
   compliance: { reports: number; violations: number; items: any[] };
   vulnerabilities: { hosts: number; containers: number; items: any[] };
   cloudAccounts: { total: number; items: any[] };
@@ -23,7 +30,7 @@ export class LaceworkConnector extends BaseConnector {
     super('LaceworkConnector');
   }
 
-  async testConnection(config: LaceworkConfig): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(config: any): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.accountName || !config.accessKeyId || !config.secretKey) {
       return { success: false, message: 'Account name, access key, and secret key required' };
     }
@@ -37,7 +44,7 @@ export class LaceworkConnector extends BaseConnector {
       });
       this.setBaseURL(`https://${config.accountName}.lacework.net/api/v2`);
 
-      const result = await this.get('/UserProfile');
+      const result = await this.get<any>('/UserProfile');
       if (result.error) {
         return { success: false, message: result.error };
       }
@@ -52,7 +59,7 @@ export class LaceworkConnector extends BaseConnector {
     }
   }
 
-  async sync(config: LaceworkConfig): Promise<LaceworkSyncResult> {
+  async sync(config: any): Promise<any> {
     const alerts: any[] = [];
     const compliance: any[] = [];
     const vulnerabilities: any[] = [];
@@ -68,7 +75,7 @@ export class LaceworkConnector extends BaseConnector {
       this.setBaseURL(`https://${config.accountName}.lacework.net/api/v2`);
 
       // Fetch alerts
-      const alertsResult = await this.post('/Alerts/GetAlerts', {
+      const alertsResult = await this.post<any>('/Alerts/GetAlerts', {
         timeRange: {
           startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
           endTime: new Date().toISOString(),
@@ -81,7 +88,7 @@ export class LaceworkConnector extends BaseConnector {
       }
 
       // Fetch compliance reports
-      const complianceResult = await this.get('/Compliance');
+      const complianceResult = await this.get<any>('/Compliance');
       if (complianceResult.data?.data) {
         compliance.push(...complianceResult.data.data);
       } else if (complianceResult.error) {
@@ -89,7 +96,7 @@ export class LaceworkConnector extends BaseConnector {
       }
 
       // Fetch vulnerabilities
-      const vulnsResult = await this.post('/Vulnerabilities/Hosts/search', {
+      const vulnsResult = await this.post<any>('/Vulnerabilities/Hosts/search', {
         timeRange: {
           startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
           endTime: new Date().toISOString(),
@@ -102,7 +109,7 @@ export class LaceworkConnector extends BaseConnector {
       }
 
       // Fetch cloud accounts
-      const accountsResult = await this.get('/CloudAccounts');
+      const accountsResult = await this.get<any>('/CloudAccounts');
       if (accountsResult.data?.data) {
         cloudAccounts.push(...accountsResult.data.data);
       } else if (accountsResult.error) {

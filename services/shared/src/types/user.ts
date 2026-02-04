@@ -1,6 +1,6 @@
 import { BaseEntity, Status } from './common';
 
-export type UserRole = 'admin' | 'compliance_manager' | 'auditor' | 'viewer';
+export type UserRole = 'admin' | 'compliance_manager' | 'tprm_manager' | 'auditor' | 'viewer';
 
 export interface User extends BaseEntity {
   keycloakId: string;
@@ -74,28 +74,28 @@ export const Permissions = {
   CONTROLS_CREATE: 'controls:create',
   CONTROLS_UPDATE: 'controls:update',
   CONTROLS_DELETE: 'controls:delete',
-  
+
   // Evidence
   EVIDENCE_VIEW: 'evidence:view',
   EVIDENCE_UPLOAD: 'evidence:upload',
   EVIDENCE_DELETE: 'evidence:delete',
   EVIDENCE_APPROVE: 'evidence:approve',
-  
+
   // Frameworks
   FRAMEWORKS_VIEW: 'frameworks:view',
   FRAMEWORKS_MANAGE: 'frameworks:manage',
-  
+
   // Policies
   POLICIES_VIEW: 'policies:view',
   POLICIES_CREATE: 'policies:create',
   POLICIES_UPDATE: 'policies:update',
   POLICIES_APPROVE: 'policies:approve',
   POLICIES_DELETE: 'policies:delete',
-  
+
   // Integrations
   INTEGRATIONS_VIEW: 'integrations:view',
   INTEGRATIONS_MANAGE: 'integrations:manage',
-  
+
   // Admin
   ADMIN_USERS: 'admin:users',
   ADMIN_SETTINGS: 'admin:settings',
@@ -120,6 +120,14 @@ export const RolePermissions: Record<UserRole, string[]> = {
     Permissions.INTEGRATIONS_VIEW,
     Permissions.INTEGRATIONS_MANAGE,
   ],
+  tprm_manager: [
+    Permissions.CONTROLS_VIEW,
+    Permissions.EVIDENCE_VIEW,
+    Permissions.FRAMEWORKS_VIEW,
+    Permissions.POLICIES_VIEW,
+    Permissions.INTEGRATIONS_VIEW,
+    Permissions.INTEGRATIONS_MANAGE,
+  ],
   auditor: [
     Permissions.CONTROLS_VIEW,
     Permissions.EVIDENCE_VIEW,
@@ -134,6 +142,3 @@ export const RolePermissions: Record<UserRole, string[]> = {
     Permissions.POLICIES_VIEW,
   ],
 };
-
-
-
