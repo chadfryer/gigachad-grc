@@ -240,7 +240,7 @@ export class MockAIProvider extends BaseAIProvider {
     }
 
     const riskScore = likelihood * impact;
-    let riskLevel = 'Medium';
+    let riskLevel: string;
     if (riskScore <= 4) riskLevel = 'Low';
     else if (riskScore <= 9) riskLevel = 'Medium';
     else if (riskScore <= 16) riskLevel = 'High';
@@ -277,8 +277,8 @@ export class MockAIProvider extends BaseAIProvider {
     const title = titleMatch?.[1]?.trim() || 'Unnamed Entity';
     const entityType = entityTypeMatch?.[1]?.toLowerCase() || 'control';
 
-    let primaryCategory = 'General';
-    let subcategory = 'Unclassified';
+    let primaryCategory: string;
+    let subcategory: string;
     const tags: string[] = [];
     const relatedFrameworks: string[] = [];
 
