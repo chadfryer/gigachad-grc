@@ -1,5 +1,8 @@
 # Dependabot configuration for automated dependency updates
 # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# NOTE: This configuration is conservative to avoid PR floods.
+# Major version updates are ignored - they require manual review.
 
 version: 2
 updates:
@@ -9,10 +12,12 @@ updates:
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
-      interval: 'daily'
+      interval: 'weekly'
+      day: 'monday'
       time: '06:00'
       timezone: 'America/Los_Angeles'
-    open-pull-requests-limit: 10
+    # Limit open PRs to avoid overwhelming the team
+    open-pull-requests-limit: 5
 
     # Group minor and patch updates to reduce PR noise
     groups:
@@ -129,7 +134,7 @@ updates:
       day: 'monday'
       time: '06:00'
       timezone: 'America/Los_Angeles'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
 
     groups:
       ui-components:
@@ -143,6 +148,11 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
+
+    # Ignore major version updates - React 18 to 19 etc require manual migration
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
     labels:
       - 'dependencies'
@@ -162,7 +172,7 @@ updates:
       day: 'monday'
       time: '06:00'
       timezone: 'America/Los_Angeles'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
 
     groups:
       # Group all action updates
@@ -172,6 +182,11 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
+
+    # Ignore major version updates - they require manual review
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
     labels:
       - 'dependencies'
@@ -184,91 +199,18 @@ updates:
   # =============================================================================
   # Docker (base images)
   # =============================================================================
-  - package-ecosystem: 'docker'
-    directory: '/frontend'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-      time: '06:00'
-      timezone: 'America/Los_Angeles'
-    labels:
-      - 'dependencies'
-      - 'docker'
-      - 'automated'
-    commit-message:
-      prefix: 'docker(frontend)'
-
-  - package-ecosystem: 'docker'
-    directory: '/services/controls'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    labels:
-      - 'dependencies'
-      - 'docker'
-      - 'automated'
-    commit-message:
-      prefix: 'docker(controls)'
-
-  - package-ecosystem: 'docker'
-    directory: '/services/audit'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    labels:
-      - 'dependencies'
-      - 'docker'
-      - 'automated'
-    commit-message:
-      prefix: 'docker(audit)'
-
-  - package-ecosystem: 'docker'
-    directory: '/services/tprm'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    labels:
-      - 'dependencies'
-      - 'docker'
-      - 'automated'
-    commit-message:
-      prefix: 'docker(tprm)'
-
-  - package-ecosystem: 'docker'
-    directory: '/services/trust'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    labels:
-      - 'dependencies'
-      - 'docker'
-      - 'automated'
-    commit-message:
-      prefix: 'docker(trust)'
-
-  - package-ecosystem: 'docker'
-    directory: '/services/policies'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    labels:
-      - 'dependencies'
-      - 'docker'
-      - 'automated'
-    commit-message:
-      prefix: 'docker(policies)'
-
-  - package-ecosystem: 'docker'
-    directory: '/services/frameworks'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    labels:
-      - 'dependencies'
-      - 'docker'
-      - 'automated'
-    commit-message:
-      prefix: 'docker(frameworks)'
+  # NOTE: Docker base image updates disabled to prevent invalid version suggestions.
+  # Node.js LTS versions should be updated manually (currently 20 or 22).
+  # Re-enable when Dependabot Docker support improves.
+  #
+  # - package-ecosystem: 'docker'
+  #   directory: '/frontend'
+  #   schedule:
+  #     interval: 'monthly'
+  #   open-pull-requests-limit: 2
+  #   ignore:
+  #     - dependency-name: 'node'
+  #       update-types: ['version-update:semver-major']
 
   # =============================================================================
   # Terraform providers
@@ -276,10 +218,14 @@ updates:
   - package-ecosystem: 'terraform'
     directory: '/terraform'
     schedule:
-      interval: 'weekly'
-      day: 'wednesday'
+      interval: 'monthly'
       time: '06:00'
       timezone: 'America/Los_Angeles'
+    open-pull-requests-limit: 2
+    # Ignore major version updates - infrastructure changes need careful review
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     labels:
       - 'dependencies'
       - 'terraform'
