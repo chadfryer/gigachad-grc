@@ -8,10 +8,20 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // SECURITY: Add Helmet for security headers
-  app.use(helmet({
-    contentSecurityPolicy: false, // Disable for API service
-  }));
+  // Security middleware with CSP for API services
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+      frameguard: { action: 'deny' },
+      noSniff: true,
+      xssFilter: true,
+    })
+  );
 
   // SECURITY: Configure CORS with explicit origin restrictions
   // Open CORS (enableCors() without options) is a security risk
@@ -31,7 +41,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-    }),
+    })
   );
 
   // Swagger documentation
