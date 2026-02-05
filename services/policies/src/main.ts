@@ -8,17 +8,27 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  // SECURITY: Add Helmet for security headers
-  app.use(helmet({
-    contentSecurityPolicy: false, // Disable for API service
-  }));
+  // Security middleware with CSP for API services
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+      frameguard: { action: 'deny' },
+      noSniff: true,
+      xssFilter: true,
+    })
+  );
 
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-    }),
+    })
   );
 
   // CORS
@@ -47,6 +57,3 @@ async function bootstrap() {
 }
 
 bootstrap();
-
-
-
