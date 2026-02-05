@@ -1,4 +1,15 @@
-import { IsString, IsOptional, IsEnum, IsArray, IsObject, ValidateNested, IsBoolean, IsNumber, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  IsObject,
+  ValidateNested,
+  IsBoolean,
+  IsNumber,
+  MaxLength,
+  IsUrl,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Transport types for MCP servers
@@ -121,7 +132,7 @@ export class MCPServerConfigDto {
   @IsOptional()
   args?: string[]; // Command arguments for stdio
 
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   @IsOptional()
   url?: string; // For SSE/WebSocket transport
 
@@ -164,7 +175,7 @@ export class CreateMCPServerDto {
   @IsOptional()
   args?: string[];
 
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   @IsOptional()
   url?: string;
 
@@ -201,7 +212,7 @@ export class UpdateMCPServerDto {
   @IsOptional()
   args?: string[];
 
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   @IsOptional()
   url?: string;
 
@@ -455,4 +466,3 @@ export class ReadResourceDto {
   @MaxLength(2000)
   uri: string;
 }
-

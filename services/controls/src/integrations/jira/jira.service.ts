@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { encrypt, decrypt } from '@gigachad-grc/shared';
+import { encrypt, decrypt, safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 import {
   JiraOAuthConfigDto,
   JiraConnectionResponseDto,
@@ -140,7 +140,8 @@ export class JiraService {
     const credentials = this.decryptCredentials(connection.credentials);
 
     // Exchange code for tokens
-    const tokenResponse = await fetch('https://auth.atlassian.com/oauth/token', {
+    // SECURITY: Use safeFetch for defense in depth even on known endpoints
+    const tokenResponse = await safeFetch('https://auth.atlassian.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -454,7 +455,8 @@ export class JiraService {
     // Decrypt the stored refresh token
     const decryptedRefreshToken = decrypt(connection.refreshToken);
 
-    const response = await fetch('https://auth.atlassian.com/oauth/token', {
+    // SECURITY: Use safeFetch for defense in depth even on known endpoints
+    const response = await safeFetch('https://auth.atlassian.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -499,7 +501,8 @@ export class JiraService {
         ? `Basic ${Buffer.from(`${dto.userEmail}:${dto.apiToken}`).toString('base64')}`
         : undefined;
 
-      const response = await fetch(`${dto.instanceUrl}/rest/api/3/myself`, {
+      // SECURITY: Use safeFetch to prevent SSRF via malicious instanceUrl
+      const response = await safeFetch(`${dto.instanceUrl}/rest/api/3/myself`, {
         headers: auth ? { Authorization: auth } : {},
       });
 
@@ -509,6 +512,9 @@ export class JiraService {
 
       return { success: true };
     } catch (error: any) {
+      if (error instanceof SSRFProtectionError) {
+        return { success: false, error: `Invalid URL: ${error.message}` };
+      }
       return { success: false, error: error.message };
     }
   }
@@ -540,20 +546,28 @@ export class JiraService {
       throw new UnauthorizedException('No authentication available');
     }
 
-    const response = await fetch(`${connection.instanceUrl}${path}`, {
-      method,
-      headers: {
-        Authorization: auth,
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    try {
+      // SECURITY: Use safeFetch to prevent SSRF via user-controlled instanceUrl
+      const response = await safeFetch(`${connection.instanceUrl}${path}`, {
+        method,
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
 
-    if (!response.ok) {
-      throw new Error(`Jira API error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Jira API error: ${response.status}`);
+      }
+
+      return response.json();
+    } catch (error: any) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`Invalid Jira URL: ${error.message}`);
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   private async getJiraProject(

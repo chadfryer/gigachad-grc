@@ -85,7 +85,7 @@ describe('QuestionnairesService', () => {
             title: 'Security Questionnaire',
             requesterName: 'John Doe',
           }),
-        }),
+        })
       );
       expect(mockAuditService.log).toHaveBeenCalled();
       expect(result).toEqual(mockCreatedQuestionnaire);
@@ -102,7 +102,7 @@ describe('QuestionnairesService', () => {
             status: 'pending',
             priority: 'medium',
           }),
-        }),
+        })
       );
     });
   });
@@ -186,10 +186,10 @@ describe('QuestionnairesService', () => {
     it('should return a questionnaire by id', async () => {
       mockPrismaService.questionnaireRequest.findFirst.mockResolvedValue(mockQuestionnaire);
 
-      const result = await service.findOne('quest-123');
+      const result = await service.findOne('quest-123', 'org-123');
 
       expect(mockPrismaService.questionnaireRequest.findFirst).toHaveBeenCalledWith({
-        where: { id: 'quest-123', deletedAt: null },
+        where: { id: 'quest-123', organizationId: 'org-123', deletedAt: null },
         include: expect.any(Object),
       });
       expect(result).toEqual(mockQuestionnaire);
@@ -198,7 +198,7 @@ describe('QuestionnairesService', () => {
     it('should throw NotFoundException if questionnaire not found', async () => {
       mockPrismaService.questionnaireRequest.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('nonexistent', 'org-123')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -214,10 +214,13 @@ describe('QuestionnairesService', () => {
     };
 
     it('should update a questionnaire', async () => {
-      mockPrismaService.questionnaireRequest.findFirst.mockResolvedValue({ id: 'quest-123' });
+      mockPrismaService.questionnaireRequest.findFirst.mockResolvedValue({
+        id: 'quest-123',
+        organizationId: 'org-123',
+      });
       mockPrismaService.questionnaireRequest.update.mockResolvedValue(mockUpdatedQuestionnaire);
 
-      const result = await service.update('quest-123', mockUpdateDto, 'user-123');
+      const result = await service.update('quest-123', mockUpdateDto, 'user-123', 'org-123');
 
       expect(mockPrismaService.questionnaireRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -225,7 +228,7 @@ describe('QuestionnairesService', () => {
           data: expect.objectContaining({
             title: 'Updated Questionnaire',
           }),
-        }),
+        })
       );
       expect(result.title).toBe('Updated Questionnaire');
     });
@@ -234,7 +237,7 @@ describe('QuestionnairesService', () => {
       mockPrismaService.questionnaireRequest.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update('nonexistent', mockUpdateDto, 'user-123'),
+        service.update('nonexistent', mockUpdateDto, 'user-123', 'org-123')
       ).rejects.toThrow(NotFoundException);
     });
   });

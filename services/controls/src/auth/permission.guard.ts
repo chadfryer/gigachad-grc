@@ -31,28 +31,35 @@ export class PermissionGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
-    private permissionsService: PermissionsService,
+    private permissionsService: PermissionsService
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required permission from decorator
     const requiredPermission = this.reflector.getAllAndOverride<RequiredPermission>(
       PERMISSION_KEY,
-      [context.getHandler(), context.getClass()],
+      [context.getHandler(), context.getClass()]
     );
 
     const requiredPermissions = this.reflector.getAllAndOverride<RequiredPermission[]>(
       PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
+      [context.getHandler(), context.getClass()]
     );
 
-    // If no permission decorator, allow access
+    // SECURITY: Default to DENY if no permission decorator is present
+    // Routes must explicitly declare required permissions
     if (!requiredPermission && !requiredPermissions) {
-      return true;
+      this.logger.warn(
+        `Access denied: No permission decorator on ${context.getClass().name}.${context.getHandler().name}. ` +
+          'All protected routes must explicitly declare required permissions.'
+      );
+      throw new ForbiddenException(
+        'Access denied: Route requires explicit permission configuration'
+      );
     }
 
     const request = context.switchToHttp().getRequest() as PermissionCheckRequest;
-    
+
     // SECURITY: Use authenticated user context set by AuthGuard, NOT raw headers
     // This ensures the userId has been validated by the auth guard
     const userId = request.user?.userId;
@@ -86,7 +93,7 @@ export class PermissionGuard implements CanActivate {
   private async checkPermission(
     permission: RequiredPermission,
     userId: string,
-    request: PermissionCheckRequest,
+    request: PermissionCheckRequest
   ): Promise<boolean> {
     const { resource, action, resourceIdParam } = permission;
 
@@ -105,7 +112,9 @@ export class PermissionGuard implements CanActivate {
     if (resourceIdParam) {
       const body = request.body as Record<string, unknown> | undefined;
       const bodyValue = body?.[resourceIdParam];
-      resourceId = request.params?.[resourceIdParam] || (typeof bodyValue === 'string' ? bodyValue : undefined);
+      resourceId =
+        request.params?.[resourceIdParam] ||
+        (typeof bodyValue === 'string' ? bodyValue : undefined);
     }
 
     // Check permission based on resource type
@@ -132,7 +141,7 @@ export class PermissionGuard implements CanActivate {
 
     if (!result.allowed) {
       this.logger.debug(
-        `Permission denied for user ${userId}: ${resource}:${action} - ${result.reason}`,
+        `Permission denied for user ${userId}: ${resource}:${action} - ${result.reason}`
       );
       throw new ForbiddenException(result.reason || 'Insufficient permissions');
     }
@@ -142,22 +151,28 @@ export class PermissionGuard implements CanActivate {
 }
 
 /**
- * Optional: A simpler guard that just checks if user has any permissions
- * Useful for routes that just need authentication, not specific permissions
+ * A simpler guard that just checks if user is authenticated.
+ * Useful for routes that just need authentication, not specific permissions.
+ *
+ * SECURITY: Uses authenticated user context set by AuthGuard, NOT raw headers.
+ * This prevents x-user-id header spoofing attacks.
  */
 @Injectable()
 export class AuthenticatedGuard implements CanActivate {
+  private readonly logger = new Logger(AuthenticatedGuard.name);
+
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
-    const userId = request.headers['x-user-id'];
+    const request = context.switchToHttp().getRequest() as PermissionCheckRequest;
+
+    // SECURITY: Use authenticated user context set by AuthGuard, NOT raw headers
+    // Raw headers like x-user-id can be spoofed by malicious clients
+    const userId = request.user?.userId;
 
     if (!userId) {
+      this.logger.warn('Authentication failed: No authenticated user context found');
       throw new ForbiddenException('User not authenticated');
     }
 
     return true;
   }
 }
-
-
-

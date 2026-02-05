@@ -88,7 +88,7 @@ export class VendorAIService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService,
+    private readonly audit: AuditService
   ) {
     // URL of the main controls service AI endpoint
     this.aiServiceUrl = process.env.CONTROLS_SERVICE_URL || 'http://localhost:3001';
@@ -101,7 +101,7 @@ export class VendorAIService {
     vendorId: string,
     documentId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<SOC2AnalysisResult> {
     this.logger.log(`Analyzing SOC 2 report for vendor ${vendorId}, document ${documentId}`);
 
@@ -127,8 +127,10 @@ export class VendorAIService {
     }
 
     // Check if it's a SOC 2 document type
-    if (!document.documentType.toLowerCase().includes('soc2') && 
-        !document.documentType.toLowerCase().includes('soc 2')) {
+    if (
+      !document.documentType.toLowerCase().includes('soc2') &&
+      !document.documentType.toLowerCase().includes('soc 2')
+    ) {
       throw new BadRequestException('Document is not a SOC 2 report');
     }
 
@@ -138,7 +140,7 @@ export class VendorAIService {
     try {
       // Call the AI service for analysis
       const aiResponse = await this.callAIService(analysisPrompt, organizationId);
-      
+
       // Parse and structure the response
       const analysisResult = this.parseAIResponse(aiResponse, documentId, vendorId);
 
@@ -165,12 +167,12 @@ export class VendorAIService {
       return analysisResult;
     } catch (error) {
       this.logger.error(`Failed to analyze SOC 2 report: ${error.message}`, error.stack);
-      
+
       // Return mock analysis for demo/testing
       if (process.env.AI_MOCK_MODE === 'true' || !process.env.OPENAI_API_KEY) {
         return this.generateMockAnalysis(documentId, vendorId, document.title);
       }
-      
+
       throw error;
     }
   }
@@ -222,27 +224,27 @@ Respond in JSON format with this structure:
   /**
    * Call the AI service for analysis
    */
-  private async callAIService(prompt: string, organizationId: string): Promise<AIServiceResponse | null> {
+  private async callAIService(
+    prompt: string,
+    organizationId: string
+  ): Promise<AIServiceResponse | null> {
     // Try to call the controls service AI endpoint using native fetch
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
-      const response = await fetch(
-        `${this.aiServiceUrl}/api/ai/analyze`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt,
-            organizationId,
-            type: 'soc2_analysis',
-          }),
-          signal: controller.signal,
-        }
-      );
+      const response = await fetch(`${this.aiServiceUrl}/api/ai/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          organizationId,
+          type: 'soc2_analysis',
+        }),
+        signal: controller.signal,
+      });
 
       clearTimeout(timeoutId);
 
@@ -250,7 +252,7 @@ Respond in JSON format with this structure:
         throw new Error(`AI service returned ${response.status}`);
       }
 
-      return await response.json() as AIServiceResponse;
+      return (await response.json()) as AIServiceResponse;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(`AI service call failed, using mock mode: ${message}`);
@@ -264,15 +266,16 @@ Respond in JSON format with this structure:
   private parseAIResponse(
     aiResponse: AIServiceResponse | string | null,
     documentId: string,
-    vendorId: string,
+    vendorId: string
   ): SOC2AnalysisResult {
     if (!aiResponse) {
       return this.generateMockAnalysis(documentId, vendorId, 'SOC 2 Report');
     }
 
     try {
-      const parsed: AIServiceResponse = typeof aiResponse === 'string' ? JSON.parse(aiResponse) : aiResponse;
-      
+      const parsed: AIServiceResponse =
+        typeof aiResponse === 'string' ? JSON.parse(aiResponse) : aiResponse;
+
       return {
         documentId,
         vendorId,
@@ -302,16 +305,18 @@ Respond in JSON format with this structure:
   private generateMockAnalysis(
     documentId: string,
     vendorId: string,
-    documentTitle: string,
+    documentTitle: string
   ): SOC2AnalysisResult {
-    this.logger.warn(`Generating mock SOC 2 analysis for document ${documentId} - AI service not configured`);
-    
+    this.logger.warn(
+      `Generating mock SOC 2 analysis for document ${documentId} - AI service not configured`
+    );
+
     const now = new Date();
     const startDate = new Date(now);
     startDate.setFullYear(startDate.getFullYear() - 1);
 
     // Determine mock mode reason
-    const mockReason = !process.env.OPENAI_API_KEY 
+    const mockReason = !process.env.OPENAI_API_KEY
       ? 'AI service not configured - set OPENAI_API_KEY environment variable'
       : process.env.AI_MOCK_MODE === 'true'
         ? 'AI_MOCK_MODE is enabled'
@@ -331,14 +336,17 @@ Respond in JSON format with this structure:
       exceptions: [
         {
           controlId: 'CC6.1',
-          description: '[DEMO] Access review process was not consistently performed on a quarterly basis during the audit period.',
+          description:
+            '[DEMO] Access review process was not consistently performed on a quarterly basis during the audit period.',
           severity: 'medium',
           category: 'Security',
-          managementResponse: 'Management has implemented automated quarterly access review reminders and assigned dedicated ownership.',
+          managementResponse:
+            'Management has implemented automated quarterly access review reminders and assigned dedicated ownership.',
         },
         {
           controlId: 'CC7.2',
-          description: '[DEMO] Change management documentation was incomplete for 2 of 25 sampled changes.',
+          description:
+            '[DEMO] Change management documentation was incomplete for 2 of 25 sampled changes.',
           severity: 'low',
           category: 'Security',
           managementResponse: 'Enhanced change management checklist has been implemented.',
@@ -346,17 +354,20 @@ Respond in JSON format with this structure:
       ],
       cuecs: [
         {
-          description: '[DEMO] User access permissions should be reviewed and approved by the User Entity prior to granting access.',
+          description:
+            '[DEMO] User access permissions should be reviewed and approved by the User Entity prior to granting access.',
           responsibility: 'User Entity',
           status: 'unknown',
         },
         {
-          description: '[DEMO] User Entity is responsible for the security of credentials used to access the service.',
+          description:
+            '[DEMO] User Entity is responsible for the security of credentials used to access the service.',
           responsibility: 'User Entity',
           status: 'unknown',
         },
         {
-          description: '[DEMO] User Entity should maintain appropriate network security controls for accessing the service.',
+          description:
+            '[DEMO] User Entity should maintain appropriate network security controls for accessing the service.',
           responsibility: 'User Entity',
           status: 'unknown',
         },
@@ -371,7 +382,8 @@ Respond in JSON format with this structure:
       controlGaps: [
         {
           area: 'Access Management',
-          description: '[DEMO] Quarterly access reviews could benefit from automation to ensure consistency.',
+          description:
+            '[DEMO] Quarterly access reviews could benefit from automation to ensure consistency.',
           recommendation: 'Implement automated access review workflows with approval tracking.',
           priority: 'medium',
         },
@@ -390,7 +402,7 @@ Respond in JSON format with this structure:
   private async storeAnalysisResult(
     documentId: string,
     result: SOC2AnalysisResult,
-    userId: string,
+    userId: string
   ): Promise<void> {
     // Update the document with the analysis result
     await this.prisma.vendorDocument.update({
@@ -409,10 +421,20 @@ Respond in JSON format with this structure:
 
   /**
    * Get previous analysis for a document
+   * SECURITY: Includes organizationId to ensure tenant isolation (IDOR prevention)
    */
-  async getPreviousAnalysis(documentId: string): Promise<SOC2AnalysisResult | null> {
-    const document = await this.prisma.vendorDocument.findUnique({
-      where: { id: documentId },
+  async getPreviousAnalysis(
+    documentId: string,
+    organizationId: string
+  ): Promise<SOC2AnalysisResult | null> {
+    // SECURITY: Join through vendor to verify document belongs to user's organization
+    const document = await this.prisma.vendorDocument.findFirst({
+      where: {
+        id: documentId,
+        vendor: {
+          organizationId, // Tenant isolation - prevents cross-organization access
+        },
+      },
       select: { reviewNotes: true },
     });
 
@@ -433,7 +455,7 @@ Respond in JSON format with this structure:
     vendorId: string,
     analysis: SOC2AnalysisResult,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<VendorAssessment> {
     // Get vendor name for audit log
     const vendor = await this.prisma.vendor.findUnique({
@@ -452,13 +474,15 @@ Respond in JSON format with this structure:
         inherentRiskScore: analysis.suggestedRiskScore,
         outcome: analysis.exceptions.length === 0 ? 'approved' : 'approved_with_conditions',
         outcomeNotes: analysis.summary,
-        findings: JSON.parse(JSON.stringify({
-          exceptions: analysis.exceptions,
-          cuecs: analysis.cuecs,
-          controlGaps: analysis.controlGaps,
-          aiGenerated: true,
-          sourceDocumentId: analysis.documentId,
-        })),
+        findings: JSON.parse(
+          JSON.stringify({
+            exceptions: analysis.exceptions,
+            cuecs: analysis.cuecs,
+            controlGaps: analysis.controlGaps,
+            aiGenerated: true,
+            sourceDocumentId: analysis.documentId,
+          })
+        ),
         recommendations: analysis.controlGaps
           .map((g) => `${g.area}: ${g.recommendation}`)
           .join('\n'),
@@ -486,4 +510,3 @@ Respond in JSON format with this structure:
     return assessment;
   }
 }
-

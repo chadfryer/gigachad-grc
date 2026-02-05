@@ -25,7 +25,7 @@ export interface UpdateTemplateDto {
 export class TemplatesService {
   constructor(
     private prisma: PrismaService,
-    private audit: AuditService,
+    private audit: AuditService
   ) {}
 
   async create(dto: CreateTemplateDto, userId: string) {
@@ -58,11 +58,14 @@ export class TemplatesService {
     return template;
   }
 
-  async findAll(organizationId: string, filters?: {
-    category?: string;
-    status?: string;
-    search?: string;
-  }) {
+  async findAll(
+    organizationId: string,
+    filters?: {
+      category?: string;
+      status?: string;
+      search?: string;
+    }
+  ) {
     const where: Prisma.AnswerTemplateWhereInput = {
       organizationId,
       deletedAt: null,
@@ -86,10 +89,7 @@ export class TemplatesService {
 
     return this.prisma.answerTemplate.findMany({
       where,
-      orderBy: [
-        { usageCount: 'desc' },
-        { updatedAt: 'desc' },
-      ],
+      orderBy: [{ usageCount: 'desc' }, { updatedAt: 'desc' }],
     });
   }
 
@@ -97,8 +97,8 @@ export class TemplatesService {
     // SECURITY: Include organizationId in query to prevent IDOR
     // This ensures users can only access templates within their organization
     const template = await this.prisma.answerTemplate.findFirst({
-      where: { 
-        id, 
+      where: {
+        id,
         organizationId, // Tenant isolation - prevents cross-organization access
         deletedAt: null,
       },
@@ -121,10 +121,15 @@ export class TemplatesService {
       variables = this.extractVariables(dto.content);
     }
 
+    // SECURITY: Explicit field mapping to prevent mass assignment vulnerabilities
     const updated = await this.prisma.answerTemplate.update({
       where: { id },
       data: {
-        ...dto,
+        title: dto.title,
+        content: dto.content,
+        category: dto.category,
+        tags: dto.tags,
+        status: dto.status,
         variables: variables !== undefined ? variables : undefined,
         updatedBy: userId,
       },
@@ -183,7 +188,7 @@ export class TemplatesService {
   async incrementUsage(id: string, organizationId: string) {
     // SECURITY: Verify template belongs to organization before incrementing
     const template = await this.findOne(id, organizationId);
-    
+
     await this.prisma.answerTemplate.update({
       where: { id: template.id },
       data: {
@@ -239,7 +244,7 @@ export class TemplatesService {
 
     return {
       categories: defaultCategories,
-      usedCategories: categories.map(c => ({
+      usedCategories: categories.map((c) => ({
         category: c.category,
         count: c._count,
       })),
@@ -295,7 +300,7 @@ export class TemplatesService {
       total,
       active,
       archived,
-      byCategory: byCategory.map(c => ({
+      byCategory: byCategory.map((c) => ({
         category: c.category || 'uncategorized',
         count: c._count,
       })),
@@ -303,4 +308,3 @@ export class TemplatesService {
     };
   }
 }
-

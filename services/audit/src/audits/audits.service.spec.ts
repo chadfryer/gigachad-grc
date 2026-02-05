@@ -43,6 +43,7 @@ describe('AuditsService', () => {
 
   describe('create', () => {
     const mockCreateDto = {
+      name: 'Q1 SOC 2 Audit',
       title: 'Q1 SOC 2 Audit',
       auditType: 'soc2',
       description: 'Annual SOC 2 Type II audit',
@@ -76,7 +77,7 @@ describe('AuditsService', () => {
             auditId: 'AUD-001',
             organizationId: 'org-123',
           }),
-        }),
+        })
       );
       expect(result).toEqual(mockCreatedAudit);
     });
@@ -96,7 +97,7 @@ describe('AuditsService', () => {
           data: expect.objectContaining({
             auditId: 'CUSTOM-001',
           }),
-        }),
+        })
       );
     });
 
@@ -111,7 +112,7 @@ describe('AuditsService', () => {
           data: expect.objectContaining({
             portalAccessCode: expect.any(String),
           }),
-        }),
+        })
       );
     });
 
@@ -129,7 +130,7 @@ describe('AuditsService', () => {
           data: expect.objectContaining({
             portalAccessCode: null,
           }),
-        }),
+        })
       );
     });
   });
@@ -305,7 +306,7 @@ describe('AuditsService', () => {
             lowFindings: 4,
             actualEndDate: expect.any(Date),
           }),
-        }),
+        })
       );
     });
 
@@ -324,7 +325,7 @@ describe('AuditsService', () => {
             plannedStartDate: expect.any(Date),
             plannedEndDate: expect.any(Date),
           }),
-        }),
+        })
       );
     });
   });

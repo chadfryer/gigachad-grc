@@ -7,10 +7,19 @@
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 
+// SECURITY: DATABASE_URL must be explicitly set - no hardcoded credentials
+if (!process.env.DATABASE_URL) {
+  console.error('ERROR: DATABASE_URL environment variable is required');
+  console.error(
+    'Example: export DATABASE_URL="postgresql://user:password@localhost:5433/gigachad_grc"'
+  );
+  process.exit(1);
+}
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || 'postgresql://grc:grc_secret@localhost:5433/gigachad_grc',
+      url: process.env.DATABASE_URL,
     },
   },
 });
@@ -30,7 +39,7 @@ interface AnecdotesControl {
 
 function normalizeCategory(category: string): string {
   const cat = category.toLowerCase().trim();
-  
+
   if (cat.includes('pims specific')) return 'compliance';
   if (cat.includes('information security policies')) return 'compliance';
   if (cat.includes('organization of information security')) return 'compliance';
@@ -47,17 +56,22 @@ function normalizeCategory(category: string): string {
   if (cat.includes('compliance')) return 'compliance';
   if (cat.includes('controller')) return 'data_protection';
   if (cat.includes('processor')) return 'data_protection';
-  
+
   return 'other';
 }
 
 // Note: Returns string type but compatible with ControlImplementationStatus enum values
-function normalizeStatus(status: string): 'implemented' | 'in_progress' | 'not_started' | 'not_applicable' {
-  const statusMap: Record<string, 'implemented' | 'in_progress' | 'not_started' | 'not_applicable'> = {
-    'monitoring': 'implemented',
+function normalizeStatus(
+  status: string
+): 'implemented' | 'in_progress' | 'not_started' | 'not_applicable' {
+  const statusMap: Record<
+    string,
+    'implemented' | 'in_progress' | 'not_started' | 'not_applicable'
+  > = {
+    monitoring: 'implemented',
     'in progress': 'in_progress',
     'not started': 'not_started',
-    'gap': 'not_started',
+    gap: 'not_started',
   };
   return statusMap[status.toLowerCase().trim()] || 'not_started';
 }
@@ -97,12 +111,12 @@ function parseCSVLine(line: string): string[] {
 }
 
 function parseAnecdotesCSV(csvContent: string): AnecdotesControl[] {
-  const lines = csvContent.split('\n').filter(line => line.trim());
+  const lines = csvContent.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     throw new Error('CSV must have a header row and at least one data row');
   }
 
-  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
   const controls: AnecdotesControl[] = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -164,7 +178,8 @@ async function ensureISO27701Framework(): Promise<string> {
         type: 'iso27701',
         name: 'ISO/IEC 27701:2019',
         version: '2019',
-        description: 'Privacy Information Management System (PIMS) - Extension to ISO/IEC 27001 and ISO/IEC 27002 for privacy management',
+        description:
+          'Privacy Information Management System (PIMS) - Extension to ISO/IEC 27001 and ISO/IEC 27002 for privacy management',
         isActive: true,
         isCustom: false,
         organizationId: null,
@@ -176,7 +191,10 @@ async function ensureISO27701Framework(): Promise<string> {
   return framework.id;
 }
 
-async function createRequirements(frameworkId: string, controls: AnecdotesControl[]): Promise<Map<string, string>> {
+async function createRequirements(
+  frameworkId: string,
+  controls: AnecdotesControl[]
+): Promise<Map<string, string>> {
   const refToId = new Map<string, string>();
   let order = 0;
 
@@ -193,7 +211,7 @@ async function createRequirements(frameworkId: string, controls: AnecdotesContro
   for (const [categoryName, categoryControls] of categories) {
     // Create category
     const catRef = categoryName.replace(/[^a-zA-Z0-9.]/g, '_').substring(0, 20);
-    
+
     let categoryReq = await prisma.frameworkRequirement.findFirst({
       where: { frameworkId, reference: catRef },
     });
@@ -244,8 +262,8 @@ async function createRequirements(frameworkId: string, controls: AnecdotesContro
 }
 
 async function importControls(
-  controls: AnecdotesControl[], 
-  organizationId: string, 
+  controls: AnecdotesControl[],
+  organizationId: string,
   frameworkId: string,
   requirementMap: Map<string, string>
 ) {
@@ -261,8 +279,8 @@ async function importControls(
     const controlId = generateControlId(ctrl.controlName, i + 1);
 
     const guidance = ctrl.requirements
-      .filter(r => r.name)
-      .map(r => `• ${r.name}`)
+      .filter((r) => r.name)
+      .map((r) => `• ${r.name}`)
       .join('\n');
 
     let control = await prisma.control.findFirst({
@@ -338,7 +356,8 @@ async function importControls(
 }
 
 async function main() {
-  const csvPath = process.argv[2] || '/Users/chad.fryer/Downloads/ISO-IEC 27701_controls_list_by_anecdotes.csv';
+  const csvPath =
+    process.argv[2] || '/Users/chad.fryer/Downloads/ISO-IEC 27701_controls_list_by_anecdotes.csv';
 
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║   GigaChad GRC - Anecdotes ISO/IEC 27701 Controls Importer     ║');
@@ -371,11 +390,16 @@ async function main() {
     console.log('\n╔════════════════════════════════════════════════════════════════╗');
     console.log('║                      Import Complete!                          ║');
     console.log('╠════════════════════════════════════════════════════════════════╣');
-    console.log(`║  Controls Created:    ${result.created.toString().padStart(4)}                                   ║`);
-    console.log(`║  Controls Updated:    ${result.updated.toString().padStart(4)}                                   ║`);
-    console.log(`║  Mappings Created:    ${result.mappingsCreated.toString().padStart(4)}                                   ║`);
+    console.log(
+      `║  Controls Created:    ${result.created.toString().padStart(4)}                                   ║`
+    );
+    console.log(
+      `║  Controls Updated:    ${result.updated.toString().padStart(4)}                                   ║`
+    );
+    console.log(
+      `║  Mappings Created:    ${result.mappingsCreated.toString().padStart(4)}                                   ║`
+    );
     console.log('╚════════════════════════════════════════════════════════════════╝');
-
   } catch (error) {
     console.error('\n❌ Import failed:', error);
     throw error;
@@ -390,6 +414,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-

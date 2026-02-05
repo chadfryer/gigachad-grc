@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
+import { safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
@@ -19,7 +20,7 @@ export class AssetsService {
 
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService,
+    private auditService: AuditService
   ) {}
 
   // ===========================
@@ -30,7 +31,7 @@ export class AssetsService {
     organizationId: string,
     filters: AssetFilterDto,
     page: number = 1,
-    limit: number = 50,
+    limit: number = 50
   ) {
     const where: any = { organizationId };
 
@@ -69,10 +70,7 @@ export class AssetsService {
             select: { riskAssets: true },
           },
         },
-        orderBy: [
-          { criticality: 'desc' },
-          { name: 'asc' },
-        ],
+        orderBy: [{ criticality: 'desc' }, { name: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -80,7 +78,7 @@ export class AssetsService {
     ]);
 
     return {
-      assets: assets.map(asset => this.toResponseDto(asset)),
+      assets: assets.map((asset) => this.toResponseDto(asset)),
       total,
       page,
       limit,
@@ -113,7 +111,7 @@ export class AssetsService {
 
     return {
       ...this.toResponseDto(asset),
-      risks: asset.riskAssets.map(ra => ({
+      risks: asset.riskAssets.map((ra) => ({
         id: ra.risk.id,
         riskId: ra.risk.riskId,
         title: ra.risk.title,
@@ -127,7 +125,7 @@ export class AssetsService {
     organizationId: string,
     dto: CreateAssetDto,
     userId: string,
-    userEmail?: string,
+    userEmail?: string
   ): Promise<AssetResponseDto> {
     const asset = await this.prisma.asset.create({
       data: {
@@ -167,7 +165,7 @@ export class AssetsService {
     organizationId: string,
     dto: UpdateAssetDto,
     userId: string,
-    userEmail?: string,
+    userEmail?: string
   ): Promise<AssetResponseDto> {
     const existing = await this.prisma.asset.findFirst({
       where: { id, organizationId },
@@ -213,7 +211,7 @@ export class AssetsService {
     id: string,
     organizationId: string,
     userId: string,
-    userEmail?: string,
+    userEmail?: string
   ): Promise<void> {
     const asset = await this.prisma.asset.findFirst({
       where: { id, organizationId },
@@ -245,49 +243,43 @@ export class AssetsService {
   async getStats(organizationId: string): Promise<AssetStatsDto> {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-    const [
-      totalAssets,
-      bySource,
-      byType,
-      byCriticality,
-      byStatus,
-      recentlySynced,
-    ] = await Promise.all([
-      this.prisma.asset.count({ where: { organizationId } }),
-      this.prisma.asset.groupBy({
-        by: ['source'],
-        where: { organizationId },
-        _count: true,
-      }),
-      this.prisma.asset.groupBy({
-        by: ['type'],
-        where: { organizationId },
-        _count: true,
-      }),
-      this.prisma.asset.groupBy({
-        by: ['criticality'],
-        where: { organizationId },
-        _count: true,
-      }),
-      this.prisma.asset.groupBy({
-        by: ['status'],
-        where: { organizationId },
-        _count: true,
-      }),
-      this.prisma.asset.count({
-        where: {
-          organizationId,
-          lastSyncAt: { gte: oneHourAgo },
-        },
-      }),
-    ]);
+    const [totalAssets, bySource, byType, byCriticality, byStatus, recentlySynced] =
+      await Promise.all([
+        this.prisma.asset.count({ where: { organizationId } }),
+        this.prisma.asset.groupBy({
+          by: ['source'],
+          where: { organizationId },
+          _count: true,
+        }),
+        this.prisma.asset.groupBy({
+          by: ['type'],
+          where: { organizationId },
+          _count: true,
+        }),
+        this.prisma.asset.groupBy({
+          by: ['criticality'],
+          where: { organizationId },
+          _count: true,
+        }),
+        this.prisma.asset.groupBy({
+          by: ['status'],
+          where: { organizationId },
+          _count: true,
+        }),
+        this.prisma.asset.count({
+          where: {
+            organizationId,
+            lastSyncAt: { gte: oneHourAgo },
+          },
+        }),
+      ]);
 
     return {
       totalAssets,
-      bySource: bySource.map(s => ({ source: s.source, count: s._count })),
-      byType: byType.map(t => ({ type: t.type, count: t._count })),
-      byCriticality: byCriticality.map(c => ({ criticality: c.criticality, count: c._count })),
-      byStatus: byStatus.map(s => ({ status: s.status, count: s._count })),
+      bySource: bySource.map((s) => ({ source: s.source, count: s._count })),
+      byType: byType.map((t) => ({ type: t.type, count: t._count })),
+      byCriticality: byCriticality.map((c) => ({ criticality: c.criticality, count: c._count })),
+      byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),
       recentlySynced,
     };
   }
@@ -298,7 +290,7 @@ export class AssetsService {
       select: { source: true },
       distinct: ['source'],
     });
-    return sources.map(s => s.source);
+    return sources.map((s) => s.source);
   }
 
   async getDepartments(organizationId: string): Promise<string[]> {
@@ -307,7 +299,7 @@ export class AssetsService {
       select: { department: true },
       distinct: ['department'],
     });
-    return departments.map(d => d.department!).filter(Boolean);
+    return departments.map((d) => d.department!).filter(Boolean);
   }
 
   // ===========================
@@ -318,7 +310,7 @@ export class AssetsService {
     organizationId: string,
     integrationId: string,
     userId: string,
-    userEmail?: string,
+    userEmail?: string
   ): Promise<SyncResultDto> {
     const startTime = Date.now();
     const result: SyncResultDto = {
@@ -346,18 +338,26 @@ export class AssetsService {
         throw new Error('Jamf integration not properly configured');
       }
 
-      // Get access token
-      const tokenResponse = await fetch(`${config.serverUrl}/api/oauth/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: config.clientId,
-          client_secret: config.clientSecret,
-        }),
-      });
+      // SECURITY: Use safeFetch to prevent SSRF via user-controlled serverUrl
+      let tokenResponse;
+      try {
+        tokenResponse = await safeFetch(`${config.serverUrl}/api/oauth/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+          }),
+        });
+      } catch (error: any) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`Invalid Jamf URL: ${error.message}`);
+        }
+        throw error;
+      }
 
       if (!tokenResponse.ok) {
         throw new Error('Failed to obtain Jamf access token');
@@ -367,15 +367,23 @@ export class AssetsService {
       const accessToken = tokenData.access_token;
 
       // Fetch computers
-      const computersResponse = await fetch(
-        `${config.serverUrl}/api/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: 'application/json',
-          },
-        },
-      );
+      let computersResponse;
+      try {
+        computersResponse = await safeFetch(
+          `${config.serverUrl}/api/v1/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: 'application/json',
+            },
+          }
+        );
+      } catch (error: any) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`Invalid Jamf URL: ${error.message}`);
+        }
+        throw error;
+      }
 
       if (computersResponse.ok) {
         const computersData = await computersResponse.json();
@@ -394,15 +402,20 @@ export class AssetsService {
       }
 
       // Fetch mobile devices
-      const mobileResponse = await fetch(
-        `${config.serverUrl}/api/v2/mobile-devices`,
-        {
+      let mobileResponse;
+      try {
+        mobileResponse = await safeFetch(`${config.serverUrl}/api/v2/mobile-devices`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             Accept: 'application/json',
           },
-        },
-      );
+        });
+      } catch (error: any) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`Invalid Jamf URL: ${error.message}`);
+        }
+        throw error;
+      }
 
       if (mobileResponse.ok) {
         const mobileData = await mobileResponse.json();
@@ -440,7 +453,6 @@ export class AssetsService {
         entityName: 'Jamf Asset Sync',
         description: `Synced ${result.itemsProcessed} assets from Jamf (${result.itemsCreated} created/updated, ${result.itemsFailed} failed)`,
       });
-
     } catch (error: any) {
       this.logger.error(`Jamf sync failed: ${error.message}`);
       result.errors.push(error.message);
@@ -453,16 +465,19 @@ export class AssetsService {
   private async upsertAssetFromJamf(
     organizationId: string,
     data: any,
-    deviceType: 'computer' | 'mobile',
+    deviceType: 'computer' | 'mobile'
   ) {
     const externalId = String(data.id);
     const general = data.general || data;
     const hardware = data.hardware || {};
     const os = data.operatingSystem || {};
 
-    const assetType = deviceType === 'computer' 
-      ? (hardware.model?.toLowerCase().includes('macbook') ? AssetType.WORKSTATION : AssetType.SERVER)
-      : AssetType.MOBILE;
+    const assetType =
+      deviceType === 'computer'
+        ? hardware.model?.toLowerCase().includes('macbook')
+          ? AssetType.WORKSTATION
+          : AssetType.SERVER
+        : AssetType.MOBILE;
 
     await this.prisma.asset.upsert({
       where: {
@@ -538,4 +553,3 @@ export class AssetsService {
     };
   }
 }
-

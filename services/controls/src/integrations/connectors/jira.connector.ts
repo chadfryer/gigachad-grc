@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 
 /**
  * Jira Integration Configuration
  */
 export interface JiraConfig {
-  domain: string;       // e.g., "company.atlassian.net"
-  email: string;        // Atlassian account email
-  apiToken: string;     // API token from Atlassian
+  domain: string; // e.g., "company.atlassian.net"
+  email: string; // Atlassian account email
+  apiToken: string; // API token from Atlassian
   projectKeys?: string[]; // Optional: specific projects to sync
 }
 
@@ -91,8 +92,8 @@ export interface JiraSyncResult {
     }>;
   };
   slaMetrics: {
-    avgResolutionTime: number;  // in days
-    onTimeResolution: number;   // percentage
+    avgResolutionTime: number; // in days
+    onTimeResolution: number; // percentage
     openOverdue: number;
   };
   recentActivity: {
@@ -122,27 +123,46 @@ export class JiraConnector {
 
     try {
       const baseUrl = this.getBaseUrl(config.domain);
-      
+
       // Test by getting myself
-      const response = await fetch(`${baseUrl}/rest/api/3/myself`, {
-        headers: this.buildHeaders(config.email, config.apiToken),
-      });
+      let response: Response;
+      try {
+        response = await safeFetch(`${baseUrl}/rest/api/3/myself`, {
+          headers: this.buildHeaders(config.email, config.apiToken),
+        });
+      } catch (error) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+        }
+        throw error;
+      }
 
       if (!response.ok) {
         if (response.status === 401) {
           return { success: false, message: 'Invalid credentials' };
         }
         const error = await response.text();
-        return { success: false, message: `API error: ${response.status} - ${error.substring(0, 100)}` };
+        return {
+          success: false,
+          message: `API error: ${response.status} - ${error.substring(0, 100)}`,
+        };
       }
 
       const user = await response.json();
 
       // Get project count
-      const projectsResponse = await fetch(`${baseUrl}/rest/api/3/project?maxResults=1`, {
-        headers: this.buildHeaders(config.email, config.apiToken),
-      });
-      
+      let projectsResponse: Response;
+      try {
+        projectsResponse = await safeFetch(`${baseUrl}/rest/api/3/project?maxResults=1`, {
+          headers: this.buildHeaders(config.email, config.apiToken),
+        });
+      } catch (error) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+        }
+        throw error;
+      }
+
       let projectCount = 0;
       if (projectsResponse.ok) {
         const projects = await projectsResponse.json();
@@ -161,6 +181,9 @@ export class JiraConnector {
       };
     } catch (error: any) {
       this.logger.error('Jira connection test failed', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       return { success: false, message: error.message || 'Connection failed' };
     }
   }
@@ -175,19 +198,19 @@ export class JiraConnector {
     this.logger.log('Starting Jira sync...');
 
     // Get projects
-    const projects = await this.getProjects(baseUrl, config).catch(e => {
+    const projects = await this.getProjects(baseUrl, config).catch((e) => {
       errors.push(`Projects: ${e.message}`);
       return [] as JiraProject[];
     });
 
     // Get all issues
-    const allIssues = await this.getIssues(baseUrl, config, config.projectKeys).catch(e => {
+    const allIssues = await this.getIssues(baseUrl, config, config.projectKeys).catch((e) => {
       errors.push(`Issues: ${e.message}`);
       return [] as JiraIssue[];
     });
 
     // Get security/compliance related issues
-    const securityIssues = await this.getSecurityIssues(baseUrl, config).catch(e => {
+    const securityIssues = await this.getSecurityIssues(baseUrl, config).catch((e) => {
       errors.push(`Security issues: ${e.message}`);
       return [] as JiraIssue[];
     });
@@ -226,7 +249,11 @@ export class JiraConnector {
 
       // Open/closed
       const statusCategory = statusName.toLowerCase();
-      if (statusCategory.includes('done') || statusCategory.includes('closed') || statusCategory.includes('resolved')) {
+      if (
+        statusCategory.includes('done') ||
+        statusCategory.includes('closed') ||
+        statusCategory.includes('resolved')
+      ) {
         closedIssues++;
       } else {
         openIssues++;
@@ -235,7 +262,11 @@ export class JiraConnector {
       // Overdue
       if (issue.fields.duedate) {
         const dueDate = new Date(issue.fields.duedate);
-        if (dueDate < now && !statusCategory.includes('done') && !statusCategory.includes('closed')) {
+        if (
+          dueDate < now &&
+          !statusCategory.includes('done') &&
+          !statusCategory.includes('closed')
+        ) {
           overdueIssues++;
         }
       }
@@ -243,7 +274,7 @@ export class JiraConnector {
       // Recent activity
       const created = new Date(issue.fields.created);
       const updated = new Date(issue.fields.updated);
-      
+
       if (created > sevenDaysAgo) {
         issuesCreatedLast7Days++;
       }
@@ -276,31 +307,35 @@ export class JiraConnector {
     // Count security/compliance issues
     const securityKeywords = ['security', 'vulnerability', 'cve', 'pentest', 'audit'];
     const complianceKeywords = ['compliance', 'soc2', 'iso', 'gdpr', 'hipaa', 'pci'];
-    
-    const securityRelated = allIssues.filter(i => {
-      const text = `${i.fields.summary} ${i.fields.description || ''} ${i.fields.labels?.join(' ') || ''}`.toLowerCase();
-      return securityKeywords.some(k => text.includes(k));
+
+    const securityRelated = allIssues.filter((i) => {
+      const text =
+        `${i.fields.summary} ${i.fields.description || ''} ${i.fields.labels?.join(' ') || ''}`.toLowerCase();
+      return securityKeywords.some((k) => text.includes(k));
     }).length;
 
-    const complianceRelated = allIssues.filter(i => {
-      const text = `${i.fields.summary} ${i.fields.description || ''} ${i.fields.labels?.join(' ') || ''}`.toLowerCase();
-      return complianceKeywords.some(k => text.includes(k));
+    const complianceRelated = allIssues.filter((i) => {
+      const text =
+        `${i.fields.summary} ${i.fields.description || ''} ${i.fields.labels?.join(' ') || ''}`.toLowerCase();
+      return complianceKeywords.some((k) => text.includes(k));
     }).length;
 
     // Process security issues by priority
-    const criticalSecurity = securityIssues.filter(i => 
-      i.fields.priority?.name?.toLowerCase().includes('critical') || 
-      i.fields.priority?.name?.toLowerCase().includes('highest')
+    const criticalSecurity = securityIssues.filter(
+      (i) =>
+        i.fields.priority?.name?.toLowerCase().includes('critical') ||
+        i.fields.priority?.name?.toLowerCase().includes('highest')
     );
-    const highSecurity = securityIssues.filter(i => 
+    const highSecurity = securityIssues.filter((i) =>
       i.fields.priority?.name?.toLowerCase().includes('high')
     );
-    const mediumSecurity = securityIssues.filter(i => 
+    const mediumSecurity = securityIssues.filter((i) =>
       i.fields.priority?.name?.toLowerCase().includes('medium')
     );
-    const lowSecurity = securityIssues.filter(i => 
-      i.fields.priority?.name?.toLowerCase().includes('low') ||
-      i.fields.priority?.name?.toLowerCase().includes('lowest')
+    const lowSecurity = securityIssues.filter(
+      (i) =>
+        i.fields.priority?.name?.toLowerCase().includes('low') ||
+        i.fields.priority?.name?.toLowerCase().includes('lowest')
     );
 
     this.logger.log(`Jira sync complete: ${projects.length} projects, ${allIssues.length} issues`);
@@ -308,11 +343,11 @@ export class JiraConnector {
     return {
       projects: {
         total: projects.length,
-        items: projects.slice(0, 20).map(p => ({
+        items: projects.slice(0, 20).map((p) => ({
           key: p.key,
           name: p.name,
           lead: p.lead?.displayName || 'Unassigned',
-          issueCount: allIssues.filter(i => i.fields.project?.key === p.key).length,
+          issueCount: allIssues.filter((i) => i.fields.project?.key === p.key).length,
         })),
       },
       issues: {
@@ -332,7 +367,7 @@ export class JiraConnector {
         high: highSecurity.length,
         medium: mediumSecurity.length,
         low: lowSecurity.length,
-        items: securityIssues.slice(0, 50).map(i => ({
+        items: securityIssues.slice(0, 50).map((i) => ({
           key: i.key,
           summary: i.fields.summary,
           priority: i.fields.priority?.name || 'None',
@@ -343,7 +378,8 @@ export class JiraConnector {
         })),
       },
       slaMetrics: {
-        avgResolutionTime: resolvedCount > 0 ? Math.round(totalResolutionTime / resolvedCount * 10) / 10 : 0,
+        avgResolutionTime:
+          resolvedCount > 0 ? Math.round((totalResolutionTime / resolvedCount) * 10) / 10 : 0,
         onTimeResolution: resolvedCount > 0 ? Math.round((onTimeCount / resolvedCount) * 100) : 0,
         openOverdue: overdueIssues,
       },
@@ -361,9 +397,17 @@ export class JiraConnector {
    * Get all projects
    */
   private async getProjects(baseUrl: string, config: JiraConfig): Promise<JiraProject[]> {
-    const response = await fetch(`${baseUrl}/rest/api/3/project?expand=lead`, {
-      headers: this.buildHeaders(config.email, config.apiToken),
-    });
+    let response: Response;
+    try {
+      response = await safeFetch(`${baseUrl}/rest/api/3/project?expand=lead`, {
+        headers: this.buildHeaders(config.email, config.apiToken),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to fetch projects: ${response.status}`);
@@ -376,9 +420,9 @@ export class JiraConnector {
    * Get issues with JQL query
    */
   private async getIssues(
-    baseUrl: string, 
+    baseUrl: string,
     config: JiraConfig,
-    projectKeys?: string[],
+    projectKeys?: string[]
   ): Promise<JiraIssue[]> {
     const issues: JiraIssue[] = [];
     let startAt = 0;
@@ -391,10 +435,18 @@ export class JiraConnector {
     }
 
     while (issues.length < 1000) {
-      const response = await fetch(
-        `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${maxResults}&fields=summary,description,issuetype,status,priority,assignee,reporter,created,updated,resolutiondate,duedate,labels,project,components`,
-        { headers: this.buildHeaders(config.email, config.apiToken) },
-      );
+      let response: Response;
+      try {
+        response = await safeFetch(
+          `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&startAt=${startAt}&maxResults=${maxResults}&fields=summary,description,issuetype,status,priority,assignee,reporter,created,updated,resolutiondate,duedate,labels,project,components`,
+          { headers: this.buildHeaders(config.email, config.apiToken) }
+        );
+      } catch (error) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+        }
+        throw error;
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to fetch issues: ${response.status}`);
@@ -420,10 +472,18 @@ export class JiraConnector {
     // Search for issues with security-related labels or summary
     const jql = `(labels IN (security, vulnerability, cve, pentest, audit) OR summary ~ "security" OR summary ~ "vulnerability" OR summary ~ "CVE") AND resolution = Unresolved ORDER BY priority DESC, created DESC`;
 
-    const response = await fetch(
-      `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=100&fields=summary,description,issuetype,status,priority,assignee,reporter,created,updated,duedate,labels,project`,
-      { headers: this.buildHeaders(config.email, config.apiToken) },
-    );
+    let response: Response;
+    try {
+      response = await safeFetch(
+        `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=100&fields=summary,description,issuetype,status,priority,assignee,reporter,created,updated,duedate,labels,project`,
+        { headers: this.buildHeaders(config.email, config.apiToken) }
+      );
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       // Not a critical error - security issues might not exist
@@ -451,10 +511,9 @@ export class JiraConnector {
   private buildHeaders(email: string, apiToken: string): Record<string, string> {
     const auth = Buffer.from(`${email}:${apiToken}`).toString('base64');
     return {
-      'Authorization': `Basic ${auth}`,
-      'Accept': 'application/json',
+      Authorization: `Basic ${auth}`,
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     };
   }
 }
-

@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 
 /**
  * Okta Integration Configuration
  */
 export interface OktaConfig {
-  domain: string;      // e.g., "company.okta.com"
-  apiToken: string;    // Okta API token
+  domain: string; // e.g., "company.okta.com"
+  apiToken: string; // Okta API token
 }
 
 /**
@@ -165,26 +166,45 @@ export class OktaConnector {
 
     try {
       const baseUrl = this.getBaseUrl(config.domain);
-      
+
       // Test by getting current user (API token owner)
-      const response = await fetch(`${baseUrl}/api/v1/users/me`, {
-        headers: this.buildHeaders(config.apiToken),
-      });
+      let response: Response;
+      try {
+        response = await safeFetch(`${baseUrl}/api/v1/users/me`, {
+          headers: this.buildHeaders(config.apiToken),
+        });
+      } catch (error) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+        }
+        throw error;
+      }
 
       if (!response.ok) {
         if (response.status === 401) {
           return { success: false, message: 'Invalid API token' };
         }
         const error = await response.text();
-        return { success: false, message: `API error: ${response.status} - ${error.substring(0, 100)}` };
+        return {
+          success: false,
+          message: `API error: ${response.status} - ${error.substring(0, 100)}`,
+        };
       }
 
       const user = await response.json();
 
       // Get org info
-      const orgResponse = await fetch(`${baseUrl}/api/v1/org`, {
-        headers: this.buildHeaders(config.apiToken),
-      });
+      let orgResponse: Response;
+      try {
+        orgResponse = await safeFetch(`${baseUrl}/api/v1/org`, {
+          headers: this.buildHeaders(config.apiToken),
+        });
+      } catch (error) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+        }
+        throw error;
+      }
       const org = orgResponse.ok ? await orgResponse.json() : null;
 
       return {
@@ -198,6 +218,9 @@ export class OktaConnector {
       };
     } catch (error: any) {
       this.logger.error('Okta connection test failed', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       return { success: false, message: error.message || 'Connection failed' };
     }
   }
@@ -213,19 +236,19 @@ export class OktaConnector {
 
     // Collect data in parallel
     const [users, groups, applications, logs] = await Promise.all([
-      this.getUsers(baseUrl, config.apiToken).catch(e => {
+      this.getUsers(baseUrl, config.apiToken).catch((e) => {
         errors.push(`Users: ${e.message}`);
         return [];
       }),
-      this.getGroups(baseUrl, config.apiToken).catch(e => {
+      this.getGroups(baseUrl, config.apiToken).catch((e) => {
         errors.push(`Groups: ${e.message}`);
         return [];
       }),
-      this.getApplications(baseUrl, config.apiToken).catch(e => {
+      this.getApplications(baseUrl, config.apiToken).catch((e) => {
         errors.push(`Applications: ${e.message}`);
         return [];
       }),
-      this.getSecurityLogs(baseUrl, config.apiToken).catch(e => {
+      this.getSecurityLogs(baseUrl, config.apiToken).catch((e) => {
         errors.push(`Logs: ${e.message}`);
         return [];
       }),
@@ -235,30 +258,34 @@ export class OktaConnector {
     const usersWithMFA = await this.checkUserMFA(baseUrl, config.apiToken, users.slice(0, 50));
 
     // Process users
-    const activeUsers = users.filter(u => u.status === 'ACTIVE');
-    const mfaEnabledUsers = usersWithMFA.filter(u => u.mfaEnabled);
+    const activeUsers = users.filter((u) => u.status === 'ACTIVE');
+    const mfaEnabledUsers = usersWithMFA.filter((u) => u.mfaEnabled);
 
     // Process logs
-    const failedLogins = logs.filter(l => l.eventType === 'user.session.start' && l.outcome?.result === 'FAILURE');
-    const suspiciousEvents = logs.filter(l => 
-      l.eventType.includes('security') || 
-      l.severity === 'WARN' || 
-      l.severity === 'ERROR'
+    const failedLogins = logs.filter(
+      (l) => l.eventType === 'user.session.start' && l.outcome?.result === 'FAILURE'
     );
-    const passwordEvents = logs.filter(l => l.eventType.includes('password'));
-    const mfaEvents = logs.filter(l => l.eventType.includes('mfa') || l.eventType.includes('factor'));
+    const suspiciousEvents = logs.filter(
+      (l) => l.eventType.includes('security') || l.severity === 'WARN' || l.severity === 'ERROR'
+    );
+    const passwordEvents = logs.filter((l) => l.eventType.includes('password'));
+    const mfaEvents = logs.filter(
+      (l) => l.eventType.includes('mfa') || l.eventType.includes('factor')
+    );
 
-    this.logger.log(`Okta sync complete: ${users.length} users, ${groups.length} groups, ${applications.length} apps`);
+    this.logger.log(
+      `Okta sync complete: ${users.length} users, ${groups.length} groups, ${applications.length} apps`
+    );
 
     return {
       users: {
         total: users.length,
         active: activeUsers.length,
-        suspended: users.filter(u => u.status === 'SUSPENDED').length,
-        deprovisioned: users.filter(u => u.status === 'DEPROVISIONED').length,
+        suspended: users.filter((u) => u.status === 'SUSPENDED').length,
+        deprovisioned: users.filter((u) => u.status === 'DEPROVISIONED').length,
         withMFA: mfaEnabledUsers.length,
-        noMFA: usersWithMFA.filter(u => !u.mfaEnabled).length,
-        items: usersWithMFA.slice(0, 100).map(u => ({
+        noMFA: usersWithMFA.filter((u) => !u.mfaEnabled).length,
+        items: usersWithMFA.slice(0, 100).map((u) => ({
           id: u.id,
           email: u.profile?.email || '',
           name: `${u.profile?.firstName || ''} ${u.profile?.lastName || ''}`.trim(),
@@ -269,7 +296,7 @@ export class OktaConnector {
       },
       groups: {
         total: groups.length,
-        items: groups.slice(0, 50).map(g => ({
+        items: groups.slice(0, 50).map((g) => ({
           id: g.id,
           name: g.profile?.name || '',
           type: g.type,
@@ -278,9 +305,9 @@ export class OktaConnector {
       },
       applications: {
         total: applications.length,
-        active: applications.filter(a => a.status === 'ACTIVE').length,
-        inactive: applications.filter(a => a.status === 'INACTIVE').length,
-        items: applications.slice(0, 50).map(a => ({
+        active: applications.filter((a) => a.status === 'ACTIVE').length,
+        inactive: applications.filter((a) => a.status === 'INACTIVE').length,
+        items: applications.slice(0, 50).map((a) => ({
           id: a.id,
           name: a.label || a.name,
           status: a.status,
@@ -293,7 +320,7 @@ export class OktaConnector {
         suspiciousActivity: suspiciousEvents.length,
         passwordChanges: passwordEvents.length,
         mfaEvents: mfaEvents.length,
-        items: logs.slice(0, 100).map(l => ({
+        items: logs.slice(0, 100).map((l) => ({
           id: l.uuid,
           eventType: l.eventType,
           severity: l.severity,
@@ -344,9 +371,17 @@ export class OktaConnector {
    * Get all groups
    */
   private async getGroups(baseUrl: string, apiToken: string): Promise<OktaGroup[]> {
-    const response = await fetch(`${baseUrl}/api/v1/groups?limit=200`, {
-      headers: this.buildHeaders(apiToken),
-    });
+    let response: Response;
+    try {
+      response = await safeFetch(`${baseUrl}/api/v1/groups?limit=200`, {
+        headers: this.buildHeaders(apiToken),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to fetch groups: ${response.status}`);
@@ -359,9 +394,17 @@ export class OktaConnector {
    * Get all applications
    */
   private async getApplications(baseUrl: string, apiToken: string): Promise<OktaApplication[]> {
-    const response = await fetch(`${baseUrl}/api/v1/apps?limit=200`, {
-      headers: this.buildHeaders(apiToken),
-    });
+    let response: Response;
+    try {
+      response = await safeFetch(`${baseUrl}/api/v1/apps?limit=200`, {
+        headers: this.buildHeaders(apiToken),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to fetch applications: ${response.status}`);
@@ -375,10 +418,10 @@ export class OktaConnector {
    */
   private async getSecurityLogs(baseUrl: string, apiToken: string): Promise<OktaLogEvent[]> {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    
+
     const response = await fetch(
       `${baseUrl}/api/v1/logs?since=${since}&limit=100&filter=eventType sw "user.session" or eventType sw "user.authentication" or eventType sw "security" or eventType sw "policy"`,
-      { headers: this.buildHeaders(apiToken) },
+      { headers: this.buildHeaders(apiToken) }
     );
 
     if (!response.ok) {
@@ -392,17 +435,16 @@ export class OktaConnector {
    * Check MFA status for users
    */
   private async checkUserMFA(
-    baseUrl: string, 
-    apiToken: string, 
-    users: OktaUser[],
+    baseUrl: string,
+    apiToken: string,
+    users: OktaUser[]
   ): Promise<Array<OktaUser & { mfaEnabled: boolean }>> {
     return Promise.all(
       users.map(async (user) => {
         try {
-          const response = await fetch(
-            `${baseUrl}/api/v1/users/${user.id}/factors`,
-            { headers: this.buildHeaders(apiToken) },
-          );
+          const response = await fetch(`${baseUrl}/api/v1/users/${user.id}/factors`, {
+            headers: this.buildHeaders(apiToken),
+          });
 
           if (!response.ok) {
             return { ...user, mfaEnabled: false };
@@ -410,7 +452,7 @@ export class OktaConnector {
 
           const factors = await response.json();
           const activeFactors = factors.filter((f: any) => f.status === 'ACTIVE');
-          
+
           return { ...user, mfaEnabled: activeFactors.length > 0 };
         } catch {
           return { ...user, mfaEnabled: false };
@@ -435,8 +477,8 @@ export class OktaConnector {
    */
   private buildHeaders(apiToken: string): Record<string, string> {
     return {
-      'Authorization': `SSWS ${apiToken}`,
-      'Accept': 'application/json',
+      Authorization: `SSWS ${apiToken}`,
+      Accept: 'application/json',
       'Content-Type': 'application/json',
     };
   }
@@ -457,4 +499,3 @@ export class OktaConnector {
     return null;
   }
 }
-

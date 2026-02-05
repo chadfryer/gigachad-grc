@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { AuditStatus } from '@prisma/client';
@@ -28,10 +29,13 @@ export class FieldGuideService {
   // Connection Management
   // ============================================
 
-  async connect(organizationId: string, dto: FieldGuideConnectDto): Promise<FieldGuideConnectionStatusDto> {
+  async connect(
+    organizationId: string,
+    dto: FieldGuideConnectDto
+  ): Promise<FieldGuideConnectionStatusDto> {
     // Validate the API key by making a test request
     const apiUrl = dto.instanceUrl || this.DEFAULT_API_URL;
-    
+
     try {
       const testResponse = await this.makeFieldGuideRequest(
         apiUrl,
@@ -47,7 +51,7 @@ export class FieldGuideService {
       });
 
       const settings = (existing?.settings as Record<string, unknown>) || {};
-      
+
       const fieldGuideSettings = {
         fieldGuide: {
           connected: true,
@@ -90,7 +94,7 @@ export class FieldGuideService {
     });
 
     const settings = (existing?.settings as Record<string, unknown>) || {};
-    
+
     // Remove FieldGuide settings
     delete (settings as Record<string, unknown>).fieldGuide;
 
@@ -134,7 +138,7 @@ export class FieldGuideService {
 
   async triggerSync(organizationId: string, dto: TriggerSyncDto): Promise<SyncResultDto> {
     const status = await this.getConnectionStatus(organizationId);
-    
+
     if (!status.isConnected) {
       throw new BadRequestException('FieldGuide is not connected');
     }
@@ -217,7 +221,6 @@ export class FieldGuideService {
       await this.storeSyncHistory(organizationId, result, direction);
 
       this.logger.log(`Sync completed for org ${organizationId}, syncId: ${syncId}`);
-
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       result.status = 'failed';
@@ -264,15 +267,15 @@ export class FieldGuideService {
       },
     });
 
-    return audits.map(audit => {
+    return audits.map((audit) => {
       const fieldGuideData = audit.fieldGuideData as Record<string, unknown> | null;
       return {
         grcAuditId: audit.id,
         fieldGuideAuditId: audit.fieldGuideId!,
         name: audit.name,
         syncStatus: 'synced',
-        lastSyncedAt: fieldGuideData?.lastSyncedAt 
-          ? new Date(fieldGuideData.lastSyncedAt as string) 
+        lastSyncedAt: fieldGuideData?.lastSyncedAt
+          ? new Date(fieldGuideData.lastSyncedAt as string)
           : undefined,
       };
     });
@@ -293,7 +296,10 @@ export class FieldGuideService {
 
     // Verify the FieldGuide audit exists
     const fieldGuideConfig = await this.getFieldGuideConfig(organizationId);
-    const fieldGuideAudit = await this.fetchFieldGuideAudit(fieldGuideConfig, dto.fieldGuideAuditId);
+    const fieldGuideAudit = await this.fetchFieldGuideAudit(
+      fieldGuideConfig,
+      dto.fieldGuideAuditId
+    );
 
     if (!fieldGuideAudit) {
       throw new BadRequestException('FieldGuide audit not found');
@@ -411,21 +417,29 @@ export class FieldGuideService {
     endpoint: string,
     body?: unknown
   ): Promise<Record<string, unknown>> {
-    const response = await fetch(`${baseUrl}${endpoint}`, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    try {
+      // SECURITY: Use safeFetch to prevent SSRF via user-controlled baseUrl
+      const response = await safeFetch(`${baseUrl}${endpoint}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`FieldGuide API error: ${response.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`FieldGuide API error: ${response.status} - ${errorText}`);
+      }
+
+      return response.json();
+    } catch (error: unknown) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`Invalid FieldGuide URL: ${error.message}`);
+      }
+      throw error;
     }
-
-    return response.json();
   }
 
   private async updateSyncStatus(
@@ -467,19 +481,23 @@ export class FieldGuideService {
     const fieldGuide = (settings.fieldGuide as Record<string, unknown>) || {};
     const history = (fieldGuide.syncHistory as SyncHistoryItemDto[]) || [];
 
-    const totalEntities = 
-      result.entitiesSynced.audits.created + result.entitiesSynced.audits.updated +
-      result.entitiesSynced.requests.created + result.entitiesSynced.requests.updated +
-      result.entitiesSynced.evidence.created + result.entitiesSynced.evidence.updated +
-      result.entitiesSynced.findings.created + result.entitiesSynced.findings.updated;
+    const totalEntities =
+      result.entitiesSynced.audits.created +
+      result.entitiesSynced.audits.updated +
+      result.entitiesSynced.requests.created +
+      result.entitiesSynced.requests.updated +
+      result.entitiesSynced.evidence.created +
+      result.entitiesSynced.evidence.updated +
+      result.entitiesSynced.findings.created +
+      result.entitiesSynced.findings.updated;
 
     history.unshift({
       syncId: result.syncId,
       timestamp: result.startedAt,
       direction,
       status: result.status === 'completed' ? 'completed' : 'failed',
-      durationSeconds: result.completedAt 
-        ? (result.completedAt.getTime() - result.startedAt.getTime()) / 1000 
+      durationSeconds: result.completedAt
+        ? (result.completedAt.getTime() - result.startedAt.getTime()) / 1000
         : 0,
       totalEntities,
     });
@@ -493,16 +511,10 @@ export class FieldGuideService {
     });
   }
 
-  private verifyWebhookSignature(
-    rawBody: string,
-    signature: string,
-    secret?: string
-  ): boolean {
+  private verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
     if (!secret) return true; // Skip verification if no secret configured
 
-    const expectedSignature = createHmac('sha256', secret)
-      .update(rawBody)
-      .digest('hex');
+    const expectedSignature = createHmac('sha256', secret).update(rawBody).digest('hex');
 
     // SECURITY: Use timingSafeEqual to prevent timing attacks
     // Regular string comparison (===) can leak timing information
@@ -510,11 +522,8 @@ export class FieldGuideService {
     if (signature.length !== expectedSignature.length) {
       return false;
     }
-    
-    return timingSafeEqual(
-      Buffer.from(signature, 'hex'),
-      Buffer.from(expectedSignature, 'hex')
-    );
+
+    return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
   }
 
   // ============================================
@@ -548,11 +557,13 @@ export class FieldGuideService {
               name: fgAudit.name,
               description: fgAudit.description,
               status: this.mapFieldGuideStatus(fgAudit.status),
-              fieldGuideData: JSON.parse(JSON.stringify({
-                ...((existingAudit.fieldGuideData as Record<string, unknown>) || {}),
-                lastSyncedAt: new Date().toISOString(),
-                rawData: fgAudit,
-              })),
+              fieldGuideData: JSON.parse(
+                JSON.stringify({
+                  ...((existingAudit.fieldGuideData as Record<string, unknown>) || {}),
+                  lastSyncedAt: new Date().toISOString(),
+                  rawData: fgAudit,
+                })
+              ),
             },
           });
           updated++;
@@ -601,9 +612,10 @@ export class FieldGuideService {
     return { created: 0, updated: 0 };
   }
 
-  private async fetchFieldGuideAudits(
-    config: { apiKey: string; instanceUrl: string }
-  ): Promise<FieldGuideAudit[]> {
+  private async fetchFieldGuideAudits(config: {
+    apiKey: string;
+    instanceUrl: string;
+  }): Promise<FieldGuideAudit[]> {
     try {
       const response = await this.makeFieldGuideRequest(
         config.instanceUrl,
@@ -638,14 +650,14 @@ export class FieldGuideService {
 
   private mapFieldGuideStatus(fgStatus: string): AuditStatus {
     const statusMap: Record<string, AuditStatus> = {
-      'draft': AuditStatus.planning,
-      'planning': AuditStatus.planning,
-      'in_progress': AuditStatus.fieldwork,
-      'fieldwork': AuditStatus.fieldwork,
-      'review': AuditStatus.reporting,
-      'reporting': AuditStatus.reporting,
-      'completed': AuditStatus.completed,
-      'closed': AuditStatus.completed,
+      draft: AuditStatus.planning,
+      planning: AuditStatus.planning,
+      in_progress: AuditStatus.fieldwork,
+      fieldwork: AuditStatus.fieldwork,
+      review: AuditStatus.reporting,
+      reporting: AuditStatus.reporting,
+      completed: AuditStatus.completed,
+      closed: AuditStatus.completed,
     };
     return statusMap[fgStatus.toLowerCase()] || AuditStatus.planning;
   }
@@ -654,9 +666,12 @@ export class FieldGuideService {
   // Webhook Handlers
   // ============================================
 
-  private async handleAuditWebhook(organizationId: string, data: Record<string, unknown>): Promise<void> {
+  private async handleAuditWebhook(
+    organizationId: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     const fieldGuideAuditId = data.id as string;
-    
+
     const audit = await this.prisma.audit.findFirst({
       where: { fieldGuideId: fieldGuideAuditId, organizationId },
     });
@@ -665,33 +680,43 @@ export class FieldGuideService {
       await this.prisma.audit.update({
         where: { id: audit.id },
         data: {
-          name: data.name as string || audit.name,
-          description: data.description as string || audit.description,
-          status: this.mapFieldGuideStatus(data.status as string || 'planning'),
-          fieldGuideData: JSON.parse(JSON.stringify({
-            ...((audit.fieldGuideData as Record<string, unknown>) || {}),
-            lastSyncedAt: new Date().toISOString(),
-            rawData: data,
-          })),
+          name: (data.name as string) || audit.name,
+          description: (data.description as string) || audit.description,
+          status: this.mapFieldGuideStatus((data.status as string) || 'planning'),
+          fieldGuideData: JSON.parse(
+            JSON.stringify({
+              ...((audit.fieldGuideData as Record<string, unknown>) || {}),
+              lastSyncedAt: new Date().toISOString(),
+              rawData: data,
+            })
+          ),
         },
       });
       this.logger.log(`Updated audit ${audit.id} from webhook`);
     }
   }
 
-  private async handleRequestWebhook(organizationId: string, _data: Record<string, unknown>): Promise<void> {
+  private async handleRequestWebhook(
+    organizationId: string,
+    _data: Record<string, unknown>
+  ): Promise<void> {
     // Handle request webhook
     this.logger.log(`Received request webhook for org ${organizationId}`);
   }
 
-  private async handleEvidenceWebhook(organizationId: string, _data: Record<string, unknown>): Promise<void> {
+  private async handleEvidenceWebhook(
+    organizationId: string,
+    _data: Record<string, unknown>
+  ): Promise<void> {
     // Handle evidence webhook
     this.logger.log(`Received evidence webhook for org ${organizationId}`);
   }
 
-  private async handleFindingWebhook(organizationId: string, _data: Record<string, unknown>): Promise<void> {
+  private async handleFindingWebhook(
+    organizationId: string,
+    _data: Record<string, unknown>
+  ): Promise<void> {
     // Handle finding webhook
     this.logger.log(`Received finding webhook for org ${organizationId}`);
   }
 }
-
