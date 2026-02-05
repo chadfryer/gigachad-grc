@@ -100,7 +100,7 @@ export class RemediationService {
 
   async updatePlan(id: string, organizationId: string, dto: Partial<CreateRemediationPlanDto>) {
     await this.findOnePlan(id, organizationId);
-    
+
     return this.prisma.remediationPlan.update({
       where: { id },
       data: {
@@ -142,13 +142,18 @@ export class RemediationService {
       throw new NotFoundException(`Milestone ${id} not found`);
     }
 
-    const data: Record<string, unknown> = { ...dto };
-    if (dto.dueDate) data.dueDate = new Date(dto.dueDate);
-    if (dto.completedDate) data.completedDate = new Date(dto.completedDate);
-
+    // SECURITY: Explicit field mapping to prevent mass assignment vulnerabilities
     const updated = await this.prisma.remediationMilestone.update({
       where: { id },
-      data,
+      data: {
+        title: dto.title,
+        description: dto.description,
+        status: dto.status,
+        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+        completedDate: dto.completedDate ? new Date(dto.completedDate) : undefined,
+        assignedTo: dto.assignedTo,
+        notes: dto.notes,
+      },
     });
 
     // Update plan status if all milestones completed
@@ -204,9 +209,9 @@ export class RemediationService {
       where: { planId },
     });
 
-    const allCompleted = milestones.length > 0 && milestones.every(m => m.status === 'completed');
-    const anyInProgress = milestones.some(m => m.status === 'in_progress');
-    const anyDelayed = milestones.some(m => m.status === 'delayed');
+    const allCompleted = milestones.length > 0 && milestones.every((m) => m.status === 'completed');
+    const anyInProgress = milestones.some((m) => m.status === 'in_progress');
+    const anyDelayed = milestones.some((m) => m.status === 'delayed');
 
     let status = 'open';
     if (allCompleted) status = 'completed';
@@ -244,8 +249,8 @@ export class RemediationService {
     return {
       total,
       overdue,
-      byStatus: byStatus.map(s => ({ status: s.status, count: s._count.status })),
-      byPriority: byPriority.map(p => ({ priority: p.priority, count: p._count.priority })),
+      byStatus: byStatus.map((s) => ({ status: s.status, count: s._count.status })),
+      byPriority: byPriority.map((p) => ({ priority: p.priority, count: p._count.priority })),
     };
   }
 
@@ -253,8 +258,18 @@ export class RemediationService {
     const plans = await this.findAllPlans(organizationId);
 
     if (format === 'csv') {
-      const headers = ['Plan Number', 'Finding', 'Severity', 'Description', 'Status', 'Priority', 'Scheduled Start', 'Scheduled End', 'Milestones'];
-      const rows = plans.map(p => [
+      const headers = [
+        'Plan Number',
+        'Finding',
+        'Severity',
+        'Description',
+        'Status',
+        'Priority',
+        'Scheduled Start',
+        'Scheduled End',
+        'Milestones',
+      ];
+      const rows = plans.map((p) => [
         p.planNumber,
         p.finding.title,
         p.finding.severity,
@@ -266,10 +281,9 @@ export class RemediationService {
         p.milestones.length.toString(),
       ]);
 
-      return [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+      return [headers.join(','), ...rows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
     }
 
     return plans;
   }
 }
-

@@ -9,10 +9,19 @@ import { PrismaClient } from '@prisma/client';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// SECURITY: DATABASE_URL must be explicitly set - no hardcoded credentials
+if (!process.env.DATABASE_URL) {
+  console.error('ERROR: DATABASE_URL environment variable is required');
+  console.error(
+    'Example: export DATABASE_URL="postgresql://user:password@localhost:5433/gigachad_grc"'
+  );
+  process.exit(1);
+}
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || 'postgresql://grc:grc_secret@localhost:5433/gigachad_grc',
+      url: process.env.DATABASE_URL,
     },
   },
 });
@@ -318,15 +327,47 @@ const DEFAULT_PERMISSION_GROUPS = {
     name: 'Administrator',
     description: 'Full access to all resources and actions',
     permissions: [
-      { resource: 'controls', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
-      { resource: 'evidence', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
-      { resource: 'policies', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
-      { resource: 'frameworks', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
-      { resource: 'integrations', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
+      {
+        resource: 'controls',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'evidence',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'policies',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'frameworks',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'integrations',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
       { resource: 'audit_logs', actions: ['read', 'export'], scope: { ownership: 'all' } },
-      { resource: 'users', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
-      { resource: 'permissions', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
-      { resource: 'settings', actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'], scope: { ownership: 'all' } },
+      {
+        resource: 'users',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'permissions',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'settings',
+        actions: ['read', 'create', 'update', 'delete', 'assign', 'approve', 'export'],
+        scope: { ownership: 'all' },
+      },
       { resource: 'dashboard', actions: ['read'], scope: { ownership: 'all' } },
     ],
   },
@@ -334,9 +375,21 @@ const DEFAULT_PERMISSION_GROUPS = {
     name: 'Compliance Manager',
     description: 'Manage controls, evidence, and policies',
     permissions: [
-      { resource: 'controls', actions: ['read', 'create', 'update', 'assign'], scope: { ownership: 'all' } },
-      { resource: 'evidence', actions: ['read', 'create', 'update', 'approve'], scope: { ownership: 'all' } },
-      { resource: 'policies', actions: ['read', 'create', 'update', 'approve'], scope: { ownership: 'all' } },
+      {
+        resource: 'controls',
+        actions: ['read', 'create', 'update', 'assign'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'evidence',
+        actions: ['read', 'create', 'update', 'approve'],
+        scope: { ownership: 'all' },
+      },
+      {
+        resource: 'policies',
+        actions: ['read', 'create', 'update', 'approve'],
+        scope: { ownership: 'all' },
+      },
       { resource: 'frameworks', actions: ['read'], scope: { ownership: 'all' } },
       { resource: 'integrations', actions: ['read'], scope: { ownership: 'all' } },
       { resource: 'audit_logs', actions: ['read'], scope: { ownership: 'all' } },
@@ -360,7 +413,11 @@ const DEFAULT_PERMISSION_GROUPS = {
     description: 'Edit assigned controls and link evidence',
     permissions: [
       { resource: 'controls', actions: ['read', 'update'], scope: { ownership: 'assigned' } },
-      { resource: 'evidence', actions: ['read', 'create', 'update'], scope: { ownership: 'owned' } },
+      {
+        resource: 'evidence',
+        actions: ['read', 'create', 'update'],
+        scope: { ownership: 'owned' },
+      },
       { resource: 'policies', actions: ['read'], scope: { ownership: 'all' } },
       { resource: 'frameworks', actions: ['read'], scope: { ownership: 'all' } },
       { resource: 'dashboard', actions: ['read'], scope: { ownership: 'all' } },
@@ -441,13 +498,22 @@ async function main() {
     console.log('\n╔════════════════════════════════════════════════════════╗');
     console.log('║                    Seeding Complete!                   ║');
     console.log('╠════════════════════════════════════════════════════════╣');
-    console.log(`║  Frameworks:        ${frameworks.toString().padStart(4)}                             ║`);
-    console.log(`║  Requirements:      ${requirements.toString().padStart(4)}                             ║`);
-    console.log(`║  Controls:          ${controls.toString().padStart(4)}                             ║`);
-    console.log(`║  Mappings:          ${mappings.toString().padStart(4)}                             ║`);
-    console.log(`║  Permission Groups: ${permGroups.toString().padStart(4)}                             ║`);
+    console.log(
+      `║  Frameworks:        ${frameworks.toString().padStart(4)}                             ║`
+    );
+    console.log(
+      `║  Requirements:      ${requirements.toString().padStart(4)}                             ║`
+    );
+    console.log(
+      `║  Controls:          ${controls.toString().padStart(4)}                             ║`
+    );
+    console.log(
+      `║  Mappings:          ${mappings.toString().padStart(4)}                             ║`
+    );
+    console.log(
+      `║  Permission Groups: ${permGroups.toString().padStart(4)}                             ║`
+    );
     console.log('╚════════════════════════════════════════════════════════╝');
-
   } catch (error) {
     console.error('\n❌ Seeding failed:', error);
     throw error;
@@ -462,4 +528,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

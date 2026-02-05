@@ -132,12 +132,16 @@ export class DevAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // SECURITY: Prevent usage in production
-    const nodeEnv = process.env.NODE_ENV || 'development';
-    if (nodeEnv === 'production') {
+    // SECURITY: Only allow in explicit development/test environments
+    // NEVER allow bypass if NODE_ENV is not set or is production/staging
+    const nodeEnv = process.env.NODE_ENV;
+    const allowedEnvs = ['development', 'test'];
+
+    if (!nodeEnv || !allowedEnvs.includes(nodeEnv)) {
       throw new Error(
-        'SECURITY ERROR: DevAuthGuard is configured but NODE_ENV is set to production. ' +
-          'This is a critical security vulnerability. Please use proper JWT authentication in production.'
+        `SECURITY ERROR: DevAuthGuard cannot be used in ${nodeEnv || 'undefined'} environment. ` +
+          'This guard is only permitted in development or test environments. ' +
+          'Please use proper JWT authentication in production.'
       );
     }
 

@@ -47,12 +47,11 @@ describe('PermissionGuard', () => {
   });
 
   describe('when no permission decorator is present', () => {
-    it('should allow access when no permission is required', async () => {
+    it('should deny access by default when no permission decorator is present', async () => {
       (reflector.getAllAndOverride as jest.Mock).mockReturnValue(undefined);
 
-      const result = await guard.canActivate(mockExecutionContext);
-
-      expect(result).toBe(true);
+      // Security: Routes without explicit permission decorators should be denied by default
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -78,24 +77,20 @@ describe('PermissionGuard', () => {
       expect(permissionsService.hasPermission).toHaveBeenCalledWith(
         validUserId,
         Resource.CONTROLS,
-        Action.READ,
+        Action.READ
       );
     });
 
     it('should throw ForbiddenException when request.user is undefined', async () => {
       mockRequest.user = undefined;
 
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw ForbiddenException when request.user.userId is undefined', async () => {
       mockRequest.user = { permissions: [] };
 
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(ForbiddenException);
     });
 
     it('should NOT use x-user-id header directly', async () => {
@@ -103,16 +98,14 @@ describe('PermissionGuard', () => {
       mockRequest.headers['x-user-id'] = 'header-user-id';
       mockRequest.user = undefined;
 
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw with message "User not authenticated" when no user context', async () => {
       mockRequest.user = undefined;
 
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        'User not authenticated',
+        'User not authenticated'
       );
     });
   });
@@ -150,9 +143,7 @@ describe('PermissionGuard', () => {
         reason: 'Insufficient permissions',
       });
 
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -194,9 +185,7 @@ describe('PermissionGuard', () => {
         allowed: false,
       });
 
-      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -226,7 +215,7 @@ describe('PermissionGuard', () => {
       expect(permissionsService.canAccessControl).toHaveBeenCalledWith(
         validUserId,
         'resource-123',
-        Action.UPDATE,
+        Action.UPDATE
       );
     });
 
@@ -250,7 +239,7 @@ describe('PermissionGuard', () => {
       expect(permissionsService.canAccessEvidence).toHaveBeenCalledWith(
         validUserId,
         'resource-123',
-        Action.READ,
+        Action.READ
       );
     });
   });
@@ -304,8 +293,9 @@ describe('AuthenticatedGuard', () => {
     } as unknown as ExecutionContext;
   });
 
-  it('should allow access when x-user-id header is present', () => {
-    mockRequest.headers['x-user-id'] = 'some-user-id';
+  it('should allow access when request.user.userId is present', () => {
+    // Security: Only trust authenticated user context, not raw headers
+    mockRequest.user = { userId: 'some-user-id' };
 
     const result = guard.canActivate(mockExecutionContext);
 
@@ -313,14 +303,10 @@ describe('AuthenticatedGuard', () => {
   });
 
   it('should throw ForbiddenException when x-user-id header is missing', () => {
-    expect(() => guard.canActivate(mockExecutionContext)).toThrow(
-      ForbiddenException,
-    );
+    expect(() => guard.canActivate(mockExecutionContext)).toThrow(ForbiddenException);
   });
 
   it('should throw with message "User not authenticated"', () => {
-    expect(() => guard.canActivate(mockExecutionContext)).toThrow(
-      'User not authenticated',
-    );
+    expect(() => guard.canActivate(mockExecutionContext)).toThrow('User not authenticated');
   });
 });

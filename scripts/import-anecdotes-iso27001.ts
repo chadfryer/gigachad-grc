@@ -7,10 +7,19 @@
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 
+// SECURITY: DATABASE_URL must be explicitly set - no hardcoded credentials
+if (!process.env.DATABASE_URL) {
+  console.error('ERROR: DATABASE_URL environment variable is required');
+  console.error(
+    'Example: export DATABASE_URL="postgresql://user:password@localhost:5433/gigachad_grc"'
+  );
+  process.exit(1);
+}
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL || 'postgresql://grc:grc_secret@localhost:5433/gigachad_grc',
+      url: process.env.DATABASE_URL,
     },
   },
 });
@@ -31,7 +40,7 @@ interface AnecdotesControl {
 // Map ISO 27001 categories to our category enum
 function normalizeCategory(category: string): string {
   const cat = category.toLowerCase().trim();
-  
+
   if (cat.includes('context')) return 'compliance';
   if (cat.includes('leadership')) return 'compliance';
   if (cat.includes('planning')) return 'risk_management';
@@ -43,18 +52,23 @@ function normalizeCategory(category: string): string {
   if (cat.includes('people')) return 'human_resources';
   if (cat.includes('physical')) return 'physical_security';
   if (cat.includes('technological')) return 'network_security';
-  
+
   return 'other';
 }
 
 // Map Anecdotes status to our status enum
 // Note: Returns string type but compatible with ControlImplementationStatus enum values
-function normalizeStatus(status: string): 'implemented' | 'in_progress' | 'not_started' | 'not_applicable' {
-  const statusMap: Record<string, 'implemented' | 'in_progress' | 'not_started' | 'not_applicable'> = {
-    'monitoring': 'implemented',
+function normalizeStatus(
+  status: string
+): 'implemented' | 'in_progress' | 'not_started' | 'not_applicable' {
+  const statusMap: Record<
+    string,
+    'implemented' | 'in_progress' | 'not_started' | 'not_applicable'
+  > = {
+    monitoring: 'implemented',
     'in progress': 'in_progress',
     'not started': 'not_started',
-    'gap': 'not_started',
+    gap: 'not_started',
   };
 
   return statusMap[status.toLowerCase().trim()] || 'not_started';
@@ -78,7 +92,7 @@ function parseCSVLine(line: string): string[] {
 
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
-    
+
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"';
@@ -93,19 +107,19 @@ function parseCSVLine(line: string): string[] {
       current += char;
     }
   }
-  
+
   result.push(current.trim());
   return result;
 }
 
 // Parse the Anecdotes CSV format
 function parseAnecdotesCSV(csvContent: string): AnecdotesControl[] {
-  const lines = csvContent.split('\n').filter(line => line.trim());
+  const lines = csvContent.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     throw new Error('CSV must have a header row and at least one data row');
   }
 
-  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+  const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
   const controls: AnecdotesControl[] = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -181,13 +195,16 @@ async function ensureISO27001Framework(): Promise<string> {
   return framework.id;
 }
 
-async function createISO27001Requirements(frameworkId: string, controls: AnecdotesControl[]): Promise<Map<string, string>> {
+async function createISO27001Requirements(
+  frameworkId: string,
+  controls: AnecdotesControl[]
+): Promise<Map<string, string>> {
   const refToId = new Map<string, string>();
   let order = 0;
 
   // Group controls by category to create requirement hierarchy
   const categories = new Map<string, AnecdotesControl[]>();
-  
+
   for (const ctrl of controls) {
     const cat = ctrl.category;
     if (!categories.has(cat)) {
@@ -200,7 +217,7 @@ async function createISO27001Requirements(frameworkId: string, controls: Anecdot
   for (const [categoryName, categoryControls] of categories) {
     // Create category requirement
     const catRef = categoryName.split(' ')[0].replace('.', ''); // "4. Context..." -> "4"
-    
+
     let categoryReq = await prisma.frameworkRequirement.findFirst({
       where: { frameworkId, reference: catRef },
     });
@@ -252,8 +269,8 @@ async function createISO27001Requirements(frameworkId: string, controls: Anecdot
 }
 
 async function importControls(
-  controls: AnecdotesControl[], 
-  organizationId: string, 
+  controls: AnecdotesControl[],
+  organizationId: string,
   frameworkId: string,
   requirementMap: Map<string, string>
 ) {
@@ -270,8 +287,8 @@ async function importControls(
 
     // Build guidance from requirements
     const guidance = ctrl.requirements
-      .filter(r => r.name && !r.name.toLowerCase().includes('delete'))
-      .map(r => `• ${r.name}`)
+      .filter((r) => r.name && !r.name.toLowerCase().includes('delete'))
+      .map((r) => `• ${r.name}`)
       .join('\n');
 
     // Check if control exists
@@ -290,7 +307,12 @@ async function importControls(
           description: ctrl.controlDescription || ctrl.controlName,
           category,
           guidance: guidance || null,
-          tags: ctrl.tags ? ctrl.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          tags: ctrl.tags
+            ? ctrl.tags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : [],
         },
       });
       updated++;
@@ -304,7 +326,12 @@ async function importControls(
           guidance: guidance || null,
           isCustom: true,
           organizationId,
-          tags: ctrl.tags ? ctrl.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          tags: ctrl.tags
+            ? ctrl.tags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : [],
           automationSupported: false,
         },
       });
@@ -357,7 +384,9 @@ async function importControls(
 }
 
 async function main() {
-  const csvPath = process.argv[2] || '/Users/chad.fryer/Downloads/ISO-IEC 27001 2022_controls_list_by_anecdotes.csv';
+  const csvPath =
+    process.argv[2] ||
+    '/Users/chad.fryer/Downloads/ISO-IEC 27001 2022_controls_list_by_anecdotes.csv';
 
   console.log('╔════════════════════════════════════════════════════════════════╗');
   console.log('║   GigaChad GRC - Anecdotes ISO 27001:2022 Controls Importer    ║');
@@ -397,11 +426,16 @@ async function main() {
     console.log('\n╔════════════════════════════════════════════════════════════════╗');
     console.log('║                      Import Complete!                          ║');
     console.log('╠════════════════════════════════════════════════════════════════╣');
-    console.log(`║  Controls Created:    ${result.created.toString().padStart(4)}                                   ║`);
-    console.log(`║  Controls Updated:    ${result.updated.toString().padStart(4)}                                   ║`);
-    console.log(`║  Mappings Created:    ${result.mappingsCreated.toString().padStart(4)}                                   ║`);
+    console.log(
+      `║  Controls Created:    ${result.created.toString().padStart(4)}                                   ║`
+    );
+    console.log(
+      `║  Controls Updated:    ${result.updated.toString().padStart(4)}                                   ║`
+    );
+    console.log(
+      `║  Mappings Created:    ${result.mappingsCreated.toString().padStart(4)}                                   ║`
+    );
     console.log('╚════════════════════════════════════════════════════════════════╝');
-
   } catch (error) {
     console.error('\n❌ Import failed:', error);
     throw error;
@@ -416,6 +450,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-

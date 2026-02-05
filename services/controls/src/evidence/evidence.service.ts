@@ -24,7 +24,7 @@ export class EvidenceService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private notificationsService: NotificationsService,
-    @Inject(STORAGE_PROVIDER) private storage: StorageProvider,
+    @Inject(STORAGE_PROVIDER) private storage: StorageProvider
   ) {}
 
   async findAll(organizationId: string, filters: EvidenceFilterDto) {
@@ -110,7 +110,7 @@ export class EvidenceService {
     file: Express.Multer.File,
     dto: UploadEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidenceId = generateId();
     const storagePath = `evidence/${organizationId}/${evidenceId}/${file.originalname}`;
@@ -181,14 +181,18 @@ export class EvidenceService {
     userId: string,
     dto: UpdateEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const before = await this.findOne(id, organizationId);
 
+    // SECURITY: Explicit field mapping to prevent mass assignment vulnerabilities
     const updated = await this.prisma.evidence.update({
       where: { id },
       data: {
-        ...dto,
+        title: dto.title,
+        description: dto.description,
+        type: dto.type,
+        category: dto.category,
         tags: dto.tags || undefined,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
         updatedBy: userId,
@@ -217,7 +221,7 @@ export class EvidenceService {
     organizationId: string,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidence = await this.findOne(id, organizationId);
 
@@ -259,8 +263,8 @@ export class EvidenceService {
   async getPreviewUrl(id: string, organizationId: string) {
     const evidence = await this.findOne(id, organizationId);
     const url = await this.storage.getSignedUrl(evidence.storagePath, 3600);
-    return { 
-      url, 
+    return {
+      url,
       filename: evidence.filename,
       mimeType: evidence.mimeType,
     };
@@ -282,7 +286,7 @@ export class EvidenceService {
     userId: string,
     dto: ReviewEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const before = await this.findOne(id, organizationId);
 
@@ -308,8 +312,8 @@ export class EvidenceService {
       entityId: updated.id,
       entityName: updated.title,
       description: `Reviewed evidence "${updated.title}" - status changed to ${dto.status}`,
-      changes: { 
-        before: { status: before.status }, 
+      changes: {
+        before: { status: before.status },
         after: { status: updated.status, reviewNotes: dto.notes },
       },
     });
@@ -324,11 +328,12 @@ export class EvidenceService {
         message: `Your evidence "${updated.title}" has been ${dto.status}${dto.notes ? `: ${dto.notes}` : ''}`,
         entityType: 'evidence',
         entityId: updated.id,
-        severity: dto.status === EvidenceStatus.approved
-          ? NotificationSeverity.SUCCESS
-          : dto.status === EvidenceStatus.rejected
-            ? NotificationSeverity.ERROR
-            : NotificationSeverity.INFO,
+        severity:
+          dto.status === EvidenceStatus.approved
+            ? NotificationSeverity.SUCCESS
+            : dto.status === EvidenceStatus.rejected
+              ? NotificationSeverity.ERROR
+              : NotificationSeverity.INFO,
         metadata: {
           evidenceTitle: updated.title,
           reviewStatus: dto.status,
@@ -347,7 +352,7 @@ export class EvidenceService {
     userId: string,
     dto: LinkEvidenceDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidence = await this.findOne(id, organizationId);
 
@@ -363,7 +368,7 @@ export class EvidenceService {
     });
 
     // Create links
-    const links = implementations.map(impl => ({
+    const links = implementations.map((impl) => ({
       evidenceId: id,
       controlId: impl.controlId,
       implementationId: impl.id,
@@ -377,7 +382,9 @@ export class EvidenceService {
     });
 
     // Audit log
-    const linkedControlNames = implementations.map(i => `${i.control.controlId}: ${i.control.title}`).join(', ');
+    const linkedControlNames = implementations
+      .map((i) => `${i.control.controlId}: ${i.control.title}`)
+      .join(', ');
     await this.auditService.log({
       organizationId,
       userId,
@@ -403,7 +410,7 @@ export class EvidenceService {
     organizationId: string,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const evidence = await this.findOne(id, organizationId);
 
@@ -440,14 +447,7 @@ export class EvidenceService {
   }
 
   async getStats(organizationId: string) {
-    const [
-      total,
-      byType,
-      bySource,
-      byStatus,
-      expiringSoon,
-      expired,
-    ] = await Promise.all([
+    const [total, byType, bySource, byStatus, expiringSoon, expired] = await Promise.all([
       this.prisma.evidence.count({ where: { organizationId, deletedAt: null } }),
       this.prisma.evidence.groupBy({
         by: ['type'],
@@ -482,9 +482,9 @@ export class EvidenceService {
 
     return {
       total,
-      byType: Object.fromEntries(byType.map(b => [b.type, b._count])),
-      bySource: Object.fromEntries(bySource.map(b => [b.source, b._count])),
-      byStatus: Object.fromEntries(byStatus.map(b => [b.status, b._count])),
+      byType: Object.fromEntries(byType.map((b) => [b.type, b._count])),
+      bySource: Object.fromEntries(bySource.map((b) => [b.source, b._count])),
+      byStatus: Object.fromEntries(byStatus.map((b) => [b.status, b._count])),
       expiringSoon,
       expired,
     };
@@ -501,12 +501,7 @@ export class EvidenceService {
     });
   }
 
-  async createFolder(
-    organizationId: string,
-    userId: string,
-    name: string,
-    parentId?: string,
-  ) {
+  async createFolder(organizationId: string, userId: string, name: string, parentId?: string) {
     let path = `/${name}`;
 
     if (parentId) {
@@ -548,4 +543,3 @@ export class EvidenceService {
     return { success: true };
   }
 }
-

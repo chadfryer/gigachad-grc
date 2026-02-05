@@ -18,7 +18,7 @@ import {
 export class ImplementationsService {
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService,
+    private auditService: AuditService
   ) {}
 
   async findAll(organizationId: string, filters: ImplementationFilterDto) {
@@ -113,17 +113,17 @@ export class ImplementationsService {
     return implementation;
   }
 
-  async update(
-    id: string,
-    organizationId: string,
-    userId: string,
-    dto: UpdateImplementationDto,
-  ) {
+  async update(id: string, organizationId: string, userId: string, dto: UpdateImplementationDto) {
     // Get existing implementation for before/after comparison
     const existing = await this.findOne(id, organizationId);
 
+    // SECURITY: Explicit field mapping to prevent mass assignment vulnerabilities
     const updateData: Prisma.ControlImplementationUncheckedUpdateInput = {
-      ...dto,
+      status: dto.status,
+      ownerId: dto.ownerId,
+      implementationNotes: dto.implementationNotes,
+      testingFrequency: dto.testingFrequency,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       updatedBy: userId,
       ...(dto.status === ControlImplementationStatus.implemented && {
         lastTestedAt: new Date(),
@@ -178,11 +178,7 @@ export class ImplementationsService {
     return updated;
   }
 
-  async bulkUpdate(
-    organizationId: string,
-    userId: string,
-    dto: BulkUpdateImplementationsDto,
-  ) {
+  async bulkUpdate(organizationId: string, userId: string, dto: BulkUpdateImplementationsDto) {
     const bulkUpdateData: Prisma.ControlImplementationUncheckedUpdateManyInput = {
       updatedBy: userId,
       ...(dto.status && { status: dto.status }),
@@ -205,7 +201,7 @@ export class ImplementationsService {
     implementationId: string,
     organizationId: string,
     userId: string,
-    dto: CreateControlTestDto,
+    dto: CreateControlTestDto
   ) {
     const implementation = await this.findOne(implementationId, organizationId);
 
@@ -281,7 +277,7 @@ export class ImplementationsService {
 
   private calculateNextTestDue(frequency: string): Date {
     const now = new Date();
-    
+
     switch (frequency) {
       case 'continuous':
       case 'daily':
@@ -313,12 +309,12 @@ export class ImplementationsService {
       select: { controlId: true },
     });
 
-    const existingControlIds = new Set(existingImplementations.map(i => i.controlId));
+    const existingControlIds = new Set(existingImplementations.map((i) => i.controlId));
 
     // Create implementations for controls that don't have one
     const newImplementations = systemControls
-      .filter(c => !existingControlIds.has(c.id))
-      .map(c => ({
+      .filter((c) => !existingControlIds.has(c.id))
+      .map((c) => ({
         controlId: c.id,
         organizationId,
         status: ControlImplementationStatus.not_started,
@@ -336,6 +332,3 @@ export class ImplementationsService {
     return { created: newImplementations.length };
   }
 }
-
-
-

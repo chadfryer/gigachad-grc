@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { encrypt, decrypt } from '@gigachad-grc/shared';
+import { encrypt, decrypt, safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 import {
   ServiceNowConnectionConfigDto,
   ServiceNowConnectionResponseDto,
@@ -128,18 +128,26 @@ export class ServiceNowService {
 
     const credentials = this.decryptCredentials(connection.credentials);
 
-    // Exchange code for tokens
-    const tokenResponse = await fetch(`${connection.instanceUrl}/oauth_token.do`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: credentials.clientId || '',
-        client_secret: credentials.clientSecret || '',
-        code,
-        redirect_uri: redirectUri,
-      }).toString(),
-    });
+    // SECURITY: Use safeFetch to prevent SSRF via malicious instanceUrl
+    let tokenResponse: Response;
+    try {
+      tokenResponse = await safeFetch(`${connection.instanceUrl}/oauth_token.do`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: credentials.clientId || '',
+          client_secret: credentials.clientSecret || '',
+          code,
+          redirect_uri: redirectUri,
+        }).toString(),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`Invalid ServiceNow URL: ${error.message}`);
+      }
+      throw error;
+    }
 
     if (!tokenResponse.ok) {
       throw new BadRequestException('Failed to exchange OAuth code');
@@ -444,16 +452,25 @@ export class ServiceNowService {
     // Decrypt the stored refresh token
     const decryptedRefreshToken = decrypt(connection.refreshToken);
 
-    const response = await fetch(`${connection.instanceUrl}/oauth_token.do`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: credentials.clientId || '',
-        client_secret: credentials.clientSecret || '',
-        refresh_token: decryptedRefreshToken,
-      }).toString(),
-    });
+    // SECURITY: Use safeFetch to prevent SSRF
+    let response: Response;
+    try {
+      response = await safeFetch(`${connection.instanceUrl}/oauth_token.do`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: credentials.clientId || '',
+          client_secret: credentials.clientSecret || '',
+          refresh_token: decryptedRefreshToken,
+        }).toString(),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`Invalid ServiceNow URL: ${error.message}`);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       await this.prisma.serviceNowConnection.update({
@@ -494,9 +511,13 @@ export class ServiceNowService {
         return { success: true }; // Skip test for OAuth initial setup
       }
 
-      const response = await fetch(`${dto.instanceUrl}/api/now/table/sys_user?sysparm_limit=1`, {
-        headers: { Authorization: auth, Accept: 'application/json' },
-      });
+      // SECURITY: Use safeFetch to prevent SSRF via malicious instanceUrl
+      const response = await safeFetch(
+        `${dto.instanceUrl}/api/now/table/sys_user?sysparm_limit=1`,
+        {
+          headers: { Authorization: auth, Accept: 'application/json' },
+        }
+      );
 
       if (!response.ok) {
         return { success: false, error: `HTTP ${response.status}` };
@@ -504,6 +525,9 @@ export class ServiceNowService {
 
       return { success: true };
     } catch (error: any) {
+      if (error instanceof SSRFProtectionError) {
+        return { success: false, error: `Invalid URL: ${error.message}` };
+      }
       return { success: false, error: error.message };
     }
   }
@@ -535,15 +559,24 @@ export class ServiceNowService {
       throw new UnauthorizedException('No authentication available');
     }
 
-    const response = await fetch(`${connection.instanceUrl}${path}`, {
-      method,
-      headers: {
-        Authorization: auth,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    // SECURITY: Use safeFetch to prevent SSRF
+    let response: Response;
+    try {
+      response = await safeFetch(`${connection.instanceUrl}${path}`, {
+        method,
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`Invalid ServiceNow URL: ${error.message}`);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       throw new Error(`ServiceNow API error: ${response.status}`);

@@ -20,7 +20,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    private groupsService: GroupsService,
+    private groupsService: GroupsService
   ) {}
 
   /**
@@ -30,7 +30,7 @@ export class UsersService {
     organizationId: string,
     filters: UserFilterDto,
     page: number = 1,
-    limit: number = 50,
+    limit: number = 50
   ): Promise<UserListResponseDto> {
     const where: Record<string, unknown> = { organizationId };
 
@@ -77,7 +77,7 @@ export class UsersService {
     ]);
 
     return {
-      users: users.map(user => this.toResponseDto(user)),
+      users: users.map((user) => this.toResponseDto(user)),
       total,
       page,
       limit,
@@ -110,10 +110,18 @@ export class UsersService {
 
   /**
    * Get user by Keycloak ID (for login sync)
+   * SECURITY: Includes organizationId to ensure tenant isolation (IDOR prevention)
    */
-  async findByKeycloakId(keycloakId: string): Promise<UserResponseDto | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { keycloakId },
+  async findByKeycloakId(
+    keycloakId: string,
+    organizationId: string
+  ): Promise<UserResponseDto | null> {
+    // SECURITY: Include organizationId in query to prevent IDOR
+    const user = await this.prisma.user.findFirst({
+      where: {
+        keycloakId,
+        organizationId, // Tenant isolation - prevents cross-organization access
+      },
       include: {
         groupMemberships: {
           include: {
@@ -134,11 +142,10 @@ export class UsersService {
    */
   async syncFromKeycloak(
     organizationId: string,
-    dto: SyncUserFromKeycloakDto,
+    dto: SyncUserFromKeycloakDto
   ): Promise<UserResponseDto> {
-    const displayName = dto.firstName && dto.lastName
-      ? `${dto.firstName} ${dto.lastName}`
-      : dto.email.split('@')[0];
+    const displayName =
+      dto.firstName && dto.lastName ? `${dto.firstName} ${dto.lastName}` : dto.email.split('@')[0];
 
     let user = await this.prisma.user.findUnique({
       where: { keycloakId: dto.keycloakId },
@@ -176,16 +183,18 @@ export class UsersService {
       // Assign default permission group based on role
       try {
         const groups = await this.groupsService.findAll(organizationId);
-        const defaultGroup = groups.find(g => 
-          g.name === (dto.roles?.includes('admin') ? 'Administrator' : 'Viewer')
+        const defaultGroup = groups.find(
+          (g) => g.name === (dto.roles?.includes('admin') ? 'Administrator' : 'Viewer')
         );
-        
+
         if (defaultGroup) {
           await this.groupsService.addMember(defaultGroup.id, user.id, organizationId);
         }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger.warn(`Failed to assign default group for user ${maskEmail(user.email)}: ${errorMessage}`);
+        this.logger.warn(
+          `Failed to assign default group for user ${maskEmail(user.email)}: ${errorMessage}`
+        );
       }
 
       this.logger.log(`Created new user from Keycloak: ${maskEmail(user.email)}`);
@@ -213,15 +222,12 @@ export class UsersService {
     organizationId: string,
     dto: CreateUserDto,
     actorId?: string,
-    actorEmail?: string,
+    actorEmail?: string
   ): Promise<UserResponseDto> {
     const existing = await this.prisma.user.findFirst({
       where: {
         organizationId,
-        OR: [
-          { keycloakId: dto.keycloakId },
-          { email: dto.email },
-        ],
+        OR: [{ keycloakId: dto.keycloakId }, { email: dto.email }],
       },
     });
 
@@ -266,7 +272,7 @@ export class UsersService {
     organizationId: string,
     dto: UpdateUserDto,
     actorId?: string,
-    actorEmail?: string,
+    actorEmail?: string
   ): Promise<UserResponseDto> {
     const existing = await this.prisma.user.findFirst({
       where: { id, organizationId },
@@ -276,9 +282,8 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const displayName = dto.firstName && dto.lastName
-      ? `${dto.firstName} ${dto.lastName}`
-      : dto.displayName;
+    const displayName =
+      dto.firstName && dto.lastName ? `${dto.firstName} ${dto.lastName}` : dto.displayName;
 
     const user = await this.prisma.user.update({
       where: { id },
@@ -302,8 +307,18 @@ export class UsersService {
       entityName: user.displayName,
       description: `Updated user "${user.displayName}"`,
       changes: {
-        before: { firstName: existing.firstName, lastName: existing.lastName, role: existing.role, status: existing.status },
-        after: { firstName: user.firstName, lastName: user.lastName, role: user.role, status: user.status },
+        before: {
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          role: existing.role,
+          status: existing.status,
+        },
+        after: {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          status: user.status,
+        },
       },
     });
 
@@ -317,7 +332,7 @@ export class UsersService {
     id: string,
     organizationId: string,
     actorId?: string,
-    actorEmail?: string,
+    actorEmail?: string
   ): Promise<void> {
     const user = await this.prisma.user.findFirst({
       where: { id, organizationId },
@@ -352,7 +367,7 @@ export class UsersService {
     id: string,
     organizationId: string,
     actorId?: string,
-    actorEmail?: string,
+    actorEmail?: string
   ): Promise<void> {
     const user = await this.prisma.user.findFirst({
       where: { id, organizationId },
@@ -399,7 +414,7 @@ export class UsersService {
       total,
       active,
       inactive,
-      byRole: byRole.map(r => ({ role: r.role, count: r._count })),
+      byRole: byRole.map((r) => ({ role: r.role, count: r._count })),
     };
   }
 
@@ -418,18 +433,16 @@ export class UsersService {
       role: user.role as string,
       status: user.status as string,
       lastLoginAt: (user.lastLoginAt as Date) || undefined,
-      groups: groupMemberships?.map((m) => {
-        const group = m.group as Record<string, unknown>;
-        return {
-          id: group.id as string,
-          name: group.name as string,
-        };
-      }) || [],
+      groups:
+        groupMemberships?.map((m) => {
+          const group = m.group as Record<string, unknown>;
+          return {
+            id: group.id as string,
+            name: group.name as string,
+          };
+        }) || [],
       createdAt: user.createdAt as Date,
       updatedAt: user.updatedAt as Date,
     };
   }
 }
-
-
-

@@ -9,6 +9,62 @@ interface ScreenshotParams {
   };
 }
 
+/**
+ * SSRF Protection: Validates that a URL is safe to navigate to.
+ * Blocks private IPs, localhost, and non-HTTP(S) protocols.
+ */
+function isValidPublicUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+
+    // Only allow http and https protocols
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Block localhost variants
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return false;
+    }
+
+    // Block 0.0.0.0
+    if (hostname === '0.0.0.0') {
+      return false;
+    }
+
+    // Block private IP ranges:
+    // - 10.0.0.0/8 (10.x.x.x)
+    // - 172.16.0.0/12 (172.16.x.x - 172.31.x.x)
+    // - 192.168.0.0/16 (192.168.x.x)
+    // - 127.0.0.0/8 (127.x.x.x)
+    // - 169.254.0.0/16 (link-local)
+    if (/^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|169\.254\.)/.test(hostname)) {
+      return false;
+    }
+
+    // Block IPv6 private/local addresses
+    // Covers ::1, fe80::, fc00::, fd00::, etc.
+    if (
+      /^(::1|fe80:|fc00:|fd00:|::ffff:(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|169\.254\.))/.test(
+        hostname
+      )
+    ) {
+      return false;
+    }
+
+    // Block metadata service endpoints (cloud provider SSRF targets)
+    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 interface ScreenshotResult {
   type: string;
   url: string;
@@ -29,13 +85,7 @@ interface ScreenshotResult {
 }
 
 export async function captureScreenshot(params: ScreenshotParams): Promise<ScreenshotResult> {
-  const {
-    url,
-    selector,
-    waitForSelector,
-    fullPage = false,
-    authentication,
-  } = params;
+  const { url, selector, waitForSelector, fullPage = false, authentication } = params;
 
   const startTime = Date.now();
 
@@ -50,7 +100,7 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
 
     try {
       const page = await browser.newPage();
-      
+
       // Set viewport
       await page.setViewport({
         width: 1920,
@@ -83,6 +133,14 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
         }
       }
 
+      // SSRF Protection: Validate URL before navigation
+      if (!isValidPublicUrl(url)) {
+        throw new Error(
+          'Invalid URL: Only public HTTP/HTTPS URLs are allowed. ' +
+            'Private IPs, localhost, and internal endpoints are blocked for security.'
+        );
+      }
+
       // Navigate to URL
       const response = await page.goto(url, {
         waitUntil: 'networkidle2',
@@ -102,20 +160,20 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
 
       // Capture screenshot
       let screenshotBuffer: Buffer;
-      
+
       if (selector) {
         const element = await page.$(selector);
         if (!element) {
           throw new Error(`Element not found: ${selector}`);
         }
-        screenshotBuffer = await element.screenshot({
+        screenshotBuffer = (await element.screenshot({
           type: 'png',
-        }) as Buffer;
+        })) as Buffer;
       } else {
-        screenshotBuffer = await page.screenshot({
+        screenshotBuffer = (await page.screenshot({
           type: 'png',
           fullPage,
-        }) as Buffer;
+        })) as Buffer;
       }
 
       const captureTime = Date.now() - startTime;
@@ -168,7 +226,3 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
     };
   }
 }
-
-
-
-
