@@ -24,7 +24,7 @@
     "@nestjs/swagger": "^11.0.0",
     "@prisma/client": "^5.22.0",
     "axios": "^1.6.5",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "reflect-metadata": "^0.1.13",
