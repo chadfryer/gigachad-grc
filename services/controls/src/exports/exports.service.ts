@@ -390,6 +390,20 @@ export class ExportsService {
   }
 
   /**
+   * SECURITY: Sanitize CSV value to prevent formula injection attacks.
+   * When CSV is opened in Excel, values starting with =, +, -, @, |, or tab
+   * can be interpreted as formulas and execute malicious code.
+   * Prefixing with a single quote (') tells Excel to treat it as text.
+   */
+  private sanitizeCsvFormula(value: string): string {
+    const dangerousChars = ['=', '+', '-', '@', '|', '\t', '\r'];
+    if (dangerousChars.some((char) => value.startsWith(char))) {
+      return "'" + value;
+    }
+    return value;
+  }
+
+  /**
    * Format data as CSV
    */
   private formatAsCsv(data: any[]): string {
@@ -403,8 +417,11 @@ export class ExportsService {
         .map((h) => {
           const val = row[h];
           if (val === null || val === undefined) return '';
-          if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
-          const strVal = String(val);
+          if (typeof val === 'object') {
+            const jsonVal = this.sanitizeCsvFormula(JSON.stringify(val));
+            return `"${jsonVal.replace(/"/g, '""')}"`;
+          }
+          const strVal = this.sanitizeCsvFormula(String(val));
           if (strVal.includes(',') || strVal.includes('"') || strVal.includes('\n')) {
             return `"${strVal.replace(/"/g, '""')}"`;
           }

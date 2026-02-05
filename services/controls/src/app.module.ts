@@ -54,6 +54,7 @@ import { AuthModule } from './auth/auth.module';
 import { ModulesController } from './modules/modules.controller';
 import { CustomThrottlerGuard } from './auth/throttler.guard';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
+import { MetricsAuthMiddleware } from './common/metrics-auth.middleware';
 import { StorageModule, EventsModule, CacheModule, HealthModule } from '@gigachad-grc/shared';
 
 @Module({
@@ -154,5 +155,14 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Apply correlation ID middleware to all API routes
     consumer.apply(CorrelationIdMiddleware).forRoutes({ path: '*', method: RequestMethod.ALL });
+
+    // SECURITY: Protect metrics endpoints with authentication
+    // Prevents exposure of system internals to unauthorized users
+    consumer
+      .apply(MetricsAuthMiddleware)
+      .forRoutes(
+        { path: 'metrics', method: RequestMethod.GET },
+        { path: 'api/metrics', method: RequestMethod.GET }
+      );
   }
 }

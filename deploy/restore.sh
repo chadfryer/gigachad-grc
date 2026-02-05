@@ -142,6 +142,61 @@ confirm_action() {
     esac
 }
 
+# SECURITY: Verify backup signature to ensure integrity
+# This protects against tampered or corrupted backups
+verify_backup_signature() {
+    local archive_file="$1"
+    local signature_file="${archive_file}.sig"
+    
+    # Check if signature file exists
+    if [ ! -f "$signature_file" ]; then
+        if [ "${BACKUP_SIGNATURE_REQUIRED:-false}" = "true" ]; then
+            error_exit "SECURITY: Backup signature file not found and BACKUP_SIGNATURE_REQUIRED=true"
+        fi
+        log_warning "SECURITY: No signature file found for backup. Cannot verify integrity."
+        log_warning "Set BACKUP_SIGNATURE_REQUIRED=true to enforce signature verification."
+        return 0
+    fi
+    
+    # Check if signing key is configured
+    if [ -z "${BACKUP_SIGNING_KEY:-}" ]; then
+        if [ "${BACKUP_SIGNATURE_REQUIRED:-false}" = "true" ]; then
+            error_exit "SECURITY: BACKUP_SIGNING_KEY not set but BACKUP_SIGNATURE_REQUIRED=true"
+        fi
+        log_warning "BACKUP_SIGNING_KEY not set - cannot verify backup signature"
+        return 0
+    fi
+    
+    log_step "Verifying backup signature..."
+    
+    # Extract expected signature from signature file
+    local expected_signature
+    expected_signature=$(grep '"signature"' "$signature_file" 2>/dev/null | sed 's/.*"signature": *"\([^"]*\)".*/\1/' || echo "")
+    
+    if [ -z "$expected_signature" ]; then
+        error_exit "SECURITY: Failed to parse signature from signature file"
+    fi
+    
+    # Calculate actual signature
+    local actual_signature
+    actual_signature=$(openssl dgst -sha256 -hmac "${BACKUP_SIGNING_KEY}" -hex "${archive_file}" 2>/dev/null | awk '{print $2}')
+    
+    if [ -z "$actual_signature" ]; then
+        error_exit "SECURITY: Failed to calculate backup signature"
+    fi
+    
+    # Compare signatures (constant-time comparison not possible in bash, but acceptable for this use case)
+    if [ "$expected_signature" != "$actual_signature" ]; then
+        log_error "SECURITY ALERT: Backup signature verification FAILED!"
+        log_error "Expected: ${expected_signature:0:16}...${expected_signature: -16}"
+        log_error "Actual:   ${actual_signature:0:16}...${actual_signature: -16}"
+        error_exit "SECURITY: Backup may have been tampered with. Aborting restore."
+    fi
+    
+    log_success "Backup signature verified successfully"
+    log_info "Signature: ${actual_signature:0:16}...${actual_signature: -16}"
+}
+
 # Check prerequisites
 check_prerequisites() {
     log_step "Checking prerequisites..."
@@ -172,6 +227,9 @@ check_prerequisites() {
     fi
 
     log_success "Prerequisites check passed"
+    
+    # SECURITY: Verify backup signature before proceeding
+    verify_backup_signature "$BACKUP_FILE"
 }
 
 # Extract backup archive

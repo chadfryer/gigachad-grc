@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
+import { timingSafeEqual } from 'crypto';
 import { ScimService } from './scim.service';
 import {
   ScimUserResource,
@@ -83,6 +84,11 @@ export class ScimController implements OnModuleInit {
     }
   }
 
+  /**
+   * SECURITY: Validate SCIM bearer token using timing-safe comparison.
+   * Regular string comparison (===) can leak timing information that could
+   * allow attackers to guess valid tokens byte by byte.
+   */
   private validateToken(authHeader: string): string {
     this.ensureScimEnabled();
 
@@ -91,13 +97,48 @@ export class ScimController implements OnModuleInit {
     }
 
     const token = authHeader.substring(7);
-    const organizationId = this.scimTokens.get(token);
 
-    if (!organizationId) {
+    // SECURITY: Use timing-safe comparison to prevent timing attacks
+    // Iterate through all tokens to avoid early exit timing leaks
+    let matchedOrgId: string | null = null;
+    for (const [storedToken, orgId] of this.scimTokens.entries()) {
+      if (this.safeTokenCompare(token, storedToken)) {
+        matchedOrgId = orgId;
+        // Don't break early - continue checking to maintain constant time
+      }
+    }
+
+    if (!matchedOrgId) {
       throw new UnauthorizedException('Invalid SCIM token');
     }
 
-    return organizationId;
+    return matchedOrgId;
+  }
+
+  /**
+   * SECURITY: Timing-safe string comparison to prevent timing attacks.
+   * Uses crypto.timingSafeEqual which takes constant time regardless
+   * of where the strings differ.
+   */
+  private safeTokenCompare(provided: string, stored: string): boolean {
+    // If lengths differ, we still need to do a constant-time comparison
+    // to avoid leaking length information
+    if (provided.length !== stored.length) {
+      // Compare against a dummy string to maintain constant time
+      const dummyBuffer = Buffer.alloc(provided.length, 'x');
+      try {
+        timingSafeEqual(Buffer.from(provided, 'utf-8'), dummyBuffer);
+      } catch {
+        // Ignore error, we're just burning time
+      }
+      return false;
+    }
+
+    try {
+      return timingSafeEqual(Buffer.from(provided, 'utf-8'), Buffer.from(stored, 'utf-8'));
+    } catch {
+      return false;
+    }
   }
 
   // ==================== Users ====================

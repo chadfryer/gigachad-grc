@@ -22,9 +22,24 @@ interface ExportOptions<T> {
 // CSV Export
 // ===========================================
 
+/**
+ * SECURITY: Sanitize CSV value to prevent formula injection attacks.
+ * When CSV is opened in Excel, values starting with =, +, -, @, |, or tab
+ * can be interpreted as formulas and execute malicious code.
+ * Prefixing with a single quote (') tells Excel to treat it as text.
+ */
+function sanitizeCsvFormula(value: string): string {
+  const dangerousChars = ['=', '+', '-', '@', '|', '\t', '\r'];
+  if (dangerousChars.some((char) => value.startsWith(char))) {
+    return "'" + value;
+  }
+  return value;
+}
+
 function escapeCSVValue(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const str = String(value);
+  // SECURITY: Sanitize formula injection before processing
+  const str = sanitizeCsvFormula(String(value));
   // Escape quotes and wrap in quotes if contains comma, newline, or quote
   if (str.includes(',') || str.includes('\n') || str.includes('"')) {
     return `"${str.replace(/"/g, '""')}"`;
@@ -33,17 +48,24 @@ function escapeCSVValue(value: unknown): string {
 }
 
 function generateCSV<T>(columns: ExportColumn<T>[], data: T[]): string {
-  const headers = columns.map(col => escapeCSVValue(col.header)).join(',');
-  
-  const rows = data.map(row => {
-    return columns.map(col => {
-      const key = col.key as string;
-      const rawValue = key.includes('.') 
-        ? key.split('.').reduce((obj: Record<string, unknown>, k) => obj?.[k] as Record<string, unknown>, row as unknown as Record<string, unknown>)
-        : (row as Record<string, unknown>)[key];
-      const value = col.transform ? col.transform(rawValue, row) : rawValue;
-      return escapeCSVValue(value);
-    }).join(',');
+  const headers = columns.map((col) => escapeCSVValue(col.header)).join(',');
+
+  const rows = data.map((row) => {
+    return columns
+      .map((col) => {
+        const key = col.key as string;
+        const rawValue = key.includes('.')
+          ? key
+              .split('.')
+              .reduce(
+                (obj: Record<string, unknown>, k) => obj?.[k] as Record<string, unknown>,
+                row as unknown as Record<string, unknown>
+              )
+          : (row as Record<string, unknown>)[key];
+        const value = col.transform ? col.transform(rawValue, row) : rawValue;
+        return escapeCSVValue(value);
+      })
+      .join(',');
   });
 
   return [headers, ...rows].join('\n');
@@ -68,49 +90,59 @@ async function loadExcelJS(): Promise<ExcelJSModule> {
 }
 
 async function generateExcel<T>(
-  columns: ExportColumn<T>[], 
-  data: T[], 
+  columns: ExportColumn<T>[],
+  data: T[],
   sheetName: string
 ): Promise<ArrayBuffer> {
   const ExcelJS = await loadExcelJS();
-  
+
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(sheetName);
-  
+
   // Add headers
-  const headers = columns.map(col => col.header);
+  const headers = columns.map((col) => col.header);
   const headerRow = worksheet.addRow(headers);
-  
+
   // Style header row
   headerRow.eachCell((cell) => {
     cell.font = { bold: true };
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFE0E0E0' }
+      fgColor: { argb: 'FFE0E0E0' },
     };
   });
-  
+
   // Add data rows
-  data.forEach(row => {
-    const rowData = columns.map(col => {
+  data.forEach((row) => {
+    const rowData = columns.map((col) => {
       const key = col.key as string;
-      const rawValue = key.includes('.') 
-        ? key.split('.').reduce((obj: Record<string, unknown>, k) => obj?.[k] as Record<string, unknown>, row as unknown as Record<string, unknown>)
+      const rawValue = key.includes('.')
+        ? key
+            .split('.')
+            .reduce(
+              (obj: Record<string, unknown>, k) => obj?.[k] as Record<string, unknown>,
+              row as unknown as Record<string, unknown>
+            )
         : (row as Record<string, unknown>)[key];
       return col.transform ? col.transform(rawValue, row) : rawValue;
     });
     worksheet.addRow(rowData);
   });
-  
+
   // Auto-size columns
   worksheet.columns.forEach((column, i) => {
     const maxLength = Math.max(
       headers[i]?.length || 10,
-      ...data.map(row => {
+      ...data.map((row) => {
         const key = columns[i].key as string;
-        const rawValue = key.includes('.') 
-          ? key.split('.').reduce((obj: Record<string, unknown>, k) => obj?.[k] as Record<string, unknown>, row as unknown as Record<string, unknown>)
+        const rawValue = key.includes('.')
+          ? key
+              .split('.')
+              .reduce(
+                (obj: Record<string, unknown>, k) => obj?.[k] as Record<string, unknown>,
+                row as unknown as Record<string, unknown>
+              )
           : (row as Record<string, unknown>)[key];
         const value = columns[i].transform ? columns[i].transform(rawValue, row) : rawValue;
         return String(value ?? '').length;
@@ -128,12 +160,17 @@ async function generateExcel<T>(
 // ===========================================
 
 function generateJSON<T>(columns: ExportColumn<T>[], data: T[]): string {
-  const exportData = data.map(row => {
+  const exportData = data.map((row) => {
     const obj: Record<string, unknown> = {};
-    columns.forEach(col => {
+    columns.forEach((col) => {
       const key = col.key as string;
-      const rawValue = key.includes('.') 
-        ? key.split('.').reduce((o: Record<string, unknown>, k) => o?.[k] as Record<string, unknown>, row as unknown as Record<string, unknown>)
+      const rawValue = key.includes('.')
+        ? key
+            .split('.')
+            .reduce(
+              (o: Record<string, unknown>, k) => o?.[k] as Record<string, unknown>,
+              row as unknown as Record<string, unknown>
+            )
         : (row as Record<string, unknown>)[key];
       obj[col.header] = col.transform ? col.transform(rawValue, row) : rawValue;
     });
@@ -176,7 +213,11 @@ export async function exportData<T>(options: ExportOptions<T>): Promise<void> {
     case 'xlsx': {
       // Excel export now dynamically loads xlsx library
       const excelBuffer = await generateExcel(columns, data, sheetName);
-      downloadFile(excelBuffer, `${fullFilename}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      downloadFile(
+        excelBuffer,
+        `${fullFilename}.xlsx`,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
       break;
     }
     case 'json': {
@@ -196,70 +237,187 @@ export const exportConfigs = {
     { key: 'controlId', header: 'Control ID' },
     { key: 'title', header: 'Title' },
     { key: 'description', header: 'Description' },
-    { key: 'status', header: 'Status', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+    {
+      key: 'status',
+      header: 'Status',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
     { key: 'category', header: 'Category' },
     { key: 'owner', header: 'Owner' },
-    { key: 'implementationDate', header: 'Implementation Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
-    { key: 'lastReviewDate', header: 'Last Review Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
-    { key: 'nextReviewDate', header: 'Next Review Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
+    {
+      key: 'implementationDate',
+      header: 'Implementation Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+    {
+      key: 'lastReviewDate',
+      header: 'Last Review Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+    {
+      key: 'nextReviewDate',
+      header: 'Next Review Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
   ],
-  
+
   risks: [
     { key: 'title', header: 'Title' },
     { key: 'description', header: 'Description' },
-    { key: 'riskLevel', header: 'Risk Level', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-    { key: 'status', header: 'Status', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+    {
+      key: 'riskLevel',
+      header: 'Risk Level',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
     { key: 'category', header: 'Category' },
     { key: 'likelihood', header: 'Likelihood' },
     { key: 'impact', header: 'Impact' },
     { key: 'owner', header: 'Owner' },
     { key: 'treatmentPlan', header: 'Treatment Plan' },
-    { key: 'createdAt', header: 'Created Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
+    {
+      key: 'createdAt',
+      header: 'Created Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
   ],
-  
+
   vendors: [
     { key: 'name', header: 'Vendor Name' },
     { key: 'description', header: 'Description' },
     { key: 'category', header: 'Category' },
-    { key: 'riskTier', header: 'Risk Tier', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-    { key: 'status', header: 'Status', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+    {
+      key: 'riskTier',
+      header: 'Risk Tier',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
     { key: 'primaryContact', header: 'Primary Contact' },
     { key: 'contactEmail', header: 'Contact Email' },
     { key: 'website', header: 'Website' },
-    { key: 'contractStartDate', header: 'Contract Start', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
-    { key: 'contractEndDate', header: 'Contract End', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
+    {
+      key: 'contractStartDate',
+      header: 'Contract Start',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+    {
+      key: 'contractEndDate',
+      header: 'Contract End',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
   ],
-  
+
   policies: [
     { key: 'title', header: 'Title' },
     { key: 'description', header: 'Description' },
-    { key: 'status', header: 'Status', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+    {
+      key: 'status',
+      header: 'Status',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
     { key: 'category', header: 'Category' },
     { key: 'version', header: 'Version' },
     { key: 'owner', header: 'Owner' },
-    { key: 'effectiveDate', header: 'Effective Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
-    { key: 'reviewDate', header: 'Review Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
+    {
+      key: 'effectiveDate',
+      header: 'Effective Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+    {
+      key: 'reviewDate',
+      header: 'Review Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
     { key: 'approvedBy', header: 'Approved By' },
   ],
-  
+
   assets: [
     { key: 'name', header: 'Asset Name' },
     { key: 'description', header: 'Description' },
-    { key: 'type', header: 'Type', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-    { key: 'criticality', header: 'Criticality', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-    { key: 'status', header: 'Status', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+    {
+      key: 'type',
+      header: 'Type',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
+    {
+      key: 'criticality',
+      header: 'Criticality',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
     { key: 'owner', header: 'Owner' },
     { key: 'location', header: 'Location' },
     { key: 'dataClassification', header: 'Data Classification' },
   ],
-  
+
   audits: [
     { key: 'name', header: 'Audit Name' },
-    { key: 'type', header: 'Type', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-    { key: 'status', header: 'Status', transform: (v: unknown) => String(v).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+    {
+      key: 'type',
+      header: 'Type',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      transform: (v: unknown) =>
+        String(v)
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
+    },
     { key: 'auditor', header: 'Auditor' },
-    { key: 'startDate', header: 'Start Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
-    { key: 'endDate', header: 'End Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
+    {
+      key: 'startDate',
+      header: 'Start Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
+    {
+      key: 'endDate',
+      header: 'End Date',
+      transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+    },
     { key: 'framework', header: 'Framework' },
   ],
 };

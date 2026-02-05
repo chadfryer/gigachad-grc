@@ -1,18 +1,10 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UseGuards,
-  Req,
-  Res,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Req, Res, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { AuditService } from './audit.service';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 import { AuditLogFilterDto } from './dto/audit.dto';
+import { Roles, RolesGuard, EndpointRateLimit, ENDPOINT_RATE_LIMITS } from '@gigachad-grc/shared';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -26,17 +18,17 @@ interface AuthenticatedRequest extends Request {
 @ApiTags('Audit')
 @ApiBearerAuth()
 @Controller('api/audit')
-@UseGuards(DevAuthGuard)
+@UseGuards(DevAuthGuard, RolesGuard)
+// SECURITY: Audit logs contain sensitive information about all system activities
+// Access restricted to admin and auditor roles only
+@Roles('admin', 'auditor')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
   @ApiOperation({ summary: 'List audit logs with filters' })
   @ApiResponse({ status: 200, description: 'Returns paginated audit logs' })
-  async findAll(
-    @Req() req: AuthenticatedRequest,
-    @Query() filters: AuditLogFilterDto,
-  ) {
+  async findAll(@Req() req: AuthenticatedRequest, @Query() filters: AuditLogFilterDto) {
     const { organizationId } = req.user;
     return this.auditService.findAll(organizationId, filters);
   }
@@ -47,19 +39,20 @@ export class AuditController {
   async getStats(
     @Req() req: AuthenticatedRequest,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query('endDate') endDate?: string
   ) {
     const { organizationId } = req.user;
     return this.auditService.getStats(organizationId, startDate, endDate);
   }
 
   @Get('export')
+  @EndpointRateLimit(ENDPOINT_RATE_LIMITS.EXPORT)
   @ApiOperation({ summary: 'Export audit logs as CSV' })
   @ApiResponse({ status: 200, description: 'Returns CSV file' })
   async exportLogs(
     @Req() req: AuthenticatedRequest,
     @Res() res: Response,
-    @Query() filters: AuditLogFilterDto,
+    @Query() filters: AuditLogFilterDto
   ) {
     const { organizationId } = req.user;
     const logs = await this.auditService.exportLogs(organizationId, filters);
@@ -78,12 +71,15 @@ export class AuditController {
           .map((h) => {
             const value = log[h as keyof typeof log];
             // Escape quotes and wrap in quotes if contains comma or newline
-            if (typeof value === 'string' && (value.includes(',') || value.includes('\n') || value.includes('"'))) {
+            if (
+              typeof value === 'string' &&
+              (value.includes(',') || value.includes('\n') || value.includes('"'))
+            ) {
               return `"${value.replace(/"/g, '""')}"`;
             }
             return value;
           })
-          .join(','),
+          .join(',')
       ),
     ];
     const csv = csvRows.join('\n');
@@ -109,26 +105,17 @@ export class AuditController {
     @Req() req: AuthenticatedRequest,
     @Param('entityType') entityType: string,
     @Param('entityId') entityId: string,
-    @Query('limit') limit?: number,
+    @Query('limit') limit?: number
   ) {
     const { organizationId } = req.user;
-    return this.auditService.findByEntity(
-      organizationId,
-      entityType,
-      entityId,
-      limit || 50,
-    );
+    return this.auditService.findByEntity(organizationId, entityType, entityId, limit || 50);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single audit log entry' })
   @ApiResponse({ status: 200, description: 'Returns the audit log entry' })
-  async findOne(
-    @Req() req: AuthenticatedRequest,
-    @Param('id') id: string,
-  ) {
+  async findOne(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     const { organizationId } = req.user;
     return this.auditService.findOne(id, organizationId);
   }
 }
-

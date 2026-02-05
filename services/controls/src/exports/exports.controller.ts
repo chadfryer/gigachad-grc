@@ -1,28 +1,16 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
 import { Response } from 'express';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ExportsService } from './exports.service';
+import { CreateExportJobDto, ExportJobDto, ExportJobListQueryDto } from './dto/export.dto';
 import {
-  CreateExportJobDto,
-  ExportJobDto,
-  ExportJobListQueryDto,
-} from './dto/export.dto';
-import { CurrentUser, UserContext, Roles, RolesGuard, EndpointRateLimit, ENDPOINT_RATE_LIMITS } from '@gigachad-grc/shared';
+  CurrentUser,
+  UserContext,
+  Roles,
+  RolesGuard,
+  EndpointRateLimit,
+  ENDPOINT_RATE_LIMITS,
+} from '@gigachad-grc/shared';
 import { DevAuthGuard } from '../auth/dev-auth.guard';
 
 @ApiTags('Exports')
@@ -33,20 +21,19 @@ export class ExportsController {
   constructor(private readonly exportsService: ExportsService) {}
 
   @Get()
+  @Roles('admin', 'compliance_manager', 'auditor')
   @ApiOperation({ summary: 'List export jobs' })
-  async listExportJobs(
-    @CurrentUser() user: UserContext,
-    @Query() query: ExportJobListQueryDto,
-  ) {
+  async listExportJobs(@CurrentUser() user: UserContext, @Query() query: ExportJobListQueryDto) {
     return this.exportsService.listExportJobs(user.organizationId, query);
   }
 
   @Get(':id')
+  @Roles('admin', 'compliance_manager', 'auditor')
   @ApiOperation({ summary: 'Get export job status' })
   @ApiResponse({ status: 200, type: ExportJobDto })
   async getExportJob(
     @CurrentUser() user: UserContext,
-    @Param('id') id: string,
+    @Param('id') id: string
   ): Promise<ExportJobDto> {
     return this.exportsService.getExportJob(user.organizationId, id);
   }
@@ -58,30 +45,27 @@ export class ExportsController {
   @ApiResponse({ status: 201, type: ExportJobDto })
   async createExportJob(
     @CurrentUser() user: UserContext,
-    @Body() dto: CreateExportJobDto,
+    @Body() dto: CreateExportJobDto
   ): Promise<ExportJobDto> {
-    return this.exportsService.createExportJob(
-      user.organizationId,
-      user.userId,
-      dto,
-    );
+    return this.exportsService.createExportJob(user.organizationId, user.userId, dto);
   }
 
   @Get(':id/download')
+  @Roles('admin', 'compliance_manager', 'auditor')
   @EndpointRateLimit(ENDPOINT_RATE_LIMITS.EXPORT)
   @ApiOperation({ summary: 'Download export file' })
   async downloadExport(
     @CurrentUser() user: UserContext,
     @Param('id') id: string,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     const { content, contentType, fileName } = await this.exportsService.downloadExport(
       user.organizationId,
-      id,
+      id
     );
 
     const buffer = Buffer.from(content, 'base64');
-    
+
     res.set({
       'Content-Type': contentType,
       'Content-Disposition': `attachment; filename="${fileName}"`,
@@ -92,11 +76,9 @@ export class ExportsController {
   }
 
   @Delete(':id')
+  @Roles('admin', 'compliance_manager', 'auditor')
   @ApiOperation({ summary: 'Cancel an export job' })
-  async cancelExportJob(
-    @CurrentUser() user: UserContext,
-    @Param('id') id: string,
-  ): Promise<void> {
+  async cancelExportJob(@CurrentUser() user: UserContext, @Param('id') id: string): Promise<void> {
     return this.exportsService.cancelExportJob(user.organizationId, id);
   }
 }

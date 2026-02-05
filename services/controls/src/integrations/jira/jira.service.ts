@@ -30,8 +30,49 @@ interface _JiraApiResponse<T> {
 @Injectable()
 export class JiraService {
   private readonly logger = new Logger(JiraService.name);
+  private readonly allowedRedirectOrigins: string[];
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    // SECURITY: Configure allowed redirect URI origins from environment
+    // This prevents open redirect vulnerabilities in OAuth flows
+    const configuredOrigins = process.env.OAUTH_ALLOWED_REDIRECT_ORIGINS || '';
+    this.allowedRedirectOrigins = configuredOrigins
+      ? configuredOrigins.split(',').map((o) => o.trim())
+      : ['http://localhost:3000', 'http://localhost:5173'];
+
+    // Add CORS_ORIGINS if configured (common case)
+    const corsOrigins = process.env.CORS_ORIGINS || '';
+    if (corsOrigins) {
+      corsOrigins.split(',').forEach((origin) => {
+        const trimmed = origin.trim();
+        if (trimmed && !this.allowedRedirectOrigins.includes(trimmed)) {
+          this.allowedRedirectOrigins.push(trimmed);
+        }
+      });
+    }
+  }
+
+  /**
+   * SECURITY: Validate redirect URI against allowlist
+   * Prevents open redirect vulnerabilities in OAuth flows
+   */
+  private validateRedirectUri(redirectUri: string): void {
+    try {
+      const url = new URL(redirectUri);
+      const origin = `${url.protocol}//${url.host}`;
+
+      if (!this.allowedRedirectOrigins.includes(origin)) {
+        this.logger.warn(
+          `SECURITY: Rejected OAuth redirect to non-allowed origin: ${origin}. ` +
+            `Allowed: ${this.allowedRedirectOrigins.join(', ')}`
+        );
+        throw new BadRequestException('Invalid redirect URI: origin not in allowed list');
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException('Invalid redirect URI format');
+    }
+  }
 
   // ===========================================
   // Connection Management
@@ -100,6 +141,9 @@ export class JiraService {
   }
 
   async getOAuthUrl(organizationId: string, redirectUri: string): Promise<string> {
+    // SECURITY: Validate redirect URI against allowlist before using
+    this.validateRedirectUri(redirectUri);
+
     const connection = await this.prisma.jiraConnection.findUnique({
       where: { organizationId },
     });
@@ -129,6 +173,9 @@ export class JiraService {
     code: string,
     redirectUri: string
   ): Promise<JiraConnectionResponseDto> {
+    // SECURITY: Validate redirect URI matches what was used in initial auth request
+    this.validateRedirectUri(redirectUri);
+
     const connection = await this.prisma.jiraConnection.findUnique({
       where: { organizationId },
     });

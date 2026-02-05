@@ -1,4 +1,3 @@
- 
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 
@@ -45,8 +44,31 @@ export class SlackService {
     this.enabled = !!(this.webhookUrl || this.botToken);
 
     if (!this.enabled) {
-      this.logger.warn('Slack integration is not configured. Set SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN to enable.');
+      this.logger.warn(
+        'Slack integration is not configured. Set SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN to enable.'
+      );
     }
+  }
+
+  /**
+   * SECURITY: Escape Slack mrkdwn special characters to prevent injection.
+   * Slack uses mrkdwn format where *, _, ~, `, >, and < have special meaning.
+   * User-controlled content must be escaped to prevent formatting injection.
+   * @see https://api.slack.com/reference/surfaces/formatting
+   */
+  private escapeSlackMrkdwn(text: string): string {
+    if (!text) return '';
+    // Escape special mrkdwn characters: & < > * _ ~ ` |
+    // Note: & < > are also HTML entities that Slack interprets
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\*/g, '\\*')
+      .replace(/_/g, '\\_')
+      .replace(/~/g, '\\~')
+      .replace(/`/g, '\\`')
+      .replace(/\|/g, '\\|');
   }
 
   /**
@@ -65,13 +87,22 @@ export class SlackService {
     }
 
     const priorityEmoji = this.getPriorityEmoji(notification.priority);
-    const dueDateText = notification.dueDate 
+    const dueDateText = notification.dueDate
       ? `\n:calendar: Due: ${notification.dueDate.toLocaleDateString()}`
       : '';
 
+    // SECURITY: Escape user-controlled content to prevent Slack mrkdwn injection
+    const safeTaskTitle = this.escapeSlackMrkdwn(notification.taskTitle);
+    const safeRiskId = this.escapeSlackMrkdwn(notification.riskId);
+    const safeRiskTitle = this.escapeSlackMrkdwn(notification.riskTitle);
+    const safeTaskType = this.escapeSlackMrkdwn(this.formatTaskType(notification.taskType));
+    const safePriority = this.escapeSlackMrkdwn(
+      notification.priority.charAt(0).toUpperCase() + notification.priority.slice(1)
+    );
+
     const message: SlackMessage = {
       userId: notification.slackUserId,
-      text: `${priorityEmoji} New Task Assigned: ${notification.taskTitle}`,
+      text: `${priorityEmoji} New Task Assigned: ${safeTaskTitle}`,
       blocks: [
         {
           type: 'header',
@@ -86,19 +117,19 @@ export class SlackService {
           fields: [
             {
               type: 'mrkdwn',
-              text: `*Task:*\n${notification.taskTitle}`,
+              text: `*Task:*\n${safeTaskTitle}`,
             },
             {
               type: 'mrkdwn',
-              text: `*Type:*\n${this.formatTaskType(notification.taskType)}`,
+              text: `*Type:*\n${safeTaskType}`,
             },
             {
               type: 'mrkdwn',
-              text: `*Risk:*\n${notification.riskId} - ${notification.riskTitle}`,
+              text: `*Risk:*\n${safeRiskId} - ${safeRiskTitle}`,
             },
             {
               type: 'mrkdwn',
-              text: `*Priority:*\n${notification.priority.charAt(0).toUpperCase() + notification.priority.slice(1)}${dueDateText}`,
+              text: `*Priority:*\n${safePriority}${dueDateText}`,
             },
           ],
         },
@@ -131,21 +162,27 @@ export class SlackService {
     taskTitle: string,
     riskId: string,
     completedByName: string,
-    resultingAction?: string,
+    resultingAction?: string
   ): Promise<boolean> {
     if (!this.enabled || !slackUserId) {
       return false;
     }
 
+    // SECURITY: Escape user-controlled content to prevent Slack mrkdwn injection
+    const safeTaskTitle = this.escapeSlackMrkdwn(taskTitle);
+    const safeRiskId = this.escapeSlackMrkdwn(riskId);
+    const safeCompletedByName = this.escapeSlackMrkdwn(completedByName);
+    const safeResultingAction = resultingAction ? this.escapeSlackMrkdwn(resultingAction) : '';
+
     const message: SlackMessage = {
       userId: slackUserId,
-      text: `:white_check_mark: Task Completed: ${taskTitle}`,
+      text: `:white_check_mark: Task Completed: ${safeTaskTitle}`,
       blocks: [
         {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `:white_check_mark: *Task Completed*\n*${taskTitle}*\n\nRisk: ${riskId}\nCompleted by: ${completedByName}${resultingAction ? `\nResult: ${resultingAction}` : ''}`,
+            text: `:white_check_mark: *Task Completed*\n*${safeTaskTitle}*\n\nRisk: ${safeRiskId}\nCompleted by: ${safeCompletedByName}${safeResultingAction ? `\nResult: ${safeResultingAction}` : ''}`,
           },
         },
       ],
@@ -172,7 +209,7 @@ export class SlackService {
             Authorization: `Bearer ${this.botToken}`,
             'Content-Type': 'application/json',
           },
-        },
+        }
       );
 
       if (!openResponse.data.ok) {
@@ -200,7 +237,7 @@ export class SlackService {
             Authorization: `Bearer ${this.botToken}`,
             'Content-Type': 'application/json',
           },
-        },
+        }
       );
 
       if (!sendResponse.data.ok) {
@@ -259,7 +296,7 @@ export class SlackService {
   private formatTaskType(taskType: string): string {
     return taskType
       .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
   }
 }

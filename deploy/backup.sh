@@ -42,6 +42,11 @@ RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 # Compression settings
 COMPRESSION_LEVEL="${BACKUP_COMPRESSION_LEVEL:-6}"
 
+# SECURITY: Encryption settings for backup at rest
+# Generate a key with: openssl rand -base64 32
+BACKUP_ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY:-}"
+BACKUP_ENCRYPT_ENABLED="${BACKUP_ENCRYPT_ENABLED:-false}"
+
 # Docker Compose settings
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
 ENV_FILE="${PROJECT_DIR}/.env.prod"
@@ -323,6 +328,12 @@ create_manifest() {
     "configs": "configs/",
     "volumes": "volumes/"
   },
+  "security": {
+    "encrypted": ${BACKUP_ENCRYPT_ENABLED:-false},
+    "encryption_algorithm": "aes-256-cbc",
+    "key_derivation": "pbkdf2",
+    "key_iterations": 100000
+  },
   "retention_days": $RETENTION_DAYS
 }
 EOF
@@ -340,11 +351,80 @@ calculate_backup_size() {
     log_success "Total backup size: $backup_size"
 }
 
+# Encrypt backup archive with AES-256
+encrypt_archive() {
+    local input_file="$1"
+    local output_file="$2"
+
+    log_info "Encrypting backup archive with AES-256..."
+
+    # SECURITY: Use AES-256-CBC with PBKDF2 key derivation
+    # -salt adds a random salt to prevent rainbow table attacks
+    # -pbkdf2 uses Password-Based Key Derivation Function 2
+    # -iter 100000 uses 100,000 iterations for key stretching
+    if ! openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 \
+        -in "$input_file" \
+        -out "$output_file" \
+        -pass env:BACKUP_ENCRYPTION_KEY; then
+        error_exit "Failed to encrypt backup archive"
+    fi
+
+    # Securely remove unencrypted archive
+    log_info "Removing unencrypted backup archive..."
+    rm -f "$input_file"
+
+    log_success "Backup archive encrypted successfully"
+}
+
+# SECURITY: Generate HMAC signature for backup integrity verification
+# This allows verifying the backup hasn't been tampered with during restore
+generate_backup_signature() {
+    local archive_file="$1"
+    local signature_file="${archive_file}.sig"
+    
+    # Check if signing key is configured
+    if [ -z "${BACKUP_SIGNING_KEY:-}" ]; then
+        log_warning "BACKUP_SIGNING_KEY not set - backup signature will not be generated"
+        log_warning "Set BACKUP_SIGNING_KEY to enable backup integrity verification on restore"
+        return 0
+    fi
+    
+    log_info "Generating HMAC-SHA256 signature for backup..."
+    
+    # Generate HMAC-SHA256 signature
+    # Using openssl dgst for HMAC as it's widely available
+    local signature
+    signature=$(openssl dgst -sha256 -hmac "${BACKUP_SIGNING_KEY}" -hex "${archive_file}" 2>/dev/null | awk '{print $2}')
+    
+    if [ -z "$signature" ]; then
+        log_warning "Failed to generate backup signature"
+        return 1
+    fi
+    
+    # Write signature file with metadata
+    cat > "$signature_file" <<EOF
+{
+  "version": 1,
+  "algorithm": "HMAC-SHA256",
+  "archive": "$(basename "$archive_file")",
+  "signature": "${signature}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "hostname": "$(hostname)"
+}
+EOF
+    
+    chmod 600 "$signature_file"
+    
+    log_success "Backup signature generated: $(basename "$signature_file")"
+    log_info "Signature: ${signature:0:16}...${signature: -16}"
+}
+
 # Create archive
 create_archive() {
     log_info "Creating backup archive..."
 
     local archive_file="${BACKUP_ROOT}/backup-${TIMESTAMP}.tar.gz"
+    local encrypted_file="${BACKUP_ROOT}/backup-${TIMESTAMP}.tar.gz.enc"
 
     # Create compressed archive
     tar -czf "$archive_file" -C "$BACKUP_ROOT" "backup-${TIMESTAMP}" \
@@ -356,6 +436,34 @@ create_archive() {
 
     log_success "Backup archive created: $archive_file (Size: $archive_size)"
 
+    # SECURITY: Encrypt backup if enabled
+    if [ "${BACKUP_ENCRYPT_ENABLED}" = "true" ]; then
+        if [ -z "${BACKUP_ENCRYPTION_KEY}" ]; then
+            error_exit "BACKUP_ENCRYPT_ENABLED is true but BACKUP_ENCRYPTION_KEY is not set"
+        fi
+
+        if [ ${#BACKUP_ENCRYPTION_KEY} -lt 32 ]; then
+            error_exit "BACKUP_ENCRYPTION_KEY must be at least 32 characters long"
+        fi
+
+        encrypt_archive "$archive_file" "$encrypted_file"
+
+        # Update archive file reference for subsequent operations
+        archive_file="$encrypted_file"
+
+        local encrypted_size
+        encrypted_size=$(du -sh "$archive_file" | cut -f1)
+        log_info "Encrypted archive size: $encrypted_size"
+    else
+        if [ "${NODE_ENV:-development}" = "production" ]; then
+            log_warning "SECURITY: Backup encryption is disabled in production. " \
+                "Set BACKUP_ENCRYPT_ENABLED=true and BACKUP_ENCRYPTION_KEY for encrypted backups."
+        fi
+    fi
+
+    # Generate signature for integrity verification
+    generate_backup_signature "$archive_file"
+    
     # Remove uncompressed backup directory
     rm -rf "$BACKUP_DIR"
 
@@ -392,7 +500,14 @@ upload_to_remote() {
     if [ "${DR_REMOTE_BACKUP_ENABLED:-false}" = "true" ]; then
         log_info "Uploading backup to remote storage..."
 
-        local archive_file="${BACKUP_ROOT}/backup-${TIMESTAMP}.tar.gz"
+        # Use encrypted file if encryption is enabled, otherwise use standard archive
+        local archive_file
+        if [ "${BACKUP_ENCRYPT_ENABLED}" = "true" ]; then
+            archive_file="${BACKUP_ROOT}/backup-${TIMESTAMP}.tar.gz.enc"
+        else
+            archive_file="${BACKUP_ROOT}/backup-${TIMESTAMP}.tar.gz"
+        fi
+
         local s3_bucket="${DR_REMOTE_BACKUP_S3_BUCKET}"
         local s3_region="${DR_REMOTE_BACKUP_REGION:-us-east-1}"
 

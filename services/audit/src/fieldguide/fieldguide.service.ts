@@ -2,7 +2,10 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { AuditStatus } from '@prisma/client';
-import { safeFetch } from '@gigachad-grc/shared';
+import {
+  safeFetch,
+  verifyWebhookSignature as verifySharedWebhookSignature,
+} from '@gigachad-grc/shared';
 import {
   FieldGuideConnectDto,
   FieldGuideConnectionStatusDto,
@@ -503,19 +506,37 @@ export class FieldGuideService {
     });
   }
 
+  /**
+   * SECURITY: Verify webhook signature with timestamp validation
+   * Supports both legacy format (sha256=<hex>) and new format (t=<timestamp>,v1=<signature>)
+   * The new format includes a timestamp to prevent replay attacks
+   */
   private verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
     if (!secret) return true; // Skip verification if no secret configured
+
+    // Check if signature uses new timestamp-based format
+    if (signature.includes('t=') && signature.includes('v1=')) {
+      // Use the shared verifyWebhookSignature which validates timestamp
+      // Default tolerance is 300 seconds (5 minutes)
+      return verifySharedWebhookSignature(rawBody, signature, secret, 300);
+    }
+
+    // Legacy format: sha256=<hex> or just <hex>
+    const actualSignature = signature.startsWith('sha256=') ? signature.substring(7) : signature;
 
     const expectedSignature = createHmac('sha256', secret).update(rawBody).digest('hex');
 
     // SECURITY: Use timingSafeEqual to prevent timing attacks
     // Regular string comparison (===) can leak timing information
     // that could allow attackers to forge valid signatures
-    if (signature.length !== expectedSignature.length) {
+    if (actualSignature.length !== expectedSignature.length) {
       return false;
     }
 
-    return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
+    return timingSafeEqual(
+      Buffer.from(actualSignature, 'hex'),
+      Buffer.from(expectedSignature, 'hex')
+    );
   }
 
   // ============================================
