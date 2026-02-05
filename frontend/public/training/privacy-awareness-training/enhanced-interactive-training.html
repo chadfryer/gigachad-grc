@@ -2807,12 +2807,10 @@
       
       // Get the feedback HTML based on request and choice
       let feedbackHTML = '';
-      let isCorrect = false;
       
       if (requestNum === 1) {
         // Request 1: Invalid - Too broad, no account
         if (choice === 'invalid') {
-          isCorrect = true;
           feedbackHTML = `
             <div class="alert alert-success">
               <h3>✅ Correct! This is NOT a valid request.</h3>
@@ -2844,7 +2842,6 @@
       } else if (requestNum === 2) {
         // Request 2: Valid - Proper CCPA request
         if (choice === 'valid') {
-          isCorrect = true;
           feedbackHTML = `
             <div class="alert alert-success">
               <h3>✅ Correct! This IS a valid CCPA request.</h3>
@@ -2877,7 +2874,6 @@
       } else if (requestNum === 3) {
         // Request 3: Invalid - Misuse of data portability
         if (choice === 'invalid') {
-          isCorrect = true;
           feedbackHTML = `
             <div class="alert alert-success">
               <h3>✅ Correct! This is NOT a valid request.</h3>

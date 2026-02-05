@@ -2754,9 +2754,6 @@
             // Only proceed if we have the feedback div (scenarios are loaded)
             if (!feedbackDiv) return; // Skip this scenario if not loaded yet
             
-            // Check if this was marked as completed (correct answer)
-            const isCompleted = completedScenarios[choiceKey];
-            
             if (option) {
               // Clear all button styling first
               buttons.forEach(btn => {

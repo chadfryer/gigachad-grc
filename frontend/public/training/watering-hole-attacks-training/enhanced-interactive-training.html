@@ -1011,7 +1011,6 @@
       const trustKey = `trust_decision`;
       
       const feedbackDiv = document.getElementById('trustFeedback');
-      const popup = document.getElementById('fakePopup');
       const buttons = document.querySelectorAll('#slide5 .decision-btn');
       
       // Save the choice
@@ -1964,7 +1963,6 @@
           
           // Determine colors based on choice
           const isCorrect = choice === 'verify' || choice === 'report';
-          const isPartial = false;
           const color = isCorrect ? '#4CAF50' : '#f44336';
           const darkColor = isCorrect ? '#2E7D32' : '#C62828';
           const icon = isCorrect ? '✅' : '❌';
