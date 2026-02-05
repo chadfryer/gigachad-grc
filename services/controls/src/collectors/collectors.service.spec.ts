@@ -6,6 +6,16 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { STORAGE_PROVIDER } from '@gigachad-grc/shared';
 
+// Mock safeFetch from shared library - must be before any imports that use it
+const mockSafeFetch = jest.fn();
+jest.mock('@gigachad-grc/shared', () => {
+  const original = jest.requireActual('@gigachad-grc/shared');
+  return {
+    ...original,
+    safeFetch: (...args: any[]) => mockSafeFetch(...args),
+  };
+});
+
 // Mock Prometheus Counter
 const mockCounter = {
   inc: jest.fn(),
@@ -34,10 +44,8 @@ describe('CollectorsService - resilience features', () => {
   });
 
   describe('executeApiCall retry & timeout behavior', () => {
-    const originalFetch = global.fetch as any;
-
     afterEach(() => {
-      global.fetch = originalFetch;
+      mockSafeFetch.mockReset();
       jest.restoreAllMocks();
     });
 
@@ -47,8 +55,7 @@ describe('CollectorsService - resilience features', () => {
         new Response(JSON.stringify({ ok: true }), { status: 200 }),
       ];
 
-      const fetchMock = jest.fn().mockImplementation(() => responses.shift());
-      global.fetch = fetchMock as any;
+      mockSafeFetch.mockImplementation(() => Promise.resolve(responses.shift()));
 
       const retrySpy = jest
         .spyOn<any, any>(service as any, 'retryWithBackoff')
@@ -87,17 +94,14 @@ describe('CollectorsService - resilience features', () => {
 
       const result = await promise;
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(mockSafeFetch).toHaveBeenCalledTimes(2);
       expect(retrySpy).toHaveBeenCalled();
       expect(result.statusCode).toBe(200);
       expect(result.data).toEqual({ ok: true });
     });
 
     it('does not retry on 4xx errors', async () => {
-      const fetchMock = jest
-        .fn()
-        .mockResolvedValue(new Response('bad request', { status: 400 }));
-      global.fetch = fetchMock as any;
+      mockSafeFetch.mockResolvedValue(new Response('bad request', { status: 400 }));
 
       jest
         .spyOn<any, any>(service as any, 'retryWithBackoff')
@@ -112,23 +116,22 @@ describe('CollectorsService - resilience features', () => {
       await expect(
         (service as any).executeApiCall(collector, {
           timeoutMs: 10000,
-        }),
+        })
       ).rejects.toThrow();
 
       // Should only call fetch once, because retries are for 5xx/network failures
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(mockSafeFetch).toHaveBeenCalledTimes(1);
     });
 
     it('aborts when request exceeds timeout', async () => {
       const abortError = new Error('The operation was aborted.');
-      const fetchMock = jest.fn().mockImplementation(
+      mockSafeFetch.mockImplementation(
         () =>
           new Promise((_resolve, reject) => {
             // The abort will cause fetch to reject
             setTimeout(() => reject(abortError), 1000);
-          }),
+          })
       );
-      global.fetch = fetchMock as any;
 
       jest
         .spyOn<any, any>(service as any, 'retryWithBackoff')
@@ -145,9 +148,7 @@ describe('CollectorsService - resilience features', () => {
       });
 
       await expect(promise).rejects.toThrow();
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(mockSafeFetch).toHaveBeenCalledTimes(1);
     });
   });
 });
-
-

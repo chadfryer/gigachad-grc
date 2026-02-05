@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsIn, IsArray, ValidateNested, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsIn,
+  IsArray,
+  ValidateNested,
+  IsObject,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Endpoint configuration for visual mode
@@ -67,7 +76,7 @@ export class ApiKeyAuthConfigDto {
 // OAuth 2.0 authentication config
 export class OAuth2AuthConfigDto {
   @ApiProperty({ description: 'Token endpoint URL' })
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   tokenUrl: string;
 
   @ApiProperty({ description: 'Client ID' })
@@ -94,7 +103,7 @@ export class SaveCustomConfigDto {
   // Visual mode fields
   @ApiPropertyOptional({ description: 'Base URL for API calls' })
   @IsOptional()
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   baseUrl?: string;
 
   @ApiPropertyOptional({
@@ -130,6 +139,7 @@ export class SaveCustomConfigDto {
   @ApiPropertyOptional({ description: 'Custom JavaScript code for advanced integrations' })
   @IsOptional()
   @IsString()
+  @MaxLength(50000)
   customCode?: string;
 }
 
@@ -141,7 +151,7 @@ export class TestEndpointDto {
 
   @ApiPropertyOptional({ description: 'Override base URL for testing' })
   @IsOptional()
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   baseUrl?: string;
 
   // SECURITY: Removed authConfig override - tests must use stored encrypted credentials

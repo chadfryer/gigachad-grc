@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 
 export interface WizConfig {
   clientId: string;
   clientSecret: string;
-  apiEndpoint?: string;  // e.g., https://api.us1.app.wiz.io
+  apiEndpoint?: string; // e.g., https://api.us1.app.wiz.io
 }
 
 export interface WizSyncResult {
@@ -64,7 +65,9 @@ export class WizConnector {
   private readonly logger = new Logger(WizConnector.name);
   private readonly defaultEndpoint = 'https://api.us1.app.wiz.io';
 
-  async testConnection(config: WizConfig): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(
+    config: WizConfig
+  ): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.clientId || !config.clientSecret) {
       return { success: false, message: 'Client ID and Client Secret are required' };
     }
@@ -95,9 +98,18 @@ export class WizConnector {
 
     const endpoint = config.apiEndpoint || this.defaultEndpoint;
     const [issues, vulnerabilities, resources] = await Promise.all([
-      this.getIssues(endpoint, token).catch(e => { errors.push(`Issues: ${e.message}`); return []; }),
-      this.getVulnerabilities(endpoint, token).catch(e => { errors.push(`Vulns: ${e.message}`); return { total: 0, critical: 0, high: 0, exploitable: 0, fixAvailable: 0 }; }),
-      this.getCloudResources(endpoint, token).catch(e => { errors.push(`Resources: ${e.message}`); return { total: 0, byProvider: {}, byType: {} }; }),
+      this.getIssues(endpoint, token).catch((e) => {
+        errors.push(`Issues: ${e.message}`);
+        return [];
+      }),
+      this.getVulnerabilities(endpoint, token).catch((e) => {
+        errors.push(`Vulns: ${e.message}`);
+        return { total: 0, critical: 0, high: 0, exploitable: 0, fixAvailable: 0 };
+      }),
+      this.getCloudResources(endpoint, token).catch((e) => {
+        errors.push(`Resources: ${e.message}`);
+        return { total: 0, byProvider: {}, byType: {} };
+      }),
     ]);
 
     return {
@@ -154,11 +166,19 @@ export class WizConnector {
 
   private async getIssues(endpoint: string, token: string): Promise<any[]> {
     const query = `query { issues(first: 100, filterBy: { status: [OPEN, IN_PROGRESS] }) { nodes { id severity status type createdAt control { name } entity { name type } } } }`;
-    const response = await fetch(`${endpoint}/graphql`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-    });
+    let response: Response;
+    try {
+      response = await safeFetch(`${endpoint}/graphql`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
     if (!response.ok) throw new Error(`Failed: ${response.status}`);
     const data = await response.json();
     return data.data?.issues?.nodes || [];
@@ -174,4 +194,3 @@ export class WizConnector {
     return { total: 0, byProvider: {}, byType: {} };
   }
 }
-

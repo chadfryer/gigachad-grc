@@ -1,14 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsIn, IsObject, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsIn,
+  IsObject,
+  IsUUID,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateCollectorDto {
   @ApiProperty({ description: 'Name of the evidence collector' })
   @IsString()
+  @MaxLength(500)
   name: string;
 
   @ApiPropertyOptional({ description: 'Description of what this collector does' })
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiProperty({ enum: ['standalone', 'integration'], description: 'Configuration mode' })
@@ -23,7 +34,7 @@ export class CreateCollectorDto {
 
   @ApiPropertyOptional({ description: 'Base URL for API calls (standalone mode)' })
   @IsOptional()
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   baseUrl?: string;
 
   @ApiPropertyOptional({ description: 'API endpoint path' })
@@ -52,7 +63,10 @@ export class CreateCollectorDto {
   @IsObject()
   body?: Record<string, unknown>;
 
-  @ApiPropertyOptional({ enum: ['api_key', 'oauth2', 'bearer', 'basic'], description: 'Authentication type (standalone mode)' })
+  @ApiPropertyOptional({
+    enum: ['api_key', 'oauth2', 'bearer', 'basic'],
+    description: 'Authentication type (standalone mode)',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['api_key', 'oauth2', 'bearer', 'basic'])
@@ -72,7 +86,9 @@ export class CreateCollectorDto {
     dataField?: string; // JSONPath to extract main data
   };
 
-  @ApiPropertyOptional({ description: 'Template for evidence title (use {{field}} for interpolation)' })
+  @ApiPropertyOptional({
+    description: 'Template for evidence title (use {{field}} for interpolation)',
+  })
   @IsOptional()
   @IsString()
   evidenceTitle?: string;
@@ -87,7 +103,10 @@ export class CreateCollectorDto {
   @IsBoolean()
   scheduleEnabled?: boolean;
 
-  @ApiPropertyOptional({ enum: ['daily', 'weekly', 'monthly', 'custom'], description: 'Schedule frequency' })
+  @ApiPropertyOptional({
+    enum: ['daily', 'weekly', 'monthly', 'custom'],
+    description: 'Schedule frequency',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['daily', 'weekly', 'monthly', 'custom'])
@@ -103,11 +122,13 @@ export class UpdateCollectorDto {
   @ApiPropertyOptional({ description: 'Name of the evidence collector' })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   name?: string;
 
   @ApiPropertyOptional({ description: 'Description of what this collector does' })
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiPropertyOptional({ enum: ['standalone', 'integration'], description: 'Configuration mode' })
@@ -123,7 +144,7 @@ export class UpdateCollectorDto {
 
   @ApiPropertyOptional({ description: 'Base URL for API calls (standalone mode)' })
   @IsOptional()
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   baseUrl?: string;
 
   @ApiPropertyOptional({ description: 'API endpoint path' })
@@ -343,7 +364,7 @@ export class CollectorRunResponseDto {
 export class TestCollectorDto {
   @ApiPropertyOptional({ description: 'Override base URL for testing' })
   @IsOptional()
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   baseUrl?: string;
 
   @ApiPropertyOptional({ description: 'Override auth config for testing' })

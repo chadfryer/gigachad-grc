@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 
 export interface ZendeskConfig {
   subdomain: string;
@@ -48,18 +49,32 @@ export interface ZendeskSyncResult {
 export class ZendeskConnector {
   private readonly logger = new Logger(ZendeskConnector.name);
 
-  async testConnection(config: ZendeskConfig): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(
+    config: ZendeskConfig
+  ): Promise<{ success: boolean; message: string; details?: any }> {
     if (!config.subdomain || !config.email || !config.apiToken) {
       return { success: false, message: 'Subdomain, email, and API token are required' };
     }
 
     try {
-      const response = await fetch(`https://${config.subdomain}.zendesk.com/api/v2/users/me.json`, {
-        headers: this.buildHeaders(config),
-      });
+      let response: Response;
+      try {
+        response = await safeFetch(`https://${config.subdomain}.zendesk.com/api/v2/users/me.json`, {
+          headers: this.buildHeaders(config),
+        });
+      } catch (error) {
+        if (error instanceof SSRFProtectionError) {
+          throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+        }
+        throw error;
+      }
 
       if (!response.ok) {
-        return { success: false, message: response.status === 401 ? 'Invalid credentials' : `API error: ${response.status}` };
+        return {
+          success: false,
+          message:
+            response.status === 401 ? 'Invalid credentials' : `API error: ${response.status}`,
+        };
       }
 
       const data = await response.json();
@@ -69,6 +84,9 @@ export class ZendeskConnector {
         details: { user: data.user?.name, role: data.user?.role },
       };
     } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       return { success: false, message: error.message };
     }
   }
@@ -78,9 +96,18 @@ export class ZendeskConnector {
     const baseUrl = `https://${config.subdomain}.zendesk.com/api/v2`;
 
     const [tickets, users, groups] = await Promise.all([
-      this.getTickets(baseUrl, config).catch(e => { errors.push(`Tickets: ${e.message}`); return []; }),
-      this.getUsers(baseUrl, config).catch(e => { errors.push(`Users: ${e.message}`); return []; }),
-      this.getGroups(baseUrl, config).catch(e => { errors.push(`Groups: ${e.message}`); return []; }),
+      this.getTickets(baseUrl, config).catch((e) => {
+        errors.push(`Tickets: ${e.message}`);
+        return [];
+      }),
+      this.getUsers(baseUrl, config).catch((e) => {
+        errors.push(`Users: ${e.message}`);
+        return [];
+      }),
+      this.getGroups(baseUrl, config).catch((e) => {
+        errors.push(`Groups: ${e.message}`);
+        return [];
+      }),
     ]);
 
     const byPriority: Record<string, number> = {};
@@ -122,28 +149,55 @@ export class ZendeskConnector {
 
   private buildHeaders(config: ZendeskConfig): Record<string, string> {
     const auth = Buffer.from(`${config.email}/token:${config.apiToken}`).toString('base64');
-    return { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' };
+    return { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' };
   }
 
   private async getTickets(baseUrl: string, config: ZendeskConfig): Promise<any[]> {
-    const response = await fetch(`${baseUrl}/tickets.json?per_page=100`, { headers: this.buildHeaders(config) });
+    let response: Response;
+    try {
+      response = await safeFetch(`${baseUrl}/tickets.json?per_page=100`, {
+        headers: this.buildHeaders(config),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
     if (!response.ok) throw new Error(`Failed: ${response.status}`);
     const data = await response.json();
     return data.tickets || [];
   }
 
   private async getUsers(baseUrl: string, config: ZendeskConfig): Promise<any[]> {
-    const response = await fetch(`${baseUrl}/users.json?per_page=100`, { headers: this.buildHeaders(config) });
+    let response: Response;
+    try {
+      response = await safeFetch(`${baseUrl}/users.json?per_page=100`, {
+        headers: this.buildHeaders(config),
+      });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
     if (!response.ok) throw new Error(`Failed: ${response.status}`);
     const data = await response.json();
     return data.users || [];
   }
 
   private async getGroups(baseUrl: string, config: ZendeskConfig): Promise<any[]> {
-    const response = await fetch(`${baseUrl}/groups.json`, { headers: this.buildHeaders(config) });
+    let response: Response;
+    try {
+      response = await safeFetch(`${baseUrl}/groups.json`, { headers: this.buildHeaders(config) });
+    } catch (error) {
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked: ${error.message}`);
+      }
+      throw error;
+    }
     if (!response.ok) throw new Error(`Failed: ${response.status}`);
     const data = await response.json();
     return data.groups || [];
   }
 }
-

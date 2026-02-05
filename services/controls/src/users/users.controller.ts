@@ -173,7 +173,8 @@ export class UsersController {
   }
 
   @Get('keycloak/:keycloakId')
-  async getUserByKeycloakId(@Param('keycloakId') keycloakId: string) {
-    return this.usersService.findByKeycloakId(keycloakId);
+  async getUserByKeycloakId(@Param('keycloakId') keycloakId: string, @User() user: UserContext) {
+    // SECURITY: Pass organizationId to ensure tenant isolation (IDOR prevention)
+    return this.usersService.findByKeycloakId(keycloakId, user.organizationId);
   }
 }

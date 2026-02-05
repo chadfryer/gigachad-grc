@@ -51,6 +51,7 @@ export class UploadEvidenceDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiProperty({ enum: EvidenceType, example: EvidenceType.SCREENSHOT })
@@ -101,6 +102,7 @@ export class UpdateEvidenceDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiPropertyOptional({ enum: EvidenceType })
@@ -134,6 +136,7 @@ export class ReviewEvidenceDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   notes?: string;
 }
 
@@ -146,6 +149,7 @@ export class LinkEvidenceDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   notes?: string;
 }
 
@@ -234,6 +238,3 @@ export class EvidenceFilterDto {
   @IsOptional()
   sortOrder?: 'asc' | 'desc';
 }
-
-
-

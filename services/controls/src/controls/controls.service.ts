@@ -339,9 +339,16 @@ export class ControlsService {
       throw new ConflictException(`Control with ID ${dto.controlId} already exists`);
     }
 
+    // SECURITY: Explicit field mapping to prevent mass assignment vulnerabilities
     const control = await this.prisma.control.create({
       data: {
-        ...dto,
+        controlId: dto.controlId,
+        title: dto.title,
+        description: dto.description,
+        category: dto.category,
+        subcategory: dto.subcategory,
+        guidance: dto.guidance,
+        automationSupported: dto.automationSupported,
         organizationId,
         isCustom: true,
         tags: dto.tags || [],
@@ -392,10 +399,16 @@ export class ControlsService {
       throw new ConflictException('Cannot modify controls from another organization');
     }
 
+    // SECURITY: Explicit field mapping to prevent mass assignment vulnerabilities
     const updatedControl = await this.prisma.control.update({
       where: { id },
       data: {
-        ...dto,
+        title: dto.title,
+        description: dto.description,
+        category: dto.category,
+        subcategory: dto.subcategory,
+        guidance: dto.guidance,
+        automationSupported: dto.automationSupported,
         tags: dto.tags || undefined,
       },
     });

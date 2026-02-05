@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType, NotificationSeverity } from '../notifications/dto/notification.dto';
 import { STORAGE_PROVIDER, StorageProvider } from '@gigachad-grc/shared';
+import { safeFetch, SSRFProtectionError } from '@gigachad-grc/shared';
 import {
   CreateCollectorDto,
   UpdateCollectorDto,
@@ -606,7 +607,14 @@ export class CollectorsService {
 
     let response: Response;
     try {
-      response = await this.retryWithBackoff(() => fetch(finalUrl, fetchOptions), maxRetries);
+      // SECURITY: Use safeFetch to prevent SSRF attacks
+      response = await this.retryWithBackoff(() => safeFetch(finalUrl, fetchOptions), maxRetries);
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error instanceof SSRFProtectionError) {
+        throw new BadRequestException(`SSRF protection blocked request: ${error.message}`);
+      }
+      throw error;
     } finally {
       clearTimeout(timeout);
     }
@@ -734,7 +742,8 @@ export class CollectorsService {
         client_secret: authConfig.clientSecret as string,
       });
 
-      const response = await fetch(tokenUrl, {
+      // SECURITY: Use safeFetch to prevent SSRF via malicious tokenUrl
+      const response = await safeFetch(tokenUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),
@@ -767,7 +776,8 @@ export class CollectorsService {
       params.append('scope', scope);
     }
 
-    const response = await fetch(tokenUrl, {
+    // SECURITY: Use safeFetch to prevent SSRF via malicious tokenUrl
+    const response = await safeFetch(tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString(),

@@ -47,7 +47,7 @@ export class RequestsController {
     @Query('auditId') auditId?: string,
     @Query('status') status?: string,
     @Query('assignedTo') assignedTo?: string,
-    @Query('category') category?: string,
+    @Query('category') category?: string
   ) {
     const { organizationId } = req.user;
     return this.requestsService.findAll(organizationId, {
@@ -72,7 +72,7 @@ export class RequestsController {
   update(
     @Param('id') id: string,
     @Body() updateRequestDto: UpdateAuditRequestDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest
   ) {
     const { organizationId } = req.user;
     return this.requestsService.update(id, organizationId, updateRequestDto);
@@ -92,7 +92,7 @@ export class RequestsController {
   addComment(
     @Param('id') requestId: string,
     @Body() body: { content: string; isInternal?: boolean },
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest
   ) {
     return this.requestsService.addComment(requestId, {
       content: body.content,
@@ -106,7 +106,9 @@ export class RequestsController {
   @Get(':id/comments')
   @ApiOperation({ summary: 'Get request comments' })
   @ApiResponse({ status: 200, description: 'Returns comments' })
-  getComments(@Param('id') requestId: string) {
-    return this.requestsService.getComments(requestId);
+  getComments(@Param('id') requestId: string, @Req() req: AuthenticatedRequest) {
+    // SECURITY: Pass organizationId to ensure tenant isolation (IDOR prevention)
+    const { organizationId } = req.user;
+    return this.requestsService.getComments(requestId, organizationId);
   }
 }

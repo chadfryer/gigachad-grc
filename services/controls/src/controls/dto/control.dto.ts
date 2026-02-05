@@ -44,6 +44,7 @@ export class CreateControlDto {
   @ApiProperty({ description: 'Detailed description of the control' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(5000)
   description: string;
 
   @ApiProperty({ enum: ControlCategory, example: ControlCategory.ACCESS_CONTROL })
@@ -65,6 +66,7 @@ export class CreateControlDto {
   @ApiPropertyOptional({ description: 'Implementation guidance' })
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   guidance?: string;
 
   @ApiPropertyOptional({ default: false })
@@ -83,6 +85,7 @@ export class UpdateControlDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @ApiPropertyOptional({ enum: ControlCategory })
@@ -105,6 +108,7 @@ export class UpdateControlDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   guidance?: string;
 
   @ApiPropertyOptional()
@@ -135,7 +139,7 @@ export class ControlFilterDto {
   @IsString()
   frameworkId?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Filter by implementation status (can be single value or array)',
     enum: ['implemented', 'in_progress', 'not_started', 'not_applicable'],
   })
@@ -188,6 +192,7 @@ export class BulkControlItemDto {
   @ApiProperty({ description: 'Detailed description of the control' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(5000)
   description: string;
 
   @ApiProperty({ enum: ControlCategory, example: ControlCategory.ACCESS_CONTROL })
@@ -209,6 +214,7 @@ export class BulkControlItemDto {
   @ApiPropertyOptional({ description: 'Implementation guidance' })
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   guidance?: string;
 
   @ApiPropertyOptional({ default: false })
@@ -218,24 +224,24 @@ export class BulkControlItemDto {
 }
 
 export class BulkUploadControlsDto {
-  @ApiProperty({ 
-    type: [BulkControlItemDto], 
-    description: 'Array of controls to import' 
+  @ApiProperty({
+    type: [BulkControlItemDto],
+    description: 'Array of controls to import',
   })
   @IsArray()
   controls: BulkControlItemDto[];
 
-  @ApiPropertyOptional({ 
-    default: false, 
-    description: 'Skip controls that already exist instead of failing' 
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Skip controls that already exist instead of failing',
   })
   @IsOptional()
   @IsBoolean()
   skipExisting?: boolean;
 
-  @ApiPropertyOptional({ 
-    default: false, 
-    description: 'Update existing controls instead of skipping' 
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Update existing controls instead of skipping',
   })
   @IsOptional()
   @IsBoolean()
@@ -262,4 +268,3 @@ export class BulkUploadResultDto {
     row?: number;
   }>;
 }
-

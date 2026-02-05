@@ -1,9 +1,82 @@
+import * as path from 'path';
+
 interface GoogleWorkspaceEvidenceParams {
   checks?: string[];
   timeRange?: {
     startTime: string;
     endTime: string;
   };
+}
+
+/**
+ * Path Traversal Protection: Validates that a file path is safe to read.
+ * Blocks path traversal sequences and ensures path is within allowed directories.
+ */
+function isValidServiceAccountPath(filePath: string): boolean {
+  // Block path traversal sequences
+  if (filePath.includes('..')) {
+    return false;
+  }
+
+  // Block null bytes (path injection)
+  if (filePath.includes('\0')) {
+    return false;
+  }
+
+  // Normalize the path to resolve any . or redundant separators
+  const normalizedPath = path.normalize(filePath);
+
+  // Re-check for traversal after normalization
+  if (normalizedPath.includes('..')) {
+    return false;
+  }
+
+  // Define allowed directories for service account keys
+  const allowedDirs = [
+    '/app/credentials/',
+    '/app/config/',
+    '/config/',
+    '/credentials/',
+    process.cwd(),
+    process.env.HOME ? path.join(process.env.HOME, '.config') : null,
+    process.env.GOOGLE_APPLICATION_CREDENTIALS
+      ? path.dirname(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+      : null,
+  ].filter(Boolean) as string[];
+
+  // For absolute paths, verify they're within allowed directories
+  if (path.isAbsolute(normalizedPath)) {
+    const resolvedPath = path.resolve(normalizedPath);
+    const isAllowed = allowedDirs.some((dir) => {
+      const resolvedDir = path.resolve(dir);
+      return resolvedPath.startsWith(resolvedDir + path.sep) || resolvedPath === resolvedDir;
+    });
+
+    if (!isAllowed) {
+      return false;
+    }
+  }
+
+  // Block access to sensitive system directories
+  const blockedPatterns = [
+    /^\/etc\//,
+    /^\/proc\//,
+    /^\/sys\//,
+    /^\/dev\//,
+    /^\/root\//,
+    /^\/var\/log\//,
+    /^\/var\/run\//,
+    /^~\//, // Home directory shorthand
+    /^\$\{/, // Variable expansion attempts
+  ];
+
+  for (const pattern of blockedPatterns) {
+    if (pattern.test(normalizedPath)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 interface EvidenceResult {
@@ -111,7 +184,7 @@ let googleAPIs: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function loadGoogleAPIs(): Promise<any> {
   if (googleAPIs) return googleAPIs;
-  
+
   try {
     const googleapis = await import('googleapis');
     googleAPIs = { google: googleapis.google };
@@ -140,7 +213,7 @@ export async function collectGoogleWorkspaceEvidence(
 
   if (!serviceAccountKey || !adminEmail) {
     console.warn('Google Workspace credentials not configured - running in demo mode');
-    
+
     return {
       service: 'google_workspace',
       collectedAt: new Date().toISOString(),
@@ -151,8 +224,13 @@ export async function collectGoogleWorkspaceEvidence(
         warnings: 0,
       },
       isMockMode: true,
-      mockModeReason: 'Google Workspace credentials not configured. Set GOOGLE_SERVICE_ACCOUNT_KEY (JSON string or path), GOOGLE_ADMIN_EMAIL (delegated admin), and optionally GOOGLE_CUSTOMER_ID.',
-      requiredCredentials: ['GOOGLE_SERVICE_ACCOUNT_KEY', 'GOOGLE_ADMIN_EMAIL', 'GOOGLE_CUSTOMER_ID (optional)'],
+      mockModeReason:
+        'Google Workspace credentials not configured. Set GOOGLE_SERVICE_ACCOUNT_KEY (JSON string or path), GOOGLE_ADMIN_EMAIL (delegated admin), and optionally GOOGLE_CUSTOMER_ID.',
+      requiredCredentials: [
+        'GOOGLE_SERVICE_ACCOUNT_KEY',
+        'GOOGLE_ADMIN_EMAIL',
+        'GOOGLE_CUSTOMER_ID (optional)',
+      ],
     };
   }
 
@@ -180,7 +258,14 @@ export async function collectGoogleWorkspaceEvidence(
     try {
       credentials = JSON.parse(serviceAccountKey);
     } catch {
-      // Might be a file path
+      // Might be a file path - validate before reading
+      if (!isValidServiceAccountPath(serviceAccountKey)) {
+        throw new Error(
+          'Invalid service account key path: Path traversal or access to unauthorized directories is not allowed. ' +
+            'Ensure the path is within allowed credential directories and does not contain ".." sequences.'
+        );
+      }
+
       const fs = await import('fs');
       const credentialsFile = fs.readFileSync(serviceAccountKey, 'utf-8');
       credentials = JSON.parse(credentialsFile);
@@ -269,10 +354,13 @@ export async function collectGoogleWorkspaceEvidence(
     return {
       service: 'google_workspace',
       collectedAt: new Date().toISOString(),
-      findings: [{ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        suggestion: 'Verify service account has domain-wide delegation enabled and the admin email has appropriate permissions.'
-      }],
+      findings: [
+        {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          suggestion:
+            'Verify service account has domain-wide delegation enabled and the admin email has appropriate permissions.',
+        },
+      ],
       summary: {
         totalEvents: 0,
         criticalFindings: 0,
@@ -288,7 +376,8 @@ async function collectAdminAuditLogs(
   reports: AdminReportsAPI,
   timeRange?: { startTime: string; endTime: string }
 ): Promise<unknown> {
-  const startTime = timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const startTime =
+    timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const endTime = timeRange?.endTime || new Date().toISOString();
 
   const response = await reports.activities.list({
@@ -300,7 +389,7 @@ async function collectAdminAuditLogs(
   });
 
   const activities = response.data.items || [];
-  
+
   // Categorize events by criticality
   const criticalEventTypes = [
     'GRANT_ADMIN_PRIVILEGE',
@@ -310,10 +399,10 @@ async function collectAdminAuditLogs(
     'CHANGE_ALLOWED_TWO_STEP_VERIFICATION_METHODS',
     'ENFORCE_STRONG_AUTHENTICATION',
   ];
-  
+
   const warningEventTypes = [
     'CREATE_USER',
-    'DELETE_USER', 
+    'DELETE_USER',
     'SUSPEND_USER',
     'UNSUSPEND_USER',
     'CHANGE_PASSWORD',
@@ -326,12 +415,12 @@ async function collectAdminAuditLogs(
 
   const categorizedEvents = activities.map((activity: unknown) => {
     const act = activity as Record<string, unknown>;
-    const events = act.events as Array<{ name?: string }> || [];
-    const eventNames = events.map(e => e.name).filter(Boolean);
-    
-    const isCritical = eventNames.some(name => criticalEventTypes.includes(name || ''));
-    const isWarning = eventNames.some(name => warningEventTypes.includes(name || ''));
-    
+    const events = (act.events as Array<{ name?: string }>) || [];
+    const eventNames = events.map((e) => e.name).filter(Boolean);
+
+    const isCritical = eventNames.some((name) => criticalEventTypes.includes(name || ''));
+    const isWarning = eventNames.some((name) => warningEventTypes.includes(name || ''));
+
     if (isCritical) criticalCount++;
     else if (isWarning) warningCount++;
 
@@ -348,11 +437,15 @@ async function collectAdminAuditLogs(
     totalEvents: activities.length,
     criticalCount,
     warningCount,
-    eventTypes: [...new Set(activities.flatMap((a: unknown) => {
-      const act = a as Record<string, unknown>;
-      const events = act.events as Array<{ name?: string }> || [];
-      return events.map(e => e.name).filter(Boolean);
-    }))],
+    eventTypes: [
+      ...new Set(
+        activities.flatMap((a: unknown) => {
+          const act = a as Record<string, unknown>;
+          const events = (act.events as Array<{ name?: string }>) || [];
+          return events.map((e) => e.name).filter(Boolean);
+        })
+      ),
+    ],
   };
 }
 
@@ -360,7 +453,8 @@ async function collectLoginAuditLogs(
   reports: AdminReportsAPI,
   timeRange?: { startTime: string; endTime: string }
 ): Promise<unknown> {
-  const startTime = timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const startTime =
+    timeRange?.startTime || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const endTime = timeRange?.endTime || new Date().toISOString();
 
   const response = await reports.activities.list({
@@ -380,8 +474,12 @@ async function collectLoginAuditLogs(
 
   for (const activity of activities) {
     const act = activity as Record<string, unknown>;
-    const events = act.events as Array<{ name?: string; parameters?: Array<{ name?: string; value?: string }> }> || [];
-    
+    const events =
+      (act.events as Array<{
+        name?: string;
+        parameters?: Array<{ name?: string; value?: string }>;
+      }>) || [];
+
     for (const event of events) {
       if (event.name === 'login_failure') {
         failedLogins++;
@@ -390,7 +488,7 @@ async function collectLoginAuditLogs(
         suspiciousLogins++;
       }
       const params = event.parameters || [];
-      const isLegacy = params.some(p => p.name === 'is_second_factor' && p.value === 'false');
+      const isLegacy = params.some((p) => p.name === 'is_second_factor' && p.value === 'false');
       if (isLegacy) legacyProtocolLogins++;
     }
   }
@@ -424,18 +522,29 @@ async function collectDriveSharingSettings(drive: DriveAPI): Promise<unknown> {
 
   // Categorize by risk
   const sensitivePatterns = [
-    /password/i, /credential/i, /secret/i, /key/i, /token/i,
-    /financial/i, /payroll/i, /salary/i, /ssn/i, /social.?security/i,
-    /hipaa/i, /pii/i, /confidential/i, /private/i,
+    /password/i,
+    /credential/i,
+    /secret/i,
+    /key/i,
+    /token/i,
+    /financial/i,
+    /payroll/i,
+    /salary/i,
+    /ssn/i,
+    /social.?security/i,
+    /hipaa/i,
+    /pii/i,
+    /confidential/i,
+    /private/i,
   ];
 
   let criticalCount = 0;
   let warningCount = 0;
 
-  const categorizedFiles = publicFiles.map(file => {
-    const isSensitive = sensitivePatterns.some(pattern => pattern.test(file.name || ''));
-    const hasAnyonePermission = file.permissions?.some(p => p.type === 'anyone');
-    
+  const categorizedFiles = publicFiles.map((file) => {
+    const isSensitive = sensitivePatterns.some((pattern) => pattern.test(file.name || ''));
+    const hasAnyonePermission = file.permissions?.some((p) => p.type === 'anyone');
+
     if (isSensitive && hasAnyonePermission) {
       criticalCount++;
       return { ...file, risk: 'critical', reason: 'Sensitive file publicly accessible' };
@@ -476,7 +585,7 @@ async function collectMobileDeviceStatus(
   let criticalCount = 0;
   let warningCount = 0;
 
-  const categorizedDevices = devices.map(device => {
+  const categorizedDevices = devices.map((device) => {
     const isManaged = device.status === 'APPROVED';
     const isEncrypted = device.encryptionStatus === 'ENCRYPTED';
     const isCompromised = device.deviceCompromisedStatus === 'COMPROMISED';
@@ -543,7 +652,7 @@ async function collectUserSecurityStatus(
   let criticalCount = 0;
   let warningCount = 0;
 
-  const categorizedUsers = users.map(user => {
+  const categorizedUsers = users.map((user) => {
     if (user.isEnrolledIn2Sv) with2FA++;
     if (user.isEnforcedIn2Sv) enforced2FA++;
     if (user.isAdmin) admins++;
@@ -587,7 +696,7 @@ async function collectUserSecurityStatus(
 }
 
 function getDemoFindings(checks: string[]): unknown[] {
-  return checks.map(check => ({
+  return checks.map((check) => ({
     type: check,
     events: [],
     status: 'demo_mode',

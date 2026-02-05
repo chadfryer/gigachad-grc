@@ -8,6 +8,8 @@ import {
   IsNumber,
   ValidateNested,
   IsEnum,
+  IsUrl,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -171,6 +173,7 @@ export class DataQueryDto {
   @ApiPropertyOptional({ description: 'Raw SQL for advanced users' })
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   rawQuery?: string;
 }
 
@@ -233,7 +236,7 @@ export class WidgetConfigDto {
 
   @ApiPropertyOptional({ description: 'IFrame URL' })
   @IsOptional()
-  @IsString()
+  @IsUrl({}, { message: 'Must be a valid URL' })
   iframeUrl?: string;
 
   @ApiPropertyOptional({ description: 'Show legend' })
@@ -468,4 +471,3 @@ export class DataSourceDefinitionDto {
     aggregatable: boolean;
   }[];
 }
-

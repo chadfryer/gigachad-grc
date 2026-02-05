@@ -21,14 +21,11 @@ import { DevAuthGuard } from '../auth/dev-auth.guard';
 export class VendorsController {
   constructor(
     private readonly vendorsService: VendorsService,
-    private readonly vendorAIService: VendorAIService,
+    private readonly vendorAIService: VendorAIService
   ) {}
 
   @Post()
-  create(
-    @Body() createVendorDto: CreateVendorDto,
-    @CurrentUser() user: UserContext,
-  ) {
+  create(@Body() createVendorDto: CreateVendorDto, @CurrentUser() user: UserContext) {
     // Inject organizationId from user context
     const dtoWithOrg = {
       ...createVendorDto,
@@ -43,13 +40,22 @@ export class VendorsController {
     @Query('tier') tier?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @CurrentUser() user?: UserContext
   ) {
-    return this.vendorsService.findAll({ category, tier, status, search });
+    // SECURITY: Include organizationId to ensure tenant isolation (IDOR prevention)
+    return this.vendorsService.findAll({
+      category,
+      tier,
+      status,
+      search,
+      organizationId: user?.organizationId,
+    });
   }
 
   @Get('dashboard-stats')
-  getDashboardStats() {
-    return this.vendorsService.getDashboardStats();
+  getDashboardStats(@CurrentUser() user: UserContext) {
+    // SECURITY: Pass organizationId to ensure tenant isolation (IDOR prevention)
+    return this.vendorsService.getDashboardStats(user.organizationId);
   }
 
   @Get('reviews-due')
@@ -58,10 +64,7 @@ export class VendorsController {
   }
 
   @Patch(':id/complete-review')
-  completeReview(
-    @Param('id') id: string,
-    @CurrentUser() user: UserContext,
-  ) {
+  completeReview(@Param('id') id: string, @CurrentUser() user: UserContext) {
     // SECURITY: Pass organizationId to ensure tenant isolation
     return this.vendorsService.updateReviewDates(id, user.userId, user.organizationId);
   }
@@ -76,7 +79,7 @@ export class VendorsController {
   update(
     @Param('id') id: string,
     @Body() updateVendorDto: UpdateVendorDto,
-    @CurrentUser() user: UserContext,
+    @CurrentUser() user: UserContext
   ) {
     // SECURITY: Pass organizationId to ensure tenant isolation
     return this.vendorsService.update(id, updateVendorDto, user.userId, user.organizationId);
@@ -86,10 +89,15 @@ export class VendorsController {
   updateRiskScore(
     @Param('id') id: string,
     @Body('inherentRiskScore') inherentRiskScore: string,
-    @CurrentUser() user: UserContext,
+    @CurrentUser() user: UserContext
   ) {
     // SECURITY: Pass organizationId to ensure tenant isolation
-    return this.vendorsService.updateRiskScore(id, inherentRiskScore, user.userId, user.organizationId);
+    return this.vendorsService.updateRiskScore(
+      id,
+      inherentRiskScore,
+      user.userId,
+      user.organizationId
+    );
   }
 
   @Delete(':id')
@@ -106,21 +114,20 @@ export class VendorsController {
   analyzeDocument(
     @Param('vendorId') vendorId: string,
     @Param('documentId') documentId: string,
-    @CurrentUser() user: UserContext,
+    @CurrentUser() user: UserContext
   ) {
     return this.vendorAIService.analyzeSOC2Report(
       vendorId,
       documentId,
       user.userId,
-      user.organizationId,
+      user.organizationId
     );
   }
 
   @Get(':vendorId/documents/:documentId/analysis')
-  getDocumentAnalysis(
-    @Param('documentId') documentId: string,
-  ) {
-    return this.vendorAIService.getPreviousAnalysis(documentId);
+  getDocumentAnalysis(@Param('documentId') documentId: string, @CurrentUser() user: UserContext) {
+    // SECURITY: Pass organizationId to ensure tenant isolation (IDOR prevention)
+    return this.vendorAIService.getPreviousAnalysis(documentId, user.organizationId);
   }
 
   @Post(':vendorId/documents/:documentId/create-assessment')
@@ -128,13 +135,13 @@ export class VendorsController {
     @Param('vendorId') vendorId: string,
     @Param('documentId') _documentId: string,
     @Body() analysis: SOC2AnalysisResult,
-    @CurrentUser() user: UserContext,
+    @CurrentUser() user: UserContext
   ) {
     return this.vendorAIService.createAssessmentFromAnalysis(
       vendorId,
       analysis,
       user.userId,
-      user.organizationId,
+      user.organizationId
     );
   }
 }

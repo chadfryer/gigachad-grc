@@ -28,12 +28,13 @@ services:
     networks:
       - grc-network
     ports:
-      - "9090:9090"
+      - '9090:9090'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      test:
+        ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:9090/-/healthy']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -45,9 +46,10 @@ services:
     image: grafana/grafana:10.2.0
     container_name: grc-grafana
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
+      # SECURITY: Credentials must be explicitly set - no defaults allowed
+      GF_SECURITY_ADMIN_USER: '${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}'
+      GF_SECURITY_ADMIN_PASSWORD: '${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3030}
       GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-piechart-panel
     volumes:
@@ -56,14 +58,15 @@ services:
     networks:
       - grc-network
     ports:
-      - "3030:3000"
+      - '3030:3000'
     depends_on:
       - prometheus
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test:
+        ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/api/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -81,7 +84,7 @@ services:
     networks:
       - grc-network
     ports:
-      - "3100:3100"
+      - '3100:3100'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -121,7 +124,7 @@ services:
     networks:
       - grc-network
     ports:
-      - "8081:8080"
+      - '8081:8080'
     restart: unless-stopped
 
   # =============================================================================
@@ -142,7 +145,7 @@ services:
     networks:
       - grc-network
     ports:
-      - "9100:9100"
+      - '9100:9100'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -162,7 +165,7 @@ services:
     networks:
       - grc-network
     ports:
-      - "9093:9093"
+      - '9093:9093'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -180,8 +183,3 @@ volumes:
 networks:
   grc-network:
     external: true
-
-
-
-
-
