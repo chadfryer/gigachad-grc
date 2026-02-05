@@ -1,15 +1,5 @@
-import {
-  Controller,
-  Get,
-  Put,
-  Post,
-  Delete,
-  Body,
-  Param,
-  Headers,
-  UseGuards,
-} from '@nestjs/common';
-import { DevAuthGuard } from '@gigachad-grc/shared';
+import { Controller, Get, Put, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { DevAuthGuard, CurrentUser, UserContext } from '@gigachad-grc/shared';
 import { TprmConfigService } from './tprm-config.service';
 import { UpdateTprmConfigurationDto, VendorCategoryDto } from './dto/tprm-config.dto';
 
@@ -22,9 +12,9 @@ export class TprmConfigController {
    * Get TPRM configuration for organization
    */
   @Get()
-  async getConfiguration(@Headers('x-organization-id') organizationId: string) {
-    const orgId = organizationId || 'default-org';
-    return this.tprmConfigService.getConfiguration(orgId);
+  async getConfiguration(@CurrentUser() user: UserContext) {
+    // SECURITY: Organization ID extracted from authenticated context, not header
+    return this.tprmConfigService.getConfiguration(user.organizationId);
   }
 
   /**
@@ -40,26 +30,20 @@ export class TprmConfigController {
    */
   @Put()
   async updateConfiguration(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
+    @CurrentUser() user: UserContext,
     @Body() dto: UpdateTprmConfigurationDto
   ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.tprmConfigService.updateConfiguration(orgId, dto, user);
+    // SECURITY: Organization ID and user ID extracted from authenticated context, not headers
+    return this.tprmConfigService.updateConfiguration(user.organizationId, dto, user.userId);
   }
 
   /**
    * Reset configuration to defaults
    */
   @Post('reset')
-  async resetToDefaults(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string
-  ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.tprmConfigService.resetToDefaults(orgId, user);
+  async resetToDefaults(@CurrentUser() user: UserContext) {
+    // SECURITY: Organization ID and user ID extracted from authenticated context, not headers
+    return this.tprmConfigService.resetToDefaults(user.organizationId, user.userId);
   }
 
   /**
@@ -67,39 +51,29 @@ export class TprmConfigController {
    */
   @Post('categories')
   async addCategory(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
+    @CurrentUser() user: UserContext,
     @Body() category: Omit<VendorCategoryDto, 'id'>
   ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.tprmConfigService.addCategory(orgId, category, user);
+    // SECURITY: Organization ID and user ID extracted from authenticated context, not headers
+    return this.tprmConfigService.addCategory(user.organizationId, category, user.userId);
   }
 
   /**
    * Remove a vendor category
    */
   @Delete('categories/:categoryId')
-  async removeCategory(
-    @Headers('x-organization-id') organizationId: string,
-    @Headers('x-user-id') userId: string,
-    @Param('categoryId') categoryId: string
-  ) {
-    const orgId = organizationId || 'default-org';
-    const user = userId || 'system';
-    return this.tprmConfigService.removeCategory(orgId, categoryId, user);
+  async removeCategory(@CurrentUser() user: UserContext, @Param('categoryId') categoryId: string) {
+    // SECURITY: Organization ID and user ID extracted from authenticated context, not headers
+    return this.tprmConfigService.removeCategory(user.organizationId, categoryId, user.userId);
   }
 
   /**
    * Get frequency for a specific tier
    */
   @Get('tier-frequency/:tier')
-  async getTierFrequency(
-    @Headers('x-organization-id') organizationId: string,
-    @Param('tier') tier: string
-  ) {
-    const orgId = organizationId || 'default-org';
-    const frequency = await this.tprmConfigService.getFrequencyForTier(orgId, tier);
+  async getTierFrequency(@CurrentUser() user: UserContext, @Param('tier') tier: string) {
+    // SECURITY: Organization ID extracted from authenticated context, not header
+    const frequency = await this.tprmConfigService.getFrequencyForTier(user.organizationId, tier);
     return { tier, frequency };
   }
 }

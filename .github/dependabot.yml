@@ -1,0 +1,291 @@
+# Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # =============================================================================
+  # NPM (Root package.json and workspaces)
+  # =============================================================================
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+      time: '06:00'
+      timezone: 'America/Los_Angeles'
+    open-pull-requests-limit: 10
+
+    # Group minor and patch updates to reduce PR noise
+    groups:
+      # Security updates get their own PRs for faster review
+      security-updates:
+        applies-to: security-updates
+        patterns:
+          - '*'
+
+      # Group non-critical dev dependencies
+      dev-dependencies:
+        applies-to: version-updates
+        dependency-type: 'development'
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      # Group production patch updates
+      production-patch:
+        applies-to: version-updates
+        dependency-type: 'production'
+        patterns:
+          - '*'
+        update-types:
+          - 'patch'
+
+      # TypeScript ecosystem updates
+      typescript:
+        patterns:
+          - 'typescript'
+          - '@types/*'
+          - 'ts-*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      # Testing framework updates
+      testing:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+          - 'jest'
+          - '@jest/*'
+          - '@testing-library/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      # Linting and formatting
+      linting:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@eslint/*'
+          - 'prettier'
+          - '@typescript-eslint/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      # NestJS framework
+      nestjs:
+        patterns:
+          - '@nestjs/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+      # React ecosystem
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - 'react-router*'
+          - '@tanstack/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+    # Labels for easier triage
+    labels:
+      - 'dependencies'
+      - 'automated'
+
+    # Commit message customization
+    commit-message:
+      prefix: 'deps'
+      include: 'scope'
+
+    # Reviewers for security updates
+    reviewers:
+      - 'grcengineering/security-team'
+
+    # Ignore specific packages that require manual updates
+    ignore:
+      # Major version updates require careful review
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+      # Prisma requires migration coordination
+      - dependency-name: '@prisma/client'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'prisma'
+        update-types: ['version-update:semver-major']
+
+  # =============================================================================
+  # Frontend workspace
+  # =============================================================================
+  - package-ecosystem: 'npm'
+    directory: '/frontend'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '06:00'
+      timezone: 'America/Los_Angeles'
+    open-pull-requests-limit: 5
+
+    groups:
+      ui-components:
+        patterns:
+          - '@radix-ui/*'
+          - 'lucide-react'
+          - 'recharts'
+          - 'class-variance-authority'
+          - 'clsx'
+          - 'tailwind*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+    labels:
+      - 'dependencies'
+      - 'frontend'
+      - 'automated'
+
+    commit-message:
+      prefix: 'deps(frontend)'
+
+  # =============================================================================
+  # GitHub Actions
+  # =============================================================================
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '06:00'
+      timezone: 'America/Los_Angeles'
+    open-pull-requests-limit: 5
+
+    groups:
+      # Group all action updates
+      actions:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+    labels:
+      - 'dependencies'
+      - 'ci'
+      - 'automated'
+
+    commit-message:
+      prefix: 'ci(deps)'
+
+  # =============================================================================
+  # Docker (base images)
+  # =============================================================================
+  - package-ecosystem: 'docker'
+    directory: '/frontend'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '06:00'
+      timezone: 'America/Los_Angeles'
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'automated'
+    commit-message:
+      prefix: 'docker(frontend)'
+
+  - package-ecosystem: 'docker'
+    directory: '/services/controls'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'automated'
+    commit-message:
+      prefix: 'docker(controls)'
+
+  - package-ecosystem: 'docker'
+    directory: '/services/audit'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'automated'
+    commit-message:
+      prefix: 'docker(audit)'
+
+  - package-ecosystem: 'docker'
+    directory: '/services/tprm'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'automated'
+    commit-message:
+      prefix: 'docker(tprm)'
+
+  - package-ecosystem: 'docker'
+    directory: '/services/trust'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'automated'
+    commit-message:
+      prefix: 'docker(trust)'
+
+  - package-ecosystem: 'docker'
+    directory: '/services/policies'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'automated'
+    commit-message:
+      prefix: 'docker(policies)'
+
+  - package-ecosystem: 'docker'
+    directory: '/services/frameworks'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'automated'
+    commit-message:
+      prefix: 'docker(frameworks)'
+
+  # =============================================================================
+  # Terraform providers
+  # =============================================================================
+  - package-ecosystem: 'terraform'
+    directory: '/terraform'
+    schedule:
+      interval: 'weekly'
+      day: 'wednesday'
+      time: '06:00'
+      timezone: 'America/Los_Angeles'
+    labels:
+      - 'dependencies'
+      - 'terraform'
+      - 'infrastructure'
+      - 'automated'
+    commit-message:
+      prefix: 'terraform(deps)'
+    reviewers:
+      - 'grcengineering/infrastructure-team'

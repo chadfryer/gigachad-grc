@@ -1,0 +1,237 @@
+# Gitleaks configuration for gigachad-grc
+# https://github.com/gitleaks/gitleaks
+
+title = "GigaChad GRC Gitleaks Configuration"
+
+# =============================================================================
+# ALLOWLIST - Files and patterns to exclude from scanning
+# =============================================================================
+
+[allowlist]
+  description = "Global allowlist"
+  
+  # Files to completely ignore
+  paths = [
+    '''(^|/)\.env\.example$''',
+    '''(^|/)package-lock\.json$''',
+    '''(^|/)yarn\.lock$''',
+    '''(^|/)pnpm-lock\.yaml$''',
+    '''(^|/)\.gitleaks\.toml$''',
+    '''(^|/)\.semgrep/.*''',
+    '''(^|/)docs/.*\.md$''',
+    '''(^|/)tests/.*''',
+    '''(^|/)\.*test\.*''',
+    '''(^|/)\.*spec\.*''',
+    '''(^|/)__tests__/.*''',
+    '''(^|/)__mocks__/.*''',
+    '''(^|/)node_modules/.*''',
+    '''(^|/)dist/.*''',
+    '''(^|/)build/.*''',
+    '''(^|/)coverage/.*''',
+    '''\.map$''',
+    '''\.min\.js$''',
+  ]
+  
+  # Regex patterns for values to ignore
+  regexes = [
+    # Environment variable references
+    '''process\.env\.[A-Z_]+''',
+    '''\$\{[A-Z_]+\}''',
+    '''getenv\(['""][A-Z_]+['"]\)''',
+    
+    # Placeholder values
+    '''your[-_]?api[-_]?key[-_]?here''',
+    '''replace[-_]?with[-_]?your[-_]?key''',
+    '''<your[-_]?.*[-_]?here>''',
+    '''CHANGE[-_]?ME''',
+    '''xxx+''',
+    '''TODO''',
+    
+    # Test/example values
+    '''test[-_]?secret''',
+    '''example[-_]?key''',
+    '''demo[-_]?token''',
+    '''fake[-_]?password''',
+    '''dummy[-_]?''',
+    
+    # Common false positives
+    '''sha256:''',
+    '''sha512:''',
+    '''base64:''',
+  ]
+
+# =============================================================================
+# RULES - Custom detection rules
+# =============================================================================
+
+# Detect AWS Access Keys
+[[rules]]
+  id = "aws-access-key"
+  description = "AWS Access Key ID"
+  regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+  tags = ["aws", "credentials"]
+
+[[rules]]
+  id = "aws-secret-key"
+  description = "AWS Secret Access Key"
+  regex = '''(?i)aws_?secret_?access_?key['""\s:=]+[A-Za-z0-9/+=]{40}'''
+  tags = ["aws", "credentials"]
+
+# Detect generic API keys
+[[rules]]
+  id = "generic-api-key"
+  description = "Generic API Key"
+  regex = '''(?i)(api[_-]?key|apikey|api_secret)['""\s:=]+['"][A-Za-z0-9_\-]{20,}['"]'''
+  tags = ["api", "credentials"]
+  
+  [rules.allowlist]
+    regexes = [
+      '''process\.env''',
+      '''\$\{''',
+      '''config\.get''',
+    ]
+
+# Detect private keys
+[[rules]]
+  id = "private-key"
+  description = "Private Key"
+  regex = '''-----BEGIN[A-Z ]*PRIVATE KEY-----'''
+  tags = ["key", "credentials"]
+
+# Detect JWT secrets
+[[rules]]
+  id = "jwt-secret"
+  description = "JWT Secret"
+  regex = '''(?i)(jwt[_-]?secret|jwt[_-]?key)['""\s:=]+['"][A-Za-z0-9_\-!@#$%^&*]{16,}['"]'''
+  tags = ["jwt", "credentials"]
+  
+  [rules.allowlist]
+    regexes = [
+      '''process\.env''',
+      '''\$\{''',
+    ]
+
+# Detect database connection strings
+[[rules]]
+  id = "database-url"
+  description = "Database Connection String with credentials"
+  regex = '''(?i)(postgres|mysql|mongodb)(\+srv)?://[^:\s]+:[^@\s]+@[^\s]+'''
+  tags = ["database", "credentials"]
+  
+  [rules.allowlist]
+    regexes = [
+      '''localhost''',
+      '''127\.0\.0\.1''',
+      '''process\.env''',
+      '''\$\{''',
+    ]
+
+# Detect Keycloak secrets
+[[rules]]
+  id = "keycloak-secret"
+  description = "Keycloak Client Secret"
+  regex = '''(?i)(keycloak[_-]?(?:client[_-]?)?secret|kc[_-]?secret)['""\s:=]+['"][A-Za-z0-9_\-]{16,}['"]'''
+  tags = ["keycloak", "credentials"]
+  
+  [rules.allowlist]
+    regexes = [
+      '''process\.env''',
+      '''\$\{''',
+    ]
+
+# Detect encryption keys
+[[rules]]
+  id = "encryption-key"
+  description = "Encryption Key"
+  regex = '''(?i)(encryption[_-]?key|aes[_-]?key|secret[_-]?key)['""\s:=]+['"][A-Fa-f0-9]{32,}['"]'''
+  tags = ["encryption", "credentials"]
+  
+  [rules.allowlist]
+    regexes = [
+      '''process\.env''',
+      '''\$\{''',
+    ]
+
+# Detect OAuth client secrets
+[[rules]]
+  id = "oauth-secret"
+  description = "OAuth Client Secret"
+  regex = '''(?i)(client[_-]?secret|oauth[_-]?secret)['""\s:=]+['"][A-Za-z0-9_\-]{20,}['"]'''
+  tags = ["oauth", "credentials"]
+  
+  [rules.allowlist]
+    regexes = [
+      '''process\.env''',
+      '''\$\{''',
+    ]
+
+# Detect passwords in code
+[[rules]]
+  id = "hardcoded-password"
+  description = "Hardcoded Password"
+  regex = '''(?i)(password|passwd|pwd)['""\s:=]+['"][^'"$\{]{8,}['"]'''
+  tags = ["password", "credentials"]
+  
+  [rules.allowlist]
+    regexes = [
+      '''process\.env''',
+      '''\$\{''',
+      '''config\.get''',
+      '''getenv''',
+      '''password\s*:\s*['"](['"]|string)''',  # Type annotations
+      '''@IsString''',  # Decorators
+      '''validation''',
+    ]
+
+# Detect GitHub tokens
+[[rules]]
+  id = "github-token"
+  description = "GitHub Personal Access Token"
+  regex = '''ghp_[A-Za-z0-9]{36}'''
+  tags = ["github", "credentials"]
+
+[[rules]]
+  id = "github-oauth"
+  description = "GitHub OAuth Access Token"
+  regex = '''gho_[A-Za-z0-9]{36}'''
+  tags = ["github", "credentials"]
+
+# Detect Slack tokens
+[[rules]]
+  id = "slack-token"
+  description = "Slack Bot/User Token"
+  regex = '''xox[baprs]-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*'''
+  tags = ["slack", "credentials"]
+
+# Detect SendGrid API keys
+[[rules]]
+  id = "sendgrid-key"
+  description = "SendGrid API Key"
+  regex = '''SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}'''
+  tags = ["sendgrid", "credentials"]
+
+# Detect Stripe keys
+[[rules]]
+  id = "stripe-key"
+  description = "Stripe API Key"
+  regex = '''(?i)(sk|pk)_(test|live)_[A-Za-z0-9]{20,}'''
+  tags = ["stripe", "credentials"]
+
+# =============================================================================
+# EXTENDED RULES - Less common but important
+# =============================================================================
+
+# Detect Terraform state secrets
+[[rules]]
+  id = "terraform-secret"
+  description = "Terraform State Secret"
+  regex = '''(?i)"sensitive_value":\s*"[^"]{8,}"'''
+  tags = ["terraform", "credentials"]
+  paths = ['''\.tfstate$''', '''\.tfstate\.backup$''']
+
+# Detect Docker registry passwords
+[[rules]]
+  id = "docker-password"
+  description = "Docker Registry Password"
+  regex = '''(?i)(docker[_-]?password|registry[_-]?password)['""\s:=]+['"][^'"]{8,}['"]'''
+  tags = ["docker", "credentials"]

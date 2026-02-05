@@ -1,4 +1,3 @@
- 
 import {
   Controller,
   Get,
@@ -8,13 +7,13 @@ import {
   Body,
   Param,
   Query,
-  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
 import { RiskService } from './risk.service';
-import { DevAuthGuard } from '../auth/dev-auth.guard';
+import { DevAuthGuard, User } from '../auth/dev-auth.guard';
+import type { UserContext } from '@gigachad-grc/shared';
 import { PermissionGuard } from '../auth/permission.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
@@ -54,10 +53,10 @@ export class RiskController {
     @Query() filters: RiskFilterDto,
     @Query('page', new PaginationPagePipe()) page: number,
     @Query('limit', new PaginationLimitPipe()) limit: number,
-    @Headers('x-organization-id') orgId: string = 'default',
+    @User() user: UserContext
   ) {
     // Use lightweight endpoint for better performance
-    return this.riskService.findAllLight(orgId, filters, page, limit);
+    return this.riskService.findAllLight(user.organizationId, filters, page, limit);
   }
 
   @Get('full')
@@ -66,79 +65,53 @@ export class RiskController {
     @Query() filters: RiskFilterDto,
     @Query('page', new PaginationPagePipe()) page: number,
     @Query('limit', new PaginationLimitPipe()) limit: number,
-    @Headers('x-organization-id') orgId: string = 'default',
+    @User() user: UserContext
   ) {
     // Full endpoint for exports or when full data is needed
-    return this.riskService.findAll(orgId, filters, page, limit);
+    return this.riskService.findAll(user.organizationId, filters, page, limit);
   }
 
   @Get('dashboard')
   @RequirePermission(Resource.RISK, Action.READ)
-  async getDashboard(
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.riskService.getDashboard(orgId);
+  async getDashboard(@User() user: UserContext) {
+    return this.riskService.getDashboard(user.organizationId);
   }
 
   @Get('heatmap')
   @RequirePermission(Resource.RISK, Action.READ)
-  async getHeatmap(
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.riskService.getHeatmap(orgId);
+  async getHeatmap(@User() user: UserContext) {
+    return this.riskService.getHeatmap(user.organizationId);
   }
 
   @Get('trend')
   @RequirePermission(Resource.RISK, Action.READ)
-  async getTrend(
-    @Query('days') days: string = '90',
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.riskService.getTrend(orgId, parseInt(days, 10));
+  async getTrend(@Query('days') days: string = '90', @User() user: UserContext) {
+    return this.riskService.getTrend(user.organizationId, parseInt(days, 10));
   }
 
   @Get(':id')
   @RequirePermission(Resource.RISK, Action.READ)
-  async getRisk(
-    @Param('id') id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.riskService.findOne(id, orgId);
+  async getRisk(@Param('id') id: string, @User() user: UserContext) {
+    return this.riskService.findOne(id, user.organizationId);
   }
 
   @Post()
   @RequirePermission(Resource.RISK, Action.CREATE)
-  async createRisk(
-    @Body() dto: CreateRiskDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-  ) {
-    return this.riskService.create(orgId, dto, userId, userEmail);
+  async createRisk(@Body() dto: CreateRiskDto, @User() user: UserContext) {
+    return this.riskService.create(user.organizationId, dto, user.userId, user.email);
   }
 
   @Put(':id')
   @RequirePermission(Resource.RISK, Action.UPDATE)
-  async updateRisk(
-    @Param('id') id: string,
-    @Body() dto: UpdateRiskDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-  ) {
-    return this.riskService.update(id, orgId, dto, userId, userEmail);
+  async updateRisk(@Param('id') id: string, @Body() dto: UpdateRiskDto, @User() user: UserContext) {
+    return this.riskService.update(id, user.organizationId, dto, user.userId, user.email);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission(Resource.RISK, Action.DELETE)
-  async deleteRisk(
-    @Param('id') id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-  ) {
-    await this.riskService.delete(id, orgId, userId, userEmail);
+  async deleteRisk(@Param('id') id: string, @User() user: UserContext) {
+    await this.riskService.delete(id, user.organizationId, user.userId, user.email);
   }
 
   // ===========================
@@ -151,11 +124,9 @@ export class RiskController {
   async validateRisk(
     @Param('id') id: string,
     @Body() dto: ValidateRiskDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.validateRisk(id, orgId, dto, userId, userEmail);
+    return this.riskService.validateRisk(id, user.organizationId, dto, user.userId, user.email);
   }
 
   // Start risk assessment (Actual Risk -> Risk Analysis In Progress)
@@ -164,11 +135,15 @@ export class RiskController {
   async startAssessment(
     @Param('id') id: string,
     @Body() body: { riskAssessorId: string },
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.startAssessment(id, orgId, body.riskAssessorId, userId, userEmail);
+    return this.riskService.startAssessment(
+      id,
+      user.organizationId,
+      body.riskAssessorId,
+      user.userId,
+      user.email
+    );
   }
 
   // ===========================
@@ -181,11 +156,9 @@ export class RiskController {
   async submitAssessment(
     @Param('id') id: string,
     @Body() dto: SubmitAssessmentDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.submitAssessment(id, orgId, dto, userId, userEmail);
+    return this.riskService.submitAssessment(id, user.organizationId, dto, user.userId, user.email);
   }
 
   // GRC SME reviews assessment (approve or decline)
@@ -194,11 +167,9 @@ export class RiskController {
   async reviewAssessment(
     @Param('id') id: string,
     @Body() dto: ReviewAssessmentDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.reviewAssessment(id, orgId, dto, userId, userEmail);
+    return this.riskService.reviewAssessment(id, user.organizationId, dto, user.userId, user.email);
   }
 
   // GRC SME completes revision
@@ -207,11 +178,9 @@ export class RiskController {
   async completeRevision(
     @Param('id') id: string,
     @Body() dto: ReviseAssessmentDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.completeRevision(id, orgId, dto, userId, userEmail);
+    return this.riskService.completeRevision(id, user.organizationId, dto, user.userId, user.email);
   }
 
   // ===========================
@@ -224,11 +193,15 @@ export class RiskController {
   async submitTreatmentDecision(
     @Param('id') id: string,
     @Body() dto: SubmitTreatmentDecisionDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.submitTreatmentDecision(id, orgId, dto, userId, userEmail);
+    return this.riskService.submitTreatmentDecision(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   // GRC SME assigns executive approver
@@ -237,11 +210,15 @@ export class RiskController {
   async assignExecutiveApprover(
     @Param('id') id: string,
     @Body() dto: AssignExecutiveApproverDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.assignExecutiveApprover(id, orgId, dto, userId, userEmail);
+    return this.riskService.assignExecutiveApprover(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   // Executive approves or denies
@@ -250,11 +227,15 @@ export class RiskController {
   async submitExecutiveApproval(
     @Param('id') id: string,
     @Body() dto: ExecutiveApprovalDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.submitExecutiveApproval(id, orgId, dto, userId, userEmail);
+    return this.riskService.submitExecutiveApproval(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   // Risk Owner updates mitigation status
@@ -263,11 +244,15 @@ export class RiskController {
   async updateMitigationStatus(
     @Param('id') id: string,
     @Body() dto: UpdateMitigationStatusDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.updateMitigationStatus(id, orgId, dto, userId, userEmail);
+    return this.riskService.updateMitigationStatus(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   // Legacy treatment update (backwards compatibility)
@@ -275,11 +260,9 @@ export class RiskController {
   async updateTreatment(
     @Param('id') id: string,
     @Body() dto: UpdateTreatmentDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.updateTreatment(id, orgId, dto, userId, userEmail);
+    return this.riskService.updateTreatment(id, user.organizationId, dto, user.userId, user.email);
   }
 
   // Mark risk as reviewed
@@ -287,11 +270,15 @@ export class RiskController {
   async markReviewed(
     @Param('id') id: string,
     @Body() body: { notes?: string },
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.markReviewed(id, orgId, userId, userEmail, body.notes);
+    return this.riskService.markReviewed(
+      id,
+      user.organizationId,
+      user.userId,
+      user.email,
+      body.notes
+    );
   }
 
   // ===========================
@@ -300,14 +287,14 @@ export class RiskController {
 
   @Post(':id/assets')
   @HttpCode(HttpStatus.CREATED)
-  async linkAssets(
-    @Param('id') id: string,
-    @Body() dto: LinkAssetsDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-  ) {
-    await this.riskService.linkAssets(id, orgId, dto.assetIds, userId, userEmail);
+  async linkAssets(@Param('id') id: string, @Body() dto: LinkAssetsDto, @User() user: UserContext) {
+    await this.riskService.linkAssets(
+      id,
+      user.organizationId,
+      dto.assetIds,
+      user.userId,
+      user.email
+    );
     return { success: true };
   }
 
@@ -316,11 +303,9 @@ export class RiskController {
   async unlinkAsset(
     @Param('id') id: string,
     @Param('assetId') assetId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    await this.riskService.unlinkAsset(id, assetId, orgId, userId, userEmail);
+    await this.riskService.unlinkAsset(id, assetId, user.organizationId, user.userId, user.email);
   }
 
   // ===========================
@@ -332,11 +317,9 @@ export class RiskController {
   async linkControl(
     @Param('id') id: string,
     @Body() dto: LinkControlDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    await this.riskService.linkControl(id, orgId, dto, userId, userEmail);
+    await this.riskService.linkControl(id, user.organizationId, dto, user.userId, user.email);
     return { success: true };
   }
 
@@ -345,11 +328,16 @@ export class RiskController {
     @Param('id') id: string,
     @Param('controlId') controlId: string,
     @Body() dto: UpdateControlEffectivenessDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    await this.riskService.updateControlEffectiveness(id, controlId, orgId, dto, userId, userEmail);
+    await this.riskService.updateControlEffectiveness(
+      id,
+      controlId,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
     return { success: true };
   }
 
@@ -358,11 +346,15 @@ export class RiskController {
   async unlinkControl(
     @Param('id') id: string,
     @Param('controlId') controlId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    await this.riskService.unlinkControl(id, controlId, orgId, userId, userEmail);
+    await this.riskService.unlinkControl(
+      id,
+      controlId,
+      user.organizationId,
+      user.userId,
+      user.email
+    );
   }
 
   // ===========================
@@ -370,22 +362,17 @@ export class RiskController {
   // ===========================
 
   @Get(':id/scenarios')
-  async getScenarios(
-    @Param('id') id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.riskService.getScenarios(id, orgId);
+  async getScenarios(@Param('id') id: string, @User() user: UserContext) {
+    return this.riskService.getScenarios(id, user.organizationId);
   }
 
   @Post(':id/scenarios')
   async createScenario(
     @Param('id') id: string,
     @Body() dto: CreateScenarioDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.createScenario(id, orgId, dto, userId, userEmail);
+    return this.riskService.createScenario(id, user.organizationId, dto, user.userId, user.email);
   }
 
   @Put(':id/scenarios/:scenarioId')
@@ -393,11 +380,16 @@ export class RiskController {
     @Param('id') id: string,
     @Param('scenarioId') scenarioId: string,
     @Body() dto: UpdateScenarioDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.riskService.updateScenario(id, scenarioId, orgId, dto, userId, userEmail);
+    return this.riskService.updateScenario(
+      id,
+      scenarioId,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   @Delete(':id/scenarios/:scenarioId')
@@ -405,10 +397,14 @@ export class RiskController {
   async deleteScenario(
     @Param('id') id: string,
     @Param('scenarioId') scenarioId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
+    @User() user: UserContext
   ) {
-    await this.riskService.deleteScenario(id, scenarioId, orgId, userId, userEmail);
+    await this.riskService.deleteScenario(
+      id,
+      scenarioId,
+      user.organizationId,
+      user.userId,
+      user.email
+    );
   }
 }

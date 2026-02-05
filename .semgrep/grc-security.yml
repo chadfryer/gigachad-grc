@@ -1,0 +1,371 @@
+rules:
+  # =============================================================================
+  # SQL INJECTION RULES
+  # =============================================================================
+  
+  - id: prisma-raw-query-injection
+    patterns:
+      - pattern-either:
+          - pattern: $PRISMA.$queryRawUnsafe($QUERY, ...)
+          - pattern: $PRISMA.$executeRawUnsafe($QUERY, ...)
+    message: |
+      Potential SQL injection via Prisma raw query. Use parameterized queries with $queryRaw or $executeRaw instead.
+      Example: prisma.$queryRaw`SELECT * FROM users WHERE id = ${userId}`
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      owasp: "A03:2021 - Injection"
+      references:
+        - https://www.prisma.io/docs/concepts/components/prisma-client/raw-database-access
+
+  - id: string-concat-in-query
+    patterns:
+      - pattern-either:
+          - pattern: $PRISMA.$queryRaw(`... ${$VAR} ...`)
+          - pattern: $PRISMA.$executeRaw(`... ${$VAR} ...`)
+      - pattern-not: $PRISMA.$queryRaw`...`
+      - pattern-not: $PRISMA.$executeRaw`...`
+    message: |
+      String interpolation in raw query may lead to SQL injection. Use tagged template literals for safe parameterization.
+      Safe: prisma.$queryRaw`SELECT * FROM users WHERE id = ${userId}`
+      Unsafe: prisma.$queryRaw(`SELECT * FROM users WHERE id = ${userId}`)
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+
+  # =============================================================================
+  # SSRF (Server-Side Request Forgery) RULES
+  # =============================================================================
+
+  - id: unsafe-fetch-call
+    patterns:
+      - pattern-either:
+          - pattern: fetch($URL, ...)
+          - pattern: axios.get($URL, ...)
+          - pattern: axios.post($URL, ...)
+          - pattern: axios($URL, ...)
+          - pattern: got($URL, ...)
+          - pattern: request($URL, ...)
+      - pattern-not-inside: |
+          import { safeFetch } from '...'
+          ...
+      - metavariable-regex:
+          metavariable: $URL
+          regex: ^(?!['"]https?://(localhost|127\.0\.0\.1))
+    message: |
+      Direct fetch/HTTP call without SSRF protection. Use safeFetch() from @gigachad-grc/shared for external URLs.
+      This ensures validation against private IP ranges and DNS rebinding attacks.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery"
+      owasp: "A10:2021 - Server-Side Request Forgery"
+
+  - id: user-controlled-url-fetch
+    patterns:
+      - pattern-either:
+          - pattern: fetch($REQ.body.$FIELD, ...)
+          - pattern: fetch($REQ.query.$FIELD, ...)
+          - pattern: fetch($REQ.params.$FIELD, ...)
+          - pattern: axios.get($REQ.body.$FIELD, ...)
+          - pattern: axios.post($REQ.body.$FIELD, ...)
+    message: |
+      User-controlled URL passed directly to HTTP client. Validate and sanitize the URL before making requests.
+      Use safeFetch() with proper URL validation to prevent SSRF attacks.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-918: Server-Side Request Forgery"
+
+  # =============================================================================
+  # IDOR (Insecure Direct Object Reference) RULES
+  # =============================================================================
+
+  - id: organization-id-from-header
+    patterns:
+      - pattern-either:
+          - pattern: "@Headers('x-organization-id') $VAR"
+          - pattern: $REQ.headers['x-organization-id']
+          - pattern: $REQ.header('x-organization-id')
+    message: |
+      Organization ID from header is vulnerable to IDOR. Use @User() decorator to get organization from authenticated context.
+      Example: @User() user: UserContext, then use user.organizationId
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-639: Authorization Bypass Through User-Controlled Key"
+      owasp: "A01:2021 - Broken Access Control"
+
+  - id: missing-organization-validation
+    patterns:
+      - pattern: |
+          async $METHOD(...) {
+            ...
+            return this.$SERVICE.$CRUD({ where: { id: $ID } })
+          }
+      - pattern-not: |
+          async $METHOD(...) {
+            ...
+            return this.$SERVICE.$CRUD({ where: { id: $ID, organizationId: ... } })
+          }
+    message: |
+      Database query may be missing organizationId filter, potentially allowing access to other organizations' data.
+      Always include organizationId in WHERE clauses for multi-tenant data access.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-639: Authorization Bypass Through User-Controlled Key"
+
+  # =============================================================================
+  # AUTHENTICATION/AUTHORIZATION RULES
+  # =============================================================================
+
+  - id: missing-auth-guard
+    patterns:
+      - pattern: |
+          @Controller(...)
+          class $CLASS {
+            ...
+            @$METHOD(...)
+            $FUNC(...) { ... }
+          }
+      - pattern-not: |
+          @Controller(...)
+          @UseGuards(...)
+          class $CLASS { ... }
+      - pattern-not: |
+          @Controller(...)
+          class $CLASS {
+            ...
+            @$METHOD(...)
+            @UseGuards(...)
+            $FUNC(...) { ... }
+          }
+      - pattern-not: |
+          @Controller(...)
+          class $CLASS {
+            ...
+            @$METHOD(...)
+            @Public()
+            $FUNC(...) { ... }
+          }
+    message: |
+      Controller endpoint may be missing authentication guard. Add @UseGuards() at class or method level.
+      Use @Public() decorator explicitly for intentionally unauthenticated endpoints.
+    languages: [typescript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-306: Missing Authentication for Critical Function"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+
+  - id: dev-auth-in-production
+    patterns:
+      - pattern-either:
+          - pattern: DevAuthGuard
+          - pattern: "'dev-auth'"
+          - pattern: '"dev-auth"'
+      - pattern-not-inside: |
+          if (process.env.NODE_ENV === 'development') { ... }
+      - pattern-not-inside: |
+          if (process.env.NODE_ENV !== 'production') { ... }
+    message: |
+      DevAuthGuard should only be used in development environments. Ensure proper production guards are in place.
+      Wrap with environment check or use conditional module loading.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-489: Active Debug Code"
+
+  # =============================================================================
+  # XSS (Cross-Site Scripting) RULES
+  # =============================================================================
+
+  - id: dangerous-innerhtml
+    patterns:
+      - pattern-either:
+          - pattern: dangerouslySetInnerHTML={{ __html: $VAR }}
+          - pattern: $EL.innerHTML = $VAR
+          - pattern: document.write($VAR)
+    message: |
+      Direct HTML injection may lead to XSS. Sanitize content with DOMPurify before rendering.
+      Example: dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
+    languages: [typescript, javascript, tsx, jsx]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+      owasp: "A03:2021 - Injection"
+
+  - id: unsafe-eval
+    patterns:
+      - pattern-either:
+          - pattern: eval($CODE)
+          - pattern: Function($CODE)
+          - pattern: setTimeout($CODE, ...)
+          - pattern: setInterval($CODE, ...)
+      - metavariable-regex:
+          metavariable: $CODE
+          regex: .*\$.*
+    message: |
+      Dynamic code execution (eval/Function) is dangerous and may lead to code injection.
+      Avoid eval() entirely. Use safer alternatives like JSON.parse() for data parsing.
+    languages: [typescript, javascript, tsx, jsx]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-94: Code Injection"
+
+  # =============================================================================
+  # SECRETS/CREDENTIALS RULES
+  # =============================================================================
+
+  - id: hardcoded-secret
+    patterns:
+      - pattern-either:
+          - pattern: password = "..."
+          - pattern: password = '...'
+          - pattern: apiKey = "..."
+          - pattern: apiKey = '...'
+          - pattern: api_key = "..."
+          - pattern: secret = "..."
+          - pattern: SECRET = "..."
+          - pattern: token = "..."
+          - pattern: TOKEN = "..."
+          - pattern: privateKey = "..."
+      - pattern-not: password = ""
+      - pattern-not: password = ''
+      - pattern-not: apiKey = ""
+      - pattern-not: secret = ""
+      - pattern-not: token = ""
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: .{8,}
+    message: |
+      Potential hardcoded secret detected. Use environment variables or a secrets manager.
+      Example: const apiKey = process.env.API_KEY
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A07:2021 - Identification and Authentication Failures"
+
+  - id: console-log-sensitive
+    patterns:
+      - pattern-either:
+          - pattern: console.log(..., $VAR.password, ...)
+          - pattern: console.log(..., $VAR.token, ...)
+          - pattern: console.log(..., $VAR.secret, ...)
+          - pattern: console.log(..., $VAR.apiKey, ...)
+          - pattern: console.log(..., $VAR.credentials, ...)
+          - pattern: console.log("password", ...)
+          - pattern: console.log("token", ...)
+    message: |
+      Logging potentially sensitive data. Remove console.log statements with sensitive fields before production.
+      Use structured logging with field filtering in production environments.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-532: Information Exposure Through Log Files"
+
+  # =============================================================================
+  # MASS ASSIGNMENT RULES
+  # =============================================================================
+
+  - id: spread-operator-mass-assignment
+    patterns:
+      - pattern-either:
+          - pattern: this.$SERVICE.create({ ...$DTO })
+          - pattern: this.$SERVICE.update({ where: ..., data: { ...$DTO } })
+          - pattern: $PRISMA.$MODEL.create({ data: { ...$DTO } })
+          - pattern: $PRISMA.$MODEL.update({ where: ..., data: { ...$DTO } })
+    message: |
+      Spreading user input directly into database operations may allow mass assignment attacks.
+      Explicitly pick allowed fields or use a DTO with class-validator decorators.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes"
+
+  # =============================================================================
+  # CRYPTOGRAPHY RULES
+  # =============================================================================
+
+  - id: weak-random
+    patterns:
+      - pattern-either:
+          - pattern: Math.random()
+      - pattern-not-inside: |
+          // nosemgrep: weak-random
+          ...
+    message: |
+      Math.random() is not cryptographically secure. Use crypto.randomBytes() or crypto.randomUUID() for security-sensitive operations.
+      Example: crypto.randomBytes(32).toString('hex')
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-338: Use of Cryptographically Weak PRNG"
+
+  - id: weak-hash-algorithm
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createHash('md5')
+          - pattern: crypto.createHash('sha1')
+          - pattern: createHash('md5')
+          - pattern: createHash('sha1')
+    message: |
+      MD5 and SHA1 are cryptographically weak. Use SHA-256 or stronger for security operations.
+      Example: crypto.createHash('sha256')
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-328: Reversible One-Way Hash"
+
+  # =============================================================================
+  # CI/CD SECURITY RULES (for workflow files)
+  # =============================================================================
+
+  - id: non-blocking-security-check
+    patterns:
+      - pattern: "continue-on-error: true"
+    paths:
+      include:
+        - ".github/workflows/*.yml"
+        - ".github/workflows/*.yaml"
+    message: |
+      Security checks should not have continue-on-error: true. This allows security issues to pass unnoticed.
+      Remove continue-on-error for security-critical jobs.
+    languages: [yaml]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-1127: Compilation with Insufficient Warnings or Errors"
+
+  - id: trivy-non-blocking
+    patterns:
+      - pattern: "exit-code: '0'"
+    paths:
+      include:
+        - ".github/workflows/*.yml"
+        - ".github/workflows/*.yaml"
+    message: |
+      Trivy scanner configured with exit-code: '0' will not fail on vulnerabilities.
+      Use exit-code: '1' to block PRs with security issues.
+    languages: [yaml]
+    severity: WARNING
+    metadata:
+      category: security

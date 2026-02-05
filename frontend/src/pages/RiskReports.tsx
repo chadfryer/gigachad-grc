@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
 import { risksApi } from '../lib/api';
 import { exportData } from '../lib/export';
 import toast from 'react-hot-toast';
@@ -18,7 +19,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { RiskHeatMap } from '../components/risk/RiskHeatMap';
 
-type ReportType = 'risk-register' | 'risk-summary' | 'treatment-status' | 'risk-trends' | 'executive-summary' | 'heat-map';
+type ReportType =
+  | 'risk-register'
+  | 'risk-summary'
+  | 'treatment-status'
+  | 'risk-trends'
+  | 'executive-summary'
+  | 'heat-map';
 
 interface ReportTemplate {
   id: ReportType;
@@ -51,7 +58,17 @@ const reportTemplates: ReportTemplate[] = [
     name: 'Full Risk Register',
     description: 'Complete list of all risks with details, scores, and treatment status',
     icon: TableCellsIcon,
-    fields: ['riskId', 'title', 'category', 'status', 'likelihood', 'impact', 'inherentRisk', 'treatmentPlan', 'owner'],
+    fields: [
+      'riskId',
+      'title',
+      'category',
+      'status',
+      'likelihood',
+      'impact',
+      'inherentRisk',
+      'treatmentPlan',
+      'owner',
+    ],
   },
   {
     id: 'risk-summary',
@@ -98,32 +115,89 @@ const getExportColumns = (reportType: ReportType) => {
         { key: 'riskId', header: 'Risk ID' },
         { key: 'title', header: 'Title' },
         { key: 'description', header: 'Description' },
-        { key: 'category', header: 'Category', transform: (v: unknown) => String(v || '').replace(/\b\w/g, l => l.toUpperCase()) },
-        { key: 'status', header: 'Status', transform: (v: unknown) => String(v || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+        {
+          key: 'category',
+          header: 'Category',
+          transform: (v: unknown) => String(v || '').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
+        {
+          key: 'status',
+          header: 'Status',
+          transform: (v: unknown) =>
+            String(v || '')
+              .replace(/_/g, ' ')
+              .replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
         { key: 'likelihood', header: 'Likelihood' },
         { key: 'impact', header: 'Impact' },
-        { key: 'inherentRisk', header: 'Inherent Risk', transform: (v: unknown) => String(v || '').replace(/\b\w/g, l => l.toUpperCase()) },
-        { key: 'residualRisk', header: 'Residual Risk', transform: (v: unknown) => String(v || '').replace(/\b\w/g, l => l.toUpperCase()) },
-        { key: 'treatmentPlan', header: 'Treatment Plan', transform: (v: unknown) => String(v || '').replace(/\b\w/g, l => l.toUpperCase()) },
+        {
+          key: 'inherentRisk',
+          header: 'Inherent Risk',
+          transform: (v: unknown) => String(v || '').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
+        {
+          key: 'residualRisk',
+          header: 'Residual Risk',
+          transform: (v: unknown) => String(v || '').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
+        {
+          key: 'treatmentPlan',
+          header: 'Treatment Plan',
+          transform: (v: unknown) => String(v || '').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
         { key: 'owner', header: 'Owner' },
-        { key: 'createdAt', header: 'Created Date', transform: (v: unknown) => v ? new Date(v as string).toLocaleDateString() : '' },
+        {
+          key: 'createdAt',
+          header: 'Created Date',
+          transform: (v: unknown) => (v ? new Date(v as string).toLocaleDateString() : ''),
+        },
       ];
     case 'treatment-status':
       return [
         { key: 'riskId', header: 'Risk ID' },
         { key: 'title', header: 'Title' },
-        { key: 'treatmentPlan', header: 'Treatment Plan', transform: (v: unknown) => String(v || 'None').replace(/\b\w/g, l => l.toUpperCase()) },
-        { key: 'status', header: 'Status', transform: (v: unknown) => String(v || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
+        {
+          key: 'treatmentPlan',
+          header: 'Treatment Plan',
+          transform: (v: unknown) => String(v || 'None').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
+        {
+          key: 'status',
+          header: 'Status',
+          transform: (v: unknown) =>
+            String(v || '')
+              .replace(/_/g, ' ')
+              .replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
         { key: 'owner', header: 'Owner' },
-        { key: 'inherentRisk', header: 'Risk Level', transform: (v: unknown) => String(v || '').replace(/\b\w/g, l => l.toUpperCase()) },
+        {
+          key: 'inherentRisk',
+          header: 'Risk Level',
+          transform: (v: unknown) => String(v || '').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
       ];
     case 'executive-summary':
       return [
         { key: 'riskId', header: 'Risk ID' },
         { key: 'title', header: 'Title' },
-        { key: 'inherentRisk', header: 'Risk Level', transform: (v: unknown) => String(v || '').replace(/\b\w/g, l => l.toUpperCase()) },
-        { key: 'status', header: 'Status', transform: (v: unknown) => String(v || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) },
-        { key: 'treatmentPlan', header: 'Treatment', transform: (v: unknown) => String(v || 'None').replace(/\b\w/g, l => l.toUpperCase()) },
+        {
+          key: 'inherentRisk',
+          header: 'Risk Level',
+          transform: (v: unknown) => String(v || '').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
+        {
+          key: 'status',
+          header: 'Status',
+          transform: (v: unknown) =>
+            String(v || '')
+              .replace(/_/g, ' ')
+              .replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
+        {
+          key: 'treatmentPlan',
+          header: 'Treatment',
+          transform: (v: unknown) => String(v || 'None').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
       ];
     case 'heat-map':
       return [
@@ -131,7 +205,11 @@ const getExportColumns = (reportType: ReportType) => {
         { key: 'title', header: 'Title' },
         { key: 'likelihood', header: 'Likelihood' },
         { key: 'impact', header: 'Impact' },
-        { key: 'inherentRisk', header: 'Risk Level', transform: (v: unknown) => String(v || '').replace(/\b\w/g, l => l.toUpperCase()) },
+        {
+          key: 'inherentRisk',
+          header: 'Risk Level',
+          transform: (v: unknown) => String(v || '').replace(/\b\w/g, (l) => l.toUpperCase()),
+        },
       ];
     default:
       return [
@@ -148,23 +226,29 @@ const getExportColumns = (reportType: ReportType) => {
 function generateTrendData(risks: Risk[], months: number = 6) {
   const now = new Date();
   const trendData = [];
-  
+
   for (let i = months - 1; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthName = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    
+
     // Filter risks created before this month's end
     const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    const risksUpToDate = risks.filter(r => new Date(r.createdAt) <= monthEnd);
-    
+    const risksUpToDate = risks.filter((r) => new Date(r.createdAt) <= monthEnd);
+
     // Calculate metrics
-    const openRisks = risksUpToDate.filter(r => r.status === 'open' || r.status === 'in_treatment').length;
-    const mitigatedRisks = risksUpToDate.filter(r => r.status === 'mitigated' || r.status === 'accepted').length;
-    const criticalHighRisks = risksUpToDate.filter(r => r.inherentRisk === 'critical' || r.inherentRisk === 'high').length;
-    
+    const openRisks = risksUpToDate.filter(
+      (r) => r.status === 'open' || r.status === 'in_treatment'
+    ).length;
+    const mitigatedRisks = risksUpToDate.filter(
+      (r) => r.status === 'mitigated' || r.status === 'accepted'
+    ).length;
+    const criticalHighRisks = risksUpToDate.filter(
+      (r) => r.inherentRisk === 'critical' || r.inherentRisk === 'high'
+    ).length;
+
     // Simulate some variance for visual interest (in real app, this would be actual historical data)
     const variance = Math.floor(Math.random() * 3) - 1;
-    
+
     trendData.push({
       month: monthName,
       openRisks: Math.max(0, openRisks + variance),
@@ -173,7 +257,7 @@ function generateTrendData(risks: Risk[], months: number = 6) {
       totalRisks: risksUpToDate.length,
     });
   }
-  
+
   return trendData;
 }
 
@@ -185,9 +269,12 @@ function generatePDFContent(
   dateRange: { start: string; end: string },
   filters: { category: string; riskLevel: string; status: string }
 ) {
-  const reportName = reportTemplates.find(t => t.id === reportType)?.name || 'Risk Report';
-  const generatedDate = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  const reportName = reportTemplates.find((t) => t.id === reportType)?.name || 'Risk Report';
+  const generatedDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
   });
 
   let content = `
@@ -233,7 +320,7 @@ function generatePDFContent(
   if (filters.category) activeFilters.push(`Category: ${filters.category}`);
   if (filters.riskLevel) activeFilters.push(`Risk Level: ${filters.riskLevel}`);
   if (filters.status) activeFilters.push(`Status: ${filters.status}`);
-  
+
   if (activeFilters.length > 0) {
     content += `<div class="filters"><strong>Filters Applied:</strong> ${activeFilters.join(' | ')}</div>`;
   }
@@ -248,15 +335,15 @@ function generatePDFContent(
           <div class="stat-label">Total Risks</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value critical">${dashboardData?.openRisks || risks.filter(r => r.status === 'open').length}</div>
+          <div class="stat-value critical">${dashboardData?.openRisks || risks.filter((r) => r.status === 'open').length}</div>
           <div class="stat-label">Open Risks</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value medium">${dashboardData?.inTreatment || risks.filter(r => r.status === 'in_treatment').length}</div>
+          <div class="stat-value medium">${dashboardData?.inTreatment || risks.filter((r) => r.status === 'in_treatment').length}</div>
           <div class="stat-label">In Treatment</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value low">${dashboardData?.mitigatedThisMonth || risks.filter(r => r.status === 'mitigated').length}</div>
+          <div class="stat-value low">${dashboardData?.mitigatedThisMonth || risks.filter((r) => r.status === 'mitigated').length}</div>
           <div class="stat-label">Mitigated</div>
         </div>
       </div>
@@ -265,9 +352,10 @@ function generatePDFContent(
   }
 
   // Add risk table
-  const risksToShow = reportType === 'executive-summary' 
-    ? risks.filter(r => r.inherentRisk === 'critical' || r.inherentRisk === 'high').slice(0, 10)
-    : risks;
+  const risksToShow =
+    reportType === 'executive-summary'
+      ? risks.filter((r) => r.inherentRisk === 'critical' || r.inherentRisk === 'high').slice(0, 10)
+      : risks;
 
   content += `
     <table>
@@ -284,7 +372,7 @@ function generatePDFContent(
       <tbody>
   `;
 
-  risksToShow.forEach(risk => {
+  risksToShow.forEach((risk) => {
     const badgeClass = `badge-${risk.inherentRisk}`;
     content += `
       <tr>
@@ -335,8 +423,8 @@ export default function RiskReports() {
   const { data: risksData, isLoading } = useQuery({
     queryKey: ['risks', 'report', filters, dateRange],
     queryFn: async () => {
-      const response = await risksApi.list({ 
-        ...filters as any, 
+      const response = await risksApi.list({
+        ...(filters as any),
         limit: 1000,
         // Note: In a real app, dateRange would be sent to backend
         // For now, we'll filter client-side
@@ -349,18 +437,18 @@ export default function RiskReports() {
   // Filter risks by date range (client-side)
   const filteredRisks = useMemo(() => {
     let risks = risksData?.risks || [];
-    
+
     if (dateRange.start) {
       const startDate = new Date(dateRange.start);
       risks = risks.filter((r) => new Date((r as Risk).createdAt) >= startDate);
     }
-    
+
     if (dateRange.end) {
       const endDate = new Date(dateRange.end);
       endDate.setHours(23, 59, 59, 999); // Include entire end day
       risks = risks.filter((r) => new Date((r as Risk).createdAt) <= endDate);
     }
-    
+
     return risks;
   }, [risksData?.risks, dateRange]);
 
@@ -378,7 +466,8 @@ export default function RiskReports() {
     setIsExporting(true);
 
     try {
-      const reportName = reportTemplates.find(t => t.id === selectedReport)?.name || 'risk-report';
+      const reportName =
+        reportTemplates.find((t) => t.id === selectedReport)?.name || 'risk-report';
       const filename = reportName.toLowerCase().replace(/\s+/g, '-');
 
       if (exportFormat === 'pdf') {
@@ -390,12 +479,16 @@ export default function RiskReports() {
           dateRange,
           filters
         );
-        
+
         const printWindow = window.open('', '_blank');
         if (printWindow) {
-          // Use safer DOM manipulation instead of document.write
+          // Sanitize HTML content with DOMPurify to prevent XSS
+          const sanitizedContent = DOMPurify.sanitize(pdfContent, {
+            WHOLE_DOCUMENT: true,
+            ADD_TAGS: ['style', 'html', 'head', 'body', 'title', 'meta'],
+          });
           const parser = new DOMParser();
-          const doc = parser.parseFromString(pdfContent, 'text/html');
+          const doc = parser.parseFromString(sanitizedContent, 'text/html');
           printWindow.document.documentElement.innerHTML = doc.documentElement.innerHTML;
           printWindow.document.close();
           printWindow.focus();
@@ -425,7 +518,7 @@ export default function RiskReports() {
     }
   };
 
-  const selectedTemplate = reportTemplates.find(t => t.id === selectedReport);
+  const selectedTemplate = reportTemplates.find((t) => t.id === selectedReport);
 
   return (
     <div className="space-y-6">
@@ -433,7 +526,9 @@ export default function RiskReports() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Risk Reports</h1>
-          <p className="text-gray-500 dark:text-surface-400 mt-1">Generate and export risk reports</p>
+          <p className="text-gray-500 dark:text-surface-400 mt-1">
+            Generate and export risk reports
+          </p>
         </div>
       </div>
 
@@ -441,9 +536,11 @@ export default function RiskReports() {
         {/* Report Templates - Left Panel */}
         <div className="lg:col-span-4">
           <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 p-5">
-            <h2 className="text-base font-medium text-gray-900 dark:text-white mb-4">Report Templates</h2>
+            <h2 className="text-base font-medium text-gray-900 dark:text-white mb-4">
+              Report Templates
+            </h2>
             <div className="space-y-2">
-              {reportTemplates.map(template => (
+              {reportTemplates.map((template) => (
                 <button
                   key={template.id}
                   onClick={() => setSelectedReport(template.id)}
@@ -454,20 +551,34 @@ export default function RiskReports() {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg flex-shrink-0 ${
-                      selectedReport === template.id ? 'bg-brand-500/20' : 'bg-gray-200 dark:bg-surface-600'
-                    }`}>
-                      <template.icon className={`w-4 h-4 ${
-                        selectedReport === template.id ? 'text-brand-400' : 'text-gray-500 dark:text-surface-400'
-                      }`} />
+                    <div
+                      className={`p-2 rounded-lg flex-shrink-0 ${
+                        selectedReport === template.id
+                          ? 'bg-brand-500/20'
+                          : 'bg-gray-200 dark:bg-surface-600'
+                      }`}
+                    >
+                      <template.icon
+                        className={`w-4 h-4 ${
+                          selectedReport === template.id
+                            ? 'text-brand-400'
+                            : 'text-gray-500 dark:text-surface-400'
+                        }`}
+                      />
                     </div>
                     <div className="min-w-0">
-                      <p className={`font-medium text-sm ${
-                        selectedReport === template.id ? 'text-brand-500 dark:text-brand-400' : 'text-gray-900 dark:text-white'
-                      }`}>
+                      <p
+                        className={`font-medium text-sm ${
+                          selectedReport === template.id
+                            ? 'text-brand-500 dark:text-brand-400'
+                            : 'text-gray-900 dark:text-white'
+                        }`}
+                      >
                         {template.name}
                       </p>
-                      <p className="text-gray-500 dark:text-surface-500 text-xs mt-0.5 line-clamp-2">{template.description}</p>
+                      <p className="text-gray-500 dark:text-surface-500 text-xs mt-0.5 line-clamp-2">
+                        {template.description}
+                      </p>
                     </div>
                   </div>
                 </button>
@@ -487,8 +598,12 @@ export default function RiskReports() {
                     <selectedTemplate.icon className="w-5 h-5 text-brand-500 dark:text-brand-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{selectedTemplate.name}</h3>
-                    <p className="text-gray-500 dark:text-surface-400 text-sm">{selectedTemplate.description}</p>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                      {selectedTemplate.name}
+                    </h3>
+                    <p className="text-gray-500 dark:text-surface-400 text-sm">
+                      {selectedTemplate.description}
+                    </p>
                   </div>
                 </div>
 
@@ -502,7 +617,7 @@ export default function RiskReports() {
                     <input
                       type="date"
                       value={dateRange.start}
-                      onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                      onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-surface-700 border border-gray-300 dark:border-surface-600 rounded-lg text-gray-900 dark:text-white text-sm"
                     />
                   </div>
@@ -514,7 +629,7 @@ export default function RiskReports() {
                     <input
                       type="date"
                       value={dateRange.end}
-                      onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                      onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-surface-700 border border-gray-300 dark:border-surface-600 rounded-lg text-gray-900 dark:text-white text-sm"
                     />
                   </div>
@@ -525,7 +640,9 @@ export default function RiskReports() {
                     </label>
                     <select
                       value={filters.category}
-                      onChange={e => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, category: e.target.value }))
+                      }
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-surface-700 border border-gray-300 dark:border-surface-600 rounded-lg text-gray-900 dark:text-white text-sm"
                     >
                       <option value="">All</option>
@@ -537,10 +654,14 @@ export default function RiskReports() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 dark:text-surface-500 mb-1.5">Risk Level</label>
+                    <label className="block text-xs text-gray-500 dark:text-surface-500 mb-1.5">
+                      Risk Level
+                    </label>
                     <select
                       value={filters.riskLevel}
-                      onChange={e => setFilters(prev => ({ ...prev, riskLevel: e.target.value }))}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, riskLevel: e.target.value }))
+                      }
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-surface-700 border border-gray-300 dark:border-surface-600 rounded-lg text-gray-900 dark:text-white text-sm"
                     >
                       <option value="">All</option>
@@ -551,10 +672,12 @@ export default function RiskReports() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 dark:text-surface-500 mb-1.5">Status</label>
+                    <label className="block text-xs text-gray-500 dark:text-surface-500 mb-1.5">
+                      Status
+                    </label>
                     <select
                       value={filters.status}
-                      onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-surface-700 border border-gray-300 dark:border-surface-600 rounded-lg text-gray-900 dark:text-white text-sm"
                     >
                       <option value="">All</option>
@@ -571,7 +694,7 @@ export default function RiskReports() {
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500 dark:text-surface-500">Format:</span>
                     <div className="flex gap-1">
-                      {(['csv', 'excel', 'pdf'] as const).map(format => (
+                      {(['csv', 'excel', 'pdf'] as const).map((format) => (
                         <button
                           key={format}
                           onClick={() => setExportFormat(format)}
@@ -591,16 +714,23 @@ export default function RiskReports() {
                     disabled={isExporting || filteredRisks.length === 0}
                     className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium transition-colors"
                   >
-                    <ArrowDownTrayIcon className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
+                    <ArrowDownTrayIcon
+                      className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`}
+                    />
                     {isExporting ? 'Exporting...' : 'Export Report'}
                   </button>
                 </div>
 
                 {/* Data count indicator */}
                 <div className="mt-3 text-xs text-gray-500 dark:text-surface-500">
-                  {filteredRisks.length} risk{filteredRisks.length !== 1 ? 's' : ''} matching current filters
-                  {(dateRange.start || dateRange.end || filters.category || filters.riskLevel || filters.status) && (
-                    <button 
+                  {filteredRisks.length} risk{filteredRisks.length !== 1 ? 's' : ''} matching
+                  current filters
+                  {(dateRange.start ||
+                    dateRange.end ||
+                    filters.category ||
+                    filters.riskLevel ||
+                    filters.status) && (
+                    <button
                       onClick={() => {
                         setDateRange({ start: '', end: '' });
                         setFilters({ category: '', riskLevel: '', status: '' });
@@ -615,14 +745,21 @@ export default function RiskReports() {
 
               {/* Preview */}
               <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 p-5">
-                <h3 className="text-base font-medium text-gray-900 dark:text-white mb-4">Preview</h3>
-                
+                <h3 className="text-base font-medium text-gray-900 dark:text-white mb-4">
+                  Preview
+                </h3>
+
                 {isLoading ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-surface-400">Loading preview...</div>
+                  <div className="text-center py-8 text-gray-500 dark:text-surface-400">
+                    Loading preview...
+                  </div>
                 ) : (
                   <div>
                     {selectedReport === 'executive-summary' && (
-                      <ExecutiveSummaryPreview data={dashboardData} risks={filteredRisks as Risk[]} />
+                      <ExecutiveSummaryPreview
+                        data={dashboardData}
+                        risks={filteredRisks as Risk[]}
+                      />
                     )}
                     {selectedReport === 'risk-register' && (
                       <RiskRegisterPreview risks={filteredRisks as Risk[]} />
@@ -646,8 +783,12 @@ export default function RiskReports() {
           ) : (
             <div className="bg-white dark:bg-surface-800 rounded-xl border border-gray-200 dark:border-surface-700 p-12 text-center">
               <DocumentChartBarIcon className="w-12 h-12 text-gray-400 dark:text-surface-600 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-surface-400 text-lg font-medium">Select a Report Template</p>
-              <p className="text-gray-500 dark:text-surface-500 text-sm mt-1">Choose a template from the left panel to configure and generate your report</p>
+              <p className="text-gray-600 dark:text-surface-400 text-lg font-medium">
+                Select a Report Template
+              </p>
+              <p className="text-gray-500 dark:text-surface-500 text-sm mt-1">
+                Choose a template from the left panel to configure and generate your report
+              </p>
             </div>
           )}
         </div>
@@ -659,45 +800,62 @@ export default function RiskReports() {
 // Preview Components
 function ExecutiveSummaryPreview({ data, risks }: { data: any; risks: Risk[] }) {
   const topRisks = risks
-    .filter(r => r.inherentRisk === 'critical' || r.inherentRisk === 'high')
+    .filter((r) => r.inherentRisk === 'critical' || r.inherentRisk === 'high')
     .slice(0, 5);
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-4 gap-3">
         <div className="p-4 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{data?.totalRisks || risks.length}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            {data?.totalRisks || risks.length}
+          </p>
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">Total Risks</p>
         </div>
         <div className="p-4 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
-          <p className="text-2xl font-bold text-red-500 dark:text-red-400">{data?.openRisks || risks.filter(r => r.status === 'open').length}</p>
+          <p className="text-2xl font-bold text-red-500 dark:text-red-400">
+            {data?.openRisks || risks.filter((r) => r.status === 'open').length}
+          </p>
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">Open</p>
         </div>
         <div className="p-4 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
-          <p className="text-2xl font-bold text-amber-500 dark:text-amber-400">{data?.inTreatment || risks.filter(r => r.status === 'in_treatment').length}</p>
+          <p className="text-2xl font-bold text-amber-500 dark:text-amber-400">
+            {data?.inTreatment || risks.filter((r) => r.status === 'in_treatment').length}
+          </p>
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">In Treatment</p>
         </div>
         <div className="p-4 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
-          <p className="text-2xl font-bold text-emerald-500 dark:text-emerald-400">{data?.mitigatedThisMonth || risks.filter(r => r.status === 'mitigated').length}</p>
+          <p className="text-2xl font-bold text-emerald-500 dark:text-emerald-400">
+            {data?.mitigatedThisMonth || risks.filter((r) => r.status === 'mitigated').length}
+          </p>
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">Mitigated</p>
         </div>
       </div>
-      
+
       {topRisks.length > 0 && (
         <div>
-          <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">Top Critical/High Risks</h4>
+          <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">
+            Top Critical/High Risks
+          </h4>
           <div className="space-y-2">
-            {topRisks.map(risk => (
-              <div key={risk.id} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-surface-700/50">
+            {topRisks.map((risk) => (
+              <div
+                key={risk.id}
+                className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-surface-700/50"
+              >
                 <div className="flex items-center gap-3">
-                  <span className={`px-2 py-0.5 rounded text-xs text-white ${
-                    risk.inherentRisk === 'critical' ? 'bg-red-500' : 'bg-orange-500'
-                  }`}>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs text-white ${
+                      risk.inherentRisk === 'critical' ? 'bg-red-500' : 'bg-orange-500'
+                    }`}
+                  >
                     {risk.inherentRisk}
                   </span>
                   <span className="text-gray-900 dark:text-white text-sm">{risk.title}</span>
                 </div>
-                <span className="text-gray-500 dark:text-surface-400 text-xs capitalize">{risk.status?.replace(/_/g, ' ')}</span>
+                <span className="text-gray-500 dark:text-surface-400 text-xs capitalize">
+                  {risk.status?.replace(/_/g, ' ')}
+                </span>
               </div>
             ))}
           </div>
@@ -723,28 +881,44 @@ function RiskRegisterPreview({ risks }: { risks: Risk[] }) {
         <tbody>
           {risks.slice(0, 5).map((risk) => (
             <tr key={risk.id} className="border-b border-gray-200 dark:border-surface-700/50">
-              <td className="py-2.5 text-brand-500 dark:text-brand-400 font-mono text-xs">{risk.riskId}</td>
+              <td className="py-2.5 text-brand-500 dark:text-brand-400 font-mono text-xs">
+                {risk.riskId}
+              </td>
               <td className="py-2.5 text-gray-900 dark:text-white text-sm">{risk.title}</td>
-              <td className="py-2.5 text-gray-600 dark:text-surface-300 capitalize text-sm">{risk.category}</td>
+              <td className="py-2.5 text-gray-600 dark:text-surface-300 capitalize text-sm">
+                {risk.category}
+              </td>
               <td className="py-2.5">
-                <span className={`px-2 py-0.5 rounded text-xs text-white capitalize ${
-                  risk.inherentRisk === 'critical' ? 'bg-red-500' :
-                  risk.inherentRisk === 'high' ? 'bg-orange-500' :
-                  risk.inherentRisk === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
-                }`}>
+                <span
+                  className={`px-2 py-0.5 rounded text-xs text-white capitalize ${
+                    risk.inherentRisk === 'critical'
+                      ? 'bg-red-500'
+                      : risk.inherentRisk === 'high'
+                        ? 'bg-orange-500'
+                        : risk.inherentRisk === 'medium'
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                  }`}
+                >
                   {risk.inherentRisk}
                 </span>
               </td>
-              <td className="py-2.5 text-gray-600 dark:text-surface-300 capitalize text-sm">{risk.status?.replace(/_/g, ' ')}</td>
+              <td className="py-2.5 text-gray-600 dark:text-surface-300 capitalize text-sm">
+                {risk.status?.replace(/_/g, ' ')}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
       {risks.length > 5 && (
-        <p className="text-gray-500 dark:text-surface-500 text-xs mt-3">... and {risks.length - 5} more rows in the full report</p>
+        <p className="text-gray-500 dark:text-surface-500 text-xs mt-3">
+          ... and {risks.length - 5} more rows in the full report
+        </p>
       )}
       {risks.length === 0 && (
-        <p className="text-gray-500 dark:text-surface-500 text-sm text-center py-6">No risks found with current filters</p>
+        <p className="text-gray-500 dark:text-surface-500 text-sm text-center py-6">
+          No risks found with current filters
+        </p>
       )}
     </div>
   );
@@ -772,10 +946,15 @@ function RiskSummaryPreview({ data, risks }: { data: any; risks: Risk[] }) {
       <div>
         <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">By Risk Level</h4>
         <div className="grid grid-cols-4 gap-3">
-          {['critical', 'high', 'medium', 'low'].map(level => (
-            <div key={level} className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg border border-gray-200 dark:border-surface-600/50">
+          {['critical', 'high', 'medium', 'low'].map((level) => (
+            <div
+              key={level}
+              className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg border border-gray-200 dark:border-surface-600/50"
+            >
               <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {levelCounts[level] || data?.byRiskLevel?.find((r: any) => r.level === level)?.count || 0}
+                {levelCounts[level] ||
+                  data?.byRiskLevel?.find((r: any) => r.level === level)?.count ||
+                  0}
               </p>
               <p className="text-gray-500 dark:text-surface-400 text-xs capitalize mt-1">{level}</p>
             </div>
@@ -786,13 +965,20 @@ function RiskSummaryPreview({ data, risks }: { data: any; risks: Risk[] }) {
         <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">By Category</h4>
         <div className="space-y-2">
           {categories.slice(0, 4).map((cat) => (
-            <div key={cat.category} className="flex justify-between items-center py-1.5 border-b border-gray-200 dark:border-surface-700/50">
-              <span className="text-gray-600 dark:text-surface-300 capitalize text-sm">{cat.category}</span>
+            <div
+              key={cat.category}
+              className="flex justify-between items-center py-1.5 border-b border-gray-200 dark:border-surface-700/50"
+            >
+              <span className="text-gray-600 dark:text-surface-300 capitalize text-sm">
+                {cat.category}
+              </span>
               <span className="text-gray-900 dark:text-white font-medium text-sm">{cat.count}</span>
             </div>
           ))}
           {categories.length === 0 && (
-            <p className="text-gray-500 dark:text-surface-500 text-sm">No category data available</p>
+            <p className="text-gray-500 dark:text-surface-500 text-sm">
+              No category data available
+            </p>
           )}
         </div>
       </div>
@@ -802,25 +988,31 @@ function RiskSummaryPreview({ data, risks }: { data: any; risks: Risk[] }) {
 
 function TreatmentStatusPreview({ risks }: { risks: Risk[] }) {
   const treatmentCounts = {
-    mitigate: risks.filter(r => r.treatmentPlan === 'mitigate').length,
-    accept: risks.filter(r => r.treatmentPlan === 'accept').length,
-    transfer: risks.filter(r => r.treatmentPlan === 'transfer').length,
-    avoid: risks.filter(r => r.treatmentPlan === 'avoid').length,
+    mitigate: risks.filter((r) => r.treatmentPlan === 'mitigate').length,
+    accept: risks.filter((r) => r.treatmentPlan === 'accept').length,
+    transfer: risks.filter((r) => r.treatmentPlan === 'transfer').length,
+    avoid: risks.filter((r) => r.treatmentPlan === 'avoid').length,
   };
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-3">
         <div className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
-          <p className="text-xl font-bold text-gray-900 dark:text-white">{treatmentCounts.mitigate}</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">
+            {treatmentCounts.mitigate}
+          </p>
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">Mitigating</p>
         </div>
         <div className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
-          <p className="text-xl font-bold text-gray-900 dark:text-white">{treatmentCounts.accept}</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">
+            {treatmentCounts.accept}
+          </p>
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">Accepting</p>
         </div>
         <div className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
-          <p className="text-xl font-bold text-gray-900 dark:text-white">{treatmentCounts.transfer}</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">
+            {treatmentCounts.transfer}
+          </p>
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">Transferring</p>
         </div>
         <div className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg text-center border border-gray-200 dark:border-surface-600/50">
@@ -828,24 +1020,36 @@ function TreatmentStatusPreview({ risks }: { risks: Risk[] }) {
           <p className="text-gray-500 dark:text-surface-400 text-xs mt-1">Avoiding</p>
         </div>
       </div>
-      
+
       {/* Treatment progress list */}
       <div>
-        <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">Risks with Treatment Plans</h4>
+        <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">
+          Risks with Treatment Plans
+        </h4>
         <div className="space-y-2">
-          {risks.filter(r => r.treatmentPlan).slice(0, 5).map(risk => (
-            <div key={risk.id} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-surface-700/50">
-              <div>
-                <span className="text-gray-900 dark:text-white text-sm">{risk.title}</span>
-                <span className="text-gray-500 dark:text-surface-500 text-xs ml-2">({risk.riskId})</span>
+          {risks
+            .filter((r) => r.treatmentPlan)
+            .slice(0, 5)
+            .map((risk) => (
+              <div
+                key={risk.id}
+                className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-surface-700/50"
+              >
+                <div>
+                  <span className="text-gray-900 dark:text-white text-sm">{risk.title}</span>
+                  <span className="text-gray-500 dark:text-surface-500 text-xs ml-2">
+                    ({risk.riskId})
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-xs bg-brand-500/20 text-brand-500 dark:text-brand-400 capitalize">
+                  {risk.treatmentPlan}
+                </span>
               </div>
-              <span className="px-2 py-0.5 rounded text-xs bg-brand-500/20 text-brand-500 dark:text-brand-400 capitalize">
-                {risk.treatmentPlan}
-              </span>
-            </div>
-          ))}
-          {risks.filter(r => r.treatmentPlan).length === 0 && (
-            <p className="text-gray-500 dark:text-surface-500 text-sm">No risks with treatment plans</p>
+            ))}
+          {risks.filter((r) => r.treatmentPlan).length === 0 && (
+            <p className="text-gray-500 dark:text-surface-500 text-sm">
+              No risks with treatment plans
+            </p>
           )}
         </div>
       </div>
@@ -872,14 +1076,14 @@ function RiskTrendsPreview({ trendData }: { trendData: TrendDataPoint[] }) {
 
   // Calculate max value for scaling
   const maxValue = Math.max(
-    ...trendData.map(d => Math.max(d.openRisks, d.mitigatedRisks, d.totalRisks))
+    ...trendData.map((d) => Math.max(d.openRisks, d.mitigatedRisks, d.totalRisks))
   );
   const chartHeight = 160;
 
   // Calculate change indicators
   const latestData = trendData[trendData.length - 1];
   const previousData = trendData[trendData.length - 2] || latestData;
-  
+
   const openChange = latestData.openRisks - previousData.openRisks;
   const mitigatedChange = latestData.mitigatedRisks - previousData.mitigatedRisks;
 
@@ -891,29 +1095,47 @@ function RiskTrendsPreview({ trendData }: { trendData: TrendDataPoint[] }) {
           <div className="flex items-center justify-between">
             <span className="text-gray-500 dark:text-surface-400 text-xs">Open Risks</span>
             {openChange !== 0 && (
-              <span className={`flex items-center text-xs ${openChange > 0 ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
-                {openChange > 0 ? <ArrowTrendingUpIcon className="w-3 h-3 mr-0.5" /> : <ArrowTrendingDownIcon className="w-3 h-3 mr-0.5" />}
+              <span
+                className={`flex items-center text-xs ${openChange > 0 ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}
+              >
+                {openChange > 0 ? (
+                  <ArrowTrendingUpIcon className="w-3 h-3 mr-0.5" />
+                ) : (
+                  <ArrowTrendingDownIcon className="w-3 h-3 mr-0.5" />
+                )}
                 {Math.abs(openChange)}
               </span>
             )}
           </div>
-          <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">{latestData.openRisks}</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
+            {latestData.openRisks}
+          </p>
         </div>
         <div className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg border border-gray-200 dark:border-surface-600/50">
           <div className="flex items-center justify-between">
             <span className="text-gray-500 dark:text-surface-400 text-xs">Mitigated</span>
             {mitigatedChange !== 0 && (
-              <span className={`flex items-center text-xs ${mitigatedChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}>
-                {mitigatedChange > 0 ? <ArrowTrendingUpIcon className="w-3 h-3 mr-0.5" /> : <ArrowTrendingDownIcon className="w-3 h-3 mr-0.5" />}
+              <span
+                className={`flex items-center text-xs ${mitigatedChange > 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'}`}
+              >
+                {mitigatedChange > 0 ? (
+                  <ArrowTrendingUpIcon className="w-3 h-3 mr-0.5" />
+                ) : (
+                  <ArrowTrendingDownIcon className="w-3 h-3 mr-0.5" />
+                )}
                 {Math.abs(mitigatedChange)}
               </span>
             )}
           </div>
-          <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">{latestData.mitigatedRisks}</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
+            {latestData.mitigatedRisks}
+          </p>
         </div>
         <div className="p-3 bg-gray-50 dark:bg-surface-700/50 rounded-lg border border-gray-200 dark:border-surface-600/50">
           <span className="text-gray-500 dark:text-surface-400 text-xs">Critical/High</span>
-          <p className="text-xl font-bold text-red-500 dark:text-red-400 mt-1">{latestData.criticalHighRisks}</p>
+          <p className="text-xl font-bold text-red-500 dark:text-red-400 mt-1">
+            {latestData.criticalHighRisks}
+          </p>
         </div>
       </div>
 
@@ -922,28 +1144,31 @@ function RiskTrendsPreview({ trendData }: { trendData: TrendDataPoint[] }) {
         <div className="flex items-end justify-between gap-2" style={{ height: chartHeight }}>
           {trendData.map((data, index) => {
             const openHeight = maxValue > 0 ? (data.openRisks / maxValue) * (chartHeight - 30) : 0;
-            const mitigatedHeight = maxValue > 0 ? (data.mitigatedRisks / maxValue) * (chartHeight - 30) : 0;
-            
+            const mitigatedHeight =
+              maxValue > 0 ? (data.mitigatedRisks / maxValue) * (chartHeight - 30) : 0;
+
             return (
               <div key={index} className="flex-1 flex flex-col items-center gap-1">
                 <div className="flex items-end gap-1 h-full">
-                  <div 
+                  <div
                     className="w-3 bg-red-500/70 rounded-t transition-all hover:bg-red-500"
                     style={{ height: Math.max(4, openHeight) }}
                     title={`Open: ${data.openRisks}`}
                   />
-                  <div 
+                  <div
                     className="w-3 bg-emerald-500/70 rounded-t transition-all hover:bg-emerald-500"
                     style={{ height: Math.max(4, mitigatedHeight) }}
                     title={`Mitigated: ${data.mitigatedRisks}`}
                   />
                 </div>
-                <span className="text-[10px] text-gray-500 dark:text-surface-500">{data.month}</span>
+                <span className="text-[10px] text-gray-500 dark:text-surface-500">
+                  {data.month}
+                </span>
               </div>
             );
           })}
         </div>
-        
+
         {/* Legend */}
         <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-gray-200 dark:border-surface-700/50">
           <div className="flex items-center gap-1.5">
@@ -959,7 +1184,9 @@ function RiskTrendsPreview({ trendData }: { trendData: TrendDataPoint[] }) {
 
       {/* Month-over-month table */}
       <div>
-        <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">Monthly Breakdown</h4>
+        <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-3">
+          Monthly Breakdown
+        </h4>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -972,15 +1199,26 @@ function RiskTrendsPreview({ trendData }: { trendData: TrendDataPoint[] }) {
               </tr>
             </thead>
             <tbody>
-              {trendData.slice().reverse().map((data, index) => (
-                <tr key={index} className="border-b border-gray-200 dark:border-surface-700/50">
-                  <td className="py-2 text-gray-900 dark:text-white">{data.month}</td>
-                  <td className="py-2 text-gray-600 dark:text-surface-300 text-right">{data.totalRisks}</td>
-                  <td className="py-2 text-red-500 dark:text-red-400 text-right">{data.openRisks}</td>
-                  <td className="py-2 text-emerald-500 dark:text-emerald-400 text-right">{data.mitigatedRisks}</td>
-                  <td className="py-2 text-amber-500 dark:text-amber-400 text-right">{data.criticalHighRisks}</td>
-                </tr>
-              ))}
+              {trendData
+                .slice()
+                .reverse()
+                .map((data, index) => (
+                  <tr key={index} className="border-b border-gray-200 dark:border-surface-700/50">
+                    <td className="py-2 text-gray-900 dark:text-white">{data.month}</td>
+                    <td className="py-2 text-gray-600 dark:text-surface-300 text-right">
+                      {data.totalRisks}
+                    </td>
+                    <td className="py-2 text-red-500 dark:text-red-400 text-right">
+                      {data.openRisks}
+                    </td>
+                    <td className="py-2 text-emerald-500 dark:text-emerald-400 text-right">
+                      {data.mitigatedRisks}
+                    </td>
+                    <td className="py-2 text-amber-500 dark:text-amber-400 text-right">
+                      {data.criticalHighRisks}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

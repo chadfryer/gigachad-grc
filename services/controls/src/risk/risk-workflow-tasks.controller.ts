@@ -1,15 +1,4 @@
- 
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Param,
-  Query,
-  Body,
-  Headers,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { RiskWorkflowTasksService } from './risk-workflow-tasks.service';
 import {
   CreateRiskWorkflowTaskDto,
@@ -18,7 +7,8 @@ import {
   CompleteTaskDto,
   RiskWorkflowTaskFilterDto,
 } from './dto/risk-workflow-task.dto';
-import { DevAuthGuard } from '../auth/dev-auth.guard';
+import { DevAuthGuard, User } from '../auth/dev-auth.guard';
+import type { UserContext } from '@gigachad-grc/shared';
 
 @Controller('api/risk-tasks')
 @UseGuards(DevAuthGuard)
@@ -35,15 +25,14 @@ export class RiskWorkflowTasksController {
    */
   @Get('my-tasks')
   async getMyTasks(
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
+    @User() user: UserContext,
     @Query('status') status?: string,
     @Query('taskType') taskType?: string,
     @Query('priority') priority?: string,
     @Query('workflowStage') workflowStage?: string,
     @Query('overdue') overdue?: string,
     @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query('limit') limit?: string
   ) {
     const filters: RiskWorkflowTaskFilterDto = {
       status,
@@ -54,11 +43,11 @@ export class RiskWorkflowTasksController {
     };
 
     return this.tasksService.getMyTasks(
-      userId,
-      orgId,
+      user.userId,
+      user.organizationId,
       filters,
       parseInt(page || '1', 10),
-      parseInt(limit || '25', 10),
+      parseInt(limit || '25', 10)
     );
   }
 
@@ -67,11 +56,8 @@ export class RiskWorkflowTasksController {
    * GET /api/risk-tasks/my-stats
    */
   @Get('my-stats')
-  async getMyStats(
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-  ) {
-    return this.tasksService.getTaskStats(orgId, userId);
+  async getMyStats(@User() user: UserContext) {
+    return this.tasksService.getTaskStats(user.organizationId, user.userId);
   }
 
   // ===========================
@@ -84,14 +70,14 @@ export class RiskWorkflowTasksController {
    */
   @Get()
   async getAllTasks(
-    @Headers('x-organization-id') orgId: string = 'default',
+    @User() user: UserContext,
     @Query('status') status?: string,
     @Query('taskType') taskType?: string,
     @Query('priority') priority?: string,
     @Query('assigneeId') assigneeId?: string,
     @Query('workflowStage') workflowStage?: string,
     @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query('limit') limit?: string
   ) {
     const filters: RiskWorkflowTaskFilterDto = {
       status,
@@ -102,10 +88,10 @@ export class RiskWorkflowTasksController {
     };
 
     return this.tasksService.getAllTasks(
-      orgId,
+      user.organizationId,
       filters,
       parseInt(page || '1', 10),
-      parseInt(limit || '25', 10),
+      parseInt(limit || '25', 10)
     );
   }
 
@@ -114,10 +100,8 @@ export class RiskWorkflowTasksController {
    * GET /api/risk-tasks/stats
    */
   @Get('stats')
-  async getOrgStats(
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.tasksService.getTaskStats(orgId);
+  async getOrgStats(@User() user: UserContext) {
+    return this.tasksService.getTaskStats(user.organizationId);
   }
 
   // ===========================
@@ -129,11 +113,8 @@ export class RiskWorkflowTasksController {
    * GET /api/risk-tasks/risk/:riskId
    */
   @Get('risk/:riskId')
-  async getTasksForRisk(
-    @Param('riskId') riskId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.tasksService.getTasksForRisk(riskId, orgId);
+  async getTasksForRisk(@Param('riskId') riskId: string, @User() user: UserContext) {
+    return this.tasksService.getTasksForRisk(riskId, user.organizationId);
   }
 
   /**
@@ -144,10 +125,9 @@ export class RiskWorkflowTasksController {
   async createTask(
     @Param('riskId') riskId: string,
     @Body() dto: CreateRiskWorkflowTaskDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
+    @User() user: UserContext
   ) {
-    return this.tasksService.createTask(riskId, orgId, dto, userId);
+    return this.tasksService.createTask(riskId, user.organizationId, dto, user.userId);
   }
 
   // ===========================
@@ -159,11 +139,8 @@ export class RiskWorkflowTasksController {
    * GET /api/risk-tasks/:taskId
    */
   @Get(':taskId')
-  async getTask(
-    @Param('taskId') taskId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.tasksService.getTask(taskId, orgId);
+  async getTask(@Param('taskId') taskId: string, @User() user: UserContext) {
+    return this.tasksService.getTask(taskId, user.organizationId);
   }
 
   /**
@@ -174,10 +151,9 @@ export class RiskWorkflowTasksController {
   async updateTask(
     @Param('taskId') taskId: string,
     @Body() dto: UpdateRiskWorkflowTaskDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
+    @User() user: UserContext
   ) {
-    return this.tasksService.updateTask(taskId, orgId, dto, userId);
+    return this.tasksService.updateTask(taskId, user.organizationId, dto, user.userId);
   }
 
   /**
@@ -185,12 +161,8 @@ export class RiskWorkflowTasksController {
    * POST /api/risk-tasks/:taskId/start
    */
   @Post(':taskId/start')
-  async startTask(
-    @Param('taskId') taskId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
-  ) {
-    return this.tasksService.startTask(taskId, orgId, userId);
+  async startTask(@Param('taskId') taskId: string, @User() user: UserContext) {
+    return this.tasksService.startTask(taskId, user.organizationId, user.userId);
   }
 
   /**
@@ -201,10 +173,9 @@ export class RiskWorkflowTasksController {
   async completeTask(
     @Param('taskId') taskId: string,
     @Body() dto: CompleteTaskDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
+    @User() user: UserContext
   ) {
-    return this.tasksService.completeTask(taskId, orgId, dto, userId);
+    return this.tasksService.completeTask(taskId, user.organizationId, dto, user.userId);
   }
 
   /**
@@ -215,10 +186,9 @@ export class RiskWorkflowTasksController {
   async reassignTask(
     @Param('taskId') taskId: string,
     @Body() dto: ReassignTaskDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
+    @User() user: UserContext
   ) {
-    return this.tasksService.reassignTask(taskId, orgId, dto, userId);
+    return this.tasksService.reassignTask(taskId, user.organizationId, dto, user.userId);
   }
 
   /**
@@ -229,9 +199,8 @@ export class RiskWorkflowTasksController {
   async cancelTask(
     @Param('taskId') taskId: string,
     @Body('reason') reason: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') userId: string = 'system',
+    @User() user: UserContext
   ) {
-    return this.tasksService.cancelTask(taskId, orgId, reason, userId);
+    return this.tasksService.cancelTask(taskId, user.organizationId, reason, user.userId);
   }
 }

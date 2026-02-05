@@ -718,12 +718,12 @@ export class PhishingService {
         (campaign.sentCount as number)++;
 
         this.logger.log(
-          `Sent phishing email to ${maskEmail(target.email)} for campaign ${campaign.id}`
+          `Sent phishing email to ${maskEmail(target.email as string)} for campaign ${campaign.id}`
         );
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         this.logger.error(
-          `Failed to send phishing email to ${maskEmail(target.email)}: ${errorMessage}`
+          `Failed to send phishing email to ${maskEmail(target.email as string)}: ${errorMessage}`
         );
         target.status = TargetStatus.BOUNCED;
       }

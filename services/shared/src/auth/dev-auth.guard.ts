@@ -4,8 +4,16 @@ import {
   ExecutionContext,
   createParamDecorator,
   Logger,
+  Inject,
+  Optional,
 } from '@nestjs/common';
 import { DEV_USER, ensureDevUserExists } from './index';
+
+/**
+ * Prisma Service injection token for DevAuthGuard.
+ * Services should provide their PrismaService under this token.
+ */
+export const PRISMA_SERVICE = 'PrismaService';
 
 /**
  * User context shape for request decoration.
@@ -98,14 +106,30 @@ const DEV_PERMISSIONS = [
  * @remarks
  * This is a SHARED implementation used across all services.
  * Do not duplicate this guard in individual services.
+ *
+ * To use this guard, provide it in your module:
+ * ```
+ * providers: [
+ *   {
+ *     provide: DevAuthGuard,
+ *     useFactory: (prisma: PrismaService) => new DevAuthGuard(prisma),
+ *     inject: [PrismaService],
+ *   },
+ * ]
+ * ```
+ * Or provide PrismaService under the PRISMA_SERVICE token.
  */
 @Injectable()
 export class DevAuthGuard implements CanActivate {
   private readonly logger = new Logger(DevAuthGuard.name);
   private devUserSynced = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(private readonly prisma: { organization: any; user: any }) {}
+  constructor(
+    @Optional()
+    @Inject(PRISMA_SERVICE)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private readonly prisma?: { organization: any; user: any }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // SECURITY: Prevent usage in production
@@ -121,8 +145,13 @@ export class DevAuthGuard implements CanActivate {
 
     // Auto-sync: Ensure mock user and organization exist in database
     // Only runs once per guard instance to avoid repeated DB calls
-    if (!this.devUserSynced) {
-      await ensureDevUserExists(this.prisma, this.logger);
+    // Skip if prisma is not provided (dev user must be seeded separately)
+    if (!this.devUserSynced && this.prisma) {
+      try {
+        await ensureDevUserExists(this.prisma, this.logger);
+      } catch {
+        this.logger.warn('Failed to auto-sync dev user, continuing without sync');
+      }
       this.devUserSynced = true;
     }
 

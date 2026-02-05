@@ -1,18 +1,23 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ControlImplementationStatus, Prisma } from '@prisma/client';
-import { 
-  CreateControlDto, 
-  UpdateControlDto, 
+import {
+  CreateControlDto,
+  UpdateControlDto,
   ControlFilterDto,
   BulkUploadControlsDto,
   BulkUploadResultDto,
   BulkControlItemDto,
   ControlCategory,
 } from './dto/control.dto';
-import { 
-  parsePaginationParams, 
+import {
+  parsePaginationParams,
   createPaginatedResponse,
   getPrismaSkipTake,
 } from '@gigachad-grc/shared';
@@ -21,7 +26,7 @@ import {
 export class ControlsService {
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService,
+    private auditService: AuditService
   ) {}
 
   /**
@@ -38,10 +43,7 @@ export class ControlsService {
 
     const whereConditions: Prisma.ControlWhereInput[] = [
       {
-        OR: [
-          { organizationId: null },
-          { organizationId },
-        ],
+        OR: [{ organizationId: null }, { organizationId }],
       },
       { deletedAt: null },
     ];
@@ -100,15 +102,23 @@ export class ControlsService {
     ]);
 
     // Transform to minimal response
-    const lightControls = controls.map(control => ({
-      id: control.id,
-      controlId: control.controlId,
-      title: control.title,
-      category: control.category,
-      isCustom: control.isCustom,
-      status: control.implementations[0]?.status || 'not_started',
-      evidenceCount: control._count.evidenceLinks,
-    }));
+    // Type assertion needed because Prisma's select inference doesn't always work correctly
+    type ControlWithRelations = (typeof controls)[number] & {
+      implementations: { status: string }[];
+      _count: { evidenceLinks: number };
+    };
+    const lightControls = controls.map((control) => {
+      const c = control as ControlWithRelations;
+      return {
+        id: c.id,
+        controlId: c.controlId,
+        title: c.title,
+        category: c.category,
+        isCustom: c.isCustom,
+        status: c.implementations[0]?.status || 'not_started',
+        evidenceCount: c._count.evidenceLinks,
+      };
+    });
 
     return createPaginatedResponse(lightControls, total, pagination);
   }
@@ -214,19 +224,31 @@ export class ControlsService {
     ]);
 
     // Transform to include implementation status
-    const controlsWithStatus = controls.map(control => ({
-      ...control,
-      implementation: control.implementations[0] || null,
-      evidenceCount: control._count.evidenceLinks + control._count.policyLinks,
-      evidenceLinkCount: control._count.evidenceLinks,
-      policyLinkCount: control._count.policyLinks,
-      frameworkMappings: control.mappings.map(m => ({
-        frameworkId: m.framework.id,
-        frameworkName: m.framework.name,
-        requirementId: m.requirement.id,
-        requirementRef: m.requirement.reference,
-      })),
-    }));
+    // Type assertion needed because Prisma's include inference doesn't always work correctly
+    type ControlWithFullRelations = (typeof controls)[number] & {
+      implementations: Array<Record<string, unknown>>;
+      mappings: Array<{
+        framework: { id: string; name: string; type: string };
+        requirement: { id: string; reference: string; title: string };
+      }>;
+      _count: { evidenceLinks: number; policyLinks: number };
+    };
+    const controlsWithStatus = controls.map((control) => {
+      const c = control as ControlWithFullRelations;
+      return {
+        ...c,
+        implementation: c.implementations[0] || null,
+        evidenceCount: c._count.evidenceLinks + c._count.policyLinks,
+        evidenceLinkCount: c._count.evidenceLinks,
+        policyLinkCount: c._count.policyLinks,
+        frameworkMappings: c.mappings.map((m) => ({
+          frameworkId: m.framework.id,
+          frameworkName: m.framework.name,
+          requirementId: m.requirement.id,
+          requirementRef: m.requirement.reference,
+        })),
+      };
+    });
 
     return createPaginatedResponse(controlsWithStatus, total, pagination);
   }
@@ -236,10 +258,7 @@ export class ControlsService {
       where: {
         id,
         deletedAt: null,
-        OR: [
-          { organizationId: null },
-          { organizationId },
-        ],
+        OR: [{ organizationId: null }, { organizationId }],
       },
       include: {
         implementations: {
@@ -301,11 +320,11 @@ export class ControlsService {
   }
 
   async create(
-    organizationId: string, 
-    userId: string, 
+    organizationId: string,
+    userId: string,
     dto: CreateControlDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     // Check for duplicate controlId in org
     const existing = await this.prisma.control.findFirst({
@@ -359,12 +378,12 @@ export class ControlsService {
   }
 
   async update(
-    id: string, 
-    organizationId: string, 
+    id: string,
+    organizationId: string,
     dto: UpdateControlDto,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const control = await this.findOne(id, organizationId);
 
@@ -403,7 +422,7 @@ export class ControlsService {
     organizationId: string,
     userId?: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const control = await this.findOne(id, organizationId);
 
@@ -446,7 +465,7 @@ export class ControlsService {
       orderBy: { category: 'asc' },
     });
 
-    return categories.map(c => ({
+    return categories.map((c) => ({
       category: c.category,
       count: c._count.category,
     }));
@@ -456,17 +475,14 @@ export class ControlsService {
     const controls = await this.prisma.control.findMany({
       where: {
         deletedAt: null,
-        OR: [
-          { organizationId: null },
-          { organizationId },
-        ],
+        OR: [{ organizationId: null }, { organizationId }],
       },
       select: { tags: true },
     });
 
     const tagCounts: Record<string, number> = {};
-    controls.forEach(c => {
-      c.tags.forEach(tag => {
+    controls.forEach((c) => {
+      c.tags.forEach((tag) => {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
       });
     });
@@ -477,11 +493,11 @@ export class ControlsService {
   }
 
   async bulkUpload(
-    organizationId: string, 
-    userId: string, 
+    organizationId: string,
+    userId: string,
     dto: BulkUploadControlsDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ): Promise<BulkUploadResultDto> {
     const result: BulkUploadResultDto = {
       total: dto.controls.length,
@@ -496,10 +512,12 @@ export class ControlsService {
     }
 
     // Validate all control IDs are unique within the upload
-    const controlIds = dto.controls.map(c => c.controlId);
+    const controlIds = dto.controls.map((c) => c.controlId);
     const duplicateIds = controlIds.filter((id, index) => controlIds.indexOf(id) !== index);
     if (duplicateIds.length > 0) {
-      throw new BadRequestException(`Duplicate control IDs in upload: ${[...new Set(duplicateIds)].join(', ')}`);
+      throw new BadRequestException(
+        `Duplicate control IDs in upload: ${[...new Set(duplicateIds)].join(', ')}`
+      );
     }
 
     // Get existing controls for this org
@@ -511,11 +529,11 @@ export class ControlsService {
       },
       select: { id: true, controlId: true },
     });
-    const existingMap = new Map(existingControls.map(c => [c.controlId, c.id]));
+    const existingMap = new Map(existingControls.map((c) => [c.controlId, c.id]));
 
     // Separate controls into create, update, skip, and error batches
     const toCreate: typeof dto.controls = [];
-    const toUpdate: { id: string; data: typeof dto.controls[0] }[] = [];
+    const toUpdate: { id: string; data: (typeof dto.controls)[0] }[] = [];
 
     for (let i = 0; i < dto.controls.length; i++) {
       const controlData = dto.controls[i];
@@ -546,7 +564,7 @@ export class ControlsService {
         const createdControls = await this.prisma.$transaction(async (tx) => {
           // Create all controls in one operation
           const controls = await Promise.all(
-            toCreate.map(controlData =>
+            toCreate.map((controlData) =>
               tx.control.create({
                 data: {
                   controlId: controlData.controlId,
@@ -566,7 +584,7 @@ export class ControlsService {
 
           // Batch create implementations
           await tx.controlImplementation.createMany({
-            data: controls.map(control => ({
+            data: controls.map((control) => ({
               controlId: control.id,
               organizationId,
               status: ControlImplementationStatus.not_started,
@@ -633,7 +651,7 @@ export class ControlsService {
             result.errors.push({
               controlId: data.controlId,
               error: e.message || 'Update failed',
-              row: dto.controls.findIndex(c => c.controlId === data.controlId) + 1,
+              row: dto.controls.findIndex((c) => c.controlId === data.controlId) + 1,
             });
           }
         }
@@ -665,14 +683,14 @@ export class ControlsService {
 
   // Parse CSV content into control objects
   parseCSV(csvContent: string): BulkControlItemDto[] {
-    const lines = csvContent.split('\n').filter(line => line.trim());
+    const lines = csvContent.split('\n').filter((line) => line.trim());
     if (lines.length < 2) {
       throw new BadRequestException('CSV must have a header row and at least one data row');
     }
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+    const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/['"]/g, ''));
     const requiredHeaders = ['controlid', 'title', 'description', 'category'];
-    
+
     for (const required of requiredHeaders) {
       if (!headers.includes(required)) {
         throw new BadRequestException(`Missing required CSV column: ${required}`);
@@ -684,7 +702,9 @@ export class ControlsService {
     for (let i = 1; i < lines.length; i++) {
       const values = this.parseCSVLine(lines[i]);
       if (values.length !== headers.length) {
-        throw new BadRequestException(`Row ${i + 1} has ${values.length} columns, expected ${headers.length}`);
+        throw new BadRequestException(
+          `Row ${i + 1} has ${values.length} columns, expected ${headers.length}`
+        );
       }
 
       const row: Record<string, string> = {};
@@ -697,12 +717,18 @@ export class ControlsService {
         controlId: row['controlid'] || row['control_id'] || row['id'],
         title: row['title'] || row['name'],
         description: row['description'],
-         
+
         category: row['category'] as ControlCategory,
         subcategory: row['subcategory'] || row['sub_category'] || undefined,
-        tags: row['tags'] ? row['tags'].split(';').map(t => t.trim()).filter(Boolean) : undefined,
+        tags: row['tags']
+          ? row['tags']
+              .split(';')
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : undefined,
         guidance: row['guidance'] || row['implementation_guidance'] || undefined,
-        automationSupported: row['automationsupported'] === 'true' || row['automation_supported'] === 'true',
+        automationSupported:
+          row['automationsupported'] === 'true' || row['automation_supported'] === 'true',
       };
 
       controls.push(control);
@@ -718,7 +744,7 @@ export class ControlsService {
 
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
-      
+
       if (char === '"') {
         if (inQuotes && line[i + 1] === '"') {
           current += '"';
@@ -733,7 +759,7 @@ export class ControlsService {
         current += char;
       }
     }
-    
+
     result.push(current.trim());
     return result;
   }
@@ -742,7 +768,7 @@ export class ControlsService {
   getCSVTemplate(): string {
     const headers = [
       'controlId',
-      'title', 
+      'title',
       'description',
       'category',
       'subcategory',
@@ -762,10 +788,7 @@ export class ControlsService {
       'true',
     ];
 
-    return [
-      headers.join(','),
-      exampleRow.map(v => `"${v}"`).join(','),
-    ].join('\n');
+    return [headers.join(','), exampleRow.map((v) => `"${v}"`).join(',')].join('\n');
   }
 
   // ============================================
@@ -782,7 +805,7 @@ export class ControlsService {
    */
   async calculateEffectivenessScore(
     organizationId: string,
-    controlId: string,
+    controlId: string
   ): Promise<{ score: number; breakdown: EffectivenessBreakdown }> {
     const implementation = await this.prisma.controlImplementation.findFirst({
       where: {
@@ -815,12 +838,12 @@ export class ControlsService {
 
     // 1. Implementation Status Score (40% weight)
     const statusScores: Record<string, number> = {
-      'implemented': 100,
-      'partially_implemented': 60,
-      'in_progress': 40,
-      'planned': 20,
-      'not_applicable': 100, // N/A controls are considered effective
-      'not_started': 0,
+      implemented: 100,
+      partially_implemented: 60,
+      in_progress: 40,
+      planned: 20,
+      not_applicable: 100, // N/A controls are considered effective
+      not_started: 0,
     };
     breakdown.implementationScore = statusScores[implementation.status] || 0;
 
@@ -828,12 +851,12 @@ export class ControlsService {
     const tests = implementation.tests || [];
     if (tests.length > 0) {
       // Count passed tests (result === 'pass')
-      const passedTests = tests.filter(t => t.result === 'pass').length;
+      const passedTests = tests.filter((t) => t.result === 'pass').length;
       const recentTest = tests[0];
-      
+
       // Base score on pass rate
       breakdown.testResultScore = (passedTests / tests.length) * 100;
-      
+
       // Penalty for stale tests (reduce by 2% per month old)
       if (recentTest) {
         const monthsOld = Math.floor(
@@ -851,7 +874,7 @@ export class ControlsService {
     const evidenceLinks = implementation.evidenceLinks || [];
     if (evidenceLinks.length > 0) {
       const now = Date.now();
-      const freshnessScores = evidenceLinks.map(link => {
+      const freshnessScores = evidenceLinks.map((link) => {
         if (!link.evidence) return 0;
         const ageMonths = Math.floor(
           (now - link.evidence.createdAt.getTime()) / (30 * 24 * 60 * 60 * 1000)
@@ -859,25 +882,27 @@ export class ControlsService {
         // Fresh evidence (< 3 months) = 100, degrades by 10% per month after
         return Math.max(0, 100 - Math.max(0, (ageMonths - 3) * 10));
       });
-      breakdown.evidenceFreshnessScore = freshnessScores.length > 0
-        ? freshnessScores.reduce((a, b) => a + b, 0) / freshnessScores.length
-        : 0;
+      breakdown.evidenceFreshnessScore =
+        freshnessScores.length > 0
+          ? freshnessScores.reduce((a, b) => a + b, 0) / freshnessScores.length
+          : 0;
     } else {
       breakdown.evidenceFreshnessScore = 0;
     }
 
     // 4. Evidence Coverage Score (10% weight)
     // Based on having at least 1 piece of evidence
-    breakdown.evidenceCoverageScore = evidenceLinks.length > 0 
-      ? Math.min(100, evidenceLinks.length * 33) // 33% per evidence, max 100
-      : 0;
+    breakdown.evidenceCoverageScore =
+      evidenceLinks.length > 0
+        ? Math.min(100, evidenceLinks.length * 33) // 33% per evidence, max 100
+        : 0;
 
     // Calculate weighted total
     const score = Math.round(
       breakdown.implementationScore * 0.4 +
-      breakdown.testResultScore * 0.3 +
-      breakdown.evidenceFreshnessScore * 0.2 +
-      breakdown.evidenceCoverageScore * 0.1
+        breakdown.testResultScore * 0.3 +
+        breakdown.evidenceFreshnessScore * 0.2 +
+        breakdown.evidenceCoverageScore * 0.1
     );
 
     // Update the implementation with the new score
@@ -957,19 +982,18 @@ export class ControlsService {
 
     // Calculate average
     const scores = implementations
-      .filter(i => i.effectivenessScore !== null)
-      .map(i => i.effectivenessScore!);
-    const averageScore = scores.length > 0
-      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-      : 0;
+      .filter((i) => i.effectivenessScore !== null)
+      .map((i) => i.effectivenessScore!);
+    const averageScore =
+      scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
     // Distribution by range
     const distribution = [
-      { range: '0-20 (Critical)', count: scores.filter(s => s <= 20).length },
-      { range: '21-40 (Poor)', count: scores.filter(s => s > 20 && s <= 40).length },
-      { range: '41-60 (Fair)', count: scores.filter(s => s > 40 && s <= 60).length },
-      { range: '61-80 (Good)', count: scores.filter(s => s > 60 && s <= 80).length },
-      { range: '81-100 (Excellent)', count: scores.filter(s => s > 80).length },
+      { range: '0-20 (Critical)', count: scores.filter((s) => s <= 20).length },
+      { range: '21-40 (Poor)', count: scores.filter((s) => s > 20 && s <= 40).length },
+      { range: '41-60 (Fair)', count: scores.filter((s) => s > 40 && s <= 60).length },
+      { range: '61-80 (Good)', count: scores.filter((s) => s > 60 && s <= 80).length },
+      { range: '81-100 (Excellent)', count: scores.filter((s) => s > 80).length },
     ];
 
     // By category
@@ -991,10 +1015,10 @@ export class ControlsService {
 
     // Low scoring controls (below 50)
     const lowScoringControls = implementations
-      .filter(i => i.effectivenessScore !== null && i.effectivenessScore < 50 && i.control)
+      .filter((i) => i.effectivenessScore !== null && i.effectivenessScore < 50 && i.control)
       .sort((a, b) => (a.effectivenessScore || 0) - (b.effectivenessScore || 0))
       .slice(0, 10)
-      .map(i => ({
+      .map((i) => ({
         controlId: i.control!.controlId,
         title: i.control!.title,
         score: i.effectivenessScore!,
@@ -1016,4 +1040,3 @@ interface EffectivenessBreakdown {
   evidenceFreshnessScore: number;
   evidenceCoverageScore: number;
 }
-

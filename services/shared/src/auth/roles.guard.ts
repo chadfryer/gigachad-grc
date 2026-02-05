@@ -4,32 +4,44 @@ import {
   ExecutionContext,
   ForbiddenException,
   Logger,
+  Optional,
+  Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY, PERMISSIONS_KEY } from './roles.decorator';
 import { UserRole, RolePermissions, UserContext } from '../types';
 
+// Shared Reflector instance for guards when not injected
+const sharedReflector = new Reflector();
+
 /**
  * RolesGuard - Enforces role-based access control
- * 
+ *
  * Usage:
  * 1. Add @UseGuards(RolesGuard) to controller or method
  * 2. Add @Roles('admin', 'compliance_manager') to specify allowed roles
- * 
+ *
  * The guard checks if the authenticated user has one of the required roles.
+ *
+ * @remarks
+ * Reflector is optional - if not injected, uses a shared instance.
+ * This allows the guard to work without explicit provider configuration.
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
   private readonly logger = new Logger(RolesGuard.name);
+  private readonly reflector: Reflector;
 
-  constructor(private reflector: Reflector) {}
+  constructor(@Optional() @Inject(Reflector) reflector?: Reflector) {
+    this.reflector = reflector || sharedReflector;
+  }
 
   canActivate(context: ExecutionContext): boolean {
     // Get required roles from decorator
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
-      ROLES_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     // If no roles specified, allow access
     if (!requiredRoles || requiredRoles.length === 0) {
@@ -49,11 +61,9 @@ export class RolesGuard implements CanActivate {
 
     if (!hasRole) {
       this.logger.warn(
-        `Access denied for user ${user.userId} with role ${userRole}. Required roles: ${requiredRoles.join(', ')}`,
+        `Access denied for user ${user.userId} with role ${userRole}. Required roles: ${requiredRoles.join(', ')}`
       );
-      throw new ForbiddenException(
-        `Access denied. Required role: ${requiredRoles.join(' or ')}`,
-      );
+      throw new ForbiddenException(`Access denied. Required role: ${requiredRoles.join(' or ')}`);
     }
 
     return true;
@@ -62,25 +72,31 @@ export class RolesGuard implements CanActivate {
 
 /**
  * PermissionsGuard - Enforces permission-based access control
- * 
+ *
  * Usage:
  * 1. Add @UseGuards(PermissionsGuard) to controller or method
  * 2. Add @RequirePermissions('controls:write', 'risks:read') to specify required permissions
- * 
+ *
  * The guard checks if the authenticated user's role has all required permissions.
+ *
+ * @remarks
+ * Reflector is optional - if not injected, uses a shared instance.
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   private readonly logger = new Logger(PermissionsGuard.name);
+  private readonly reflector: Reflector;
 
-  constructor(private reflector: Reflector) {}
+  constructor(@Optional() @Inject(Reflector) reflector?: Reflector) {
+    this.reflector = reflector || sharedReflector;
+  }
 
   canActivate(context: ExecutionContext): boolean {
     // Get required permissions from decorator
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     // If no permissions specified, allow access
     if (!requiredPermissions || requiredPermissions.length === 0) {
@@ -100,18 +116,16 @@ export class PermissionsGuard implements CanActivate {
 
     // Check if user has all required permissions
     const hasAllPermissions = requiredPermissions.every((permission) =>
-      userPermissions.includes(permission),
+      userPermissions.includes(permission)
     );
 
     if (!hasAllPermissions) {
-      const missingPermissions = requiredPermissions.filter(
-        (p) => !userPermissions.includes(p),
-      );
+      const missingPermissions = requiredPermissions.filter((p) => !userPermissions.includes(p));
       this.logger.warn(
-        `Access denied for user ${user.userId}. Missing permissions: ${missingPermissions.join(', ')}`,
+        `Access denied for user ${user.userId}. Missing permissions: ${missingPermissions.join(', ')}`
       );
       throw new ForbiddenException(
-        `Access denied. Missing permissions: ${missingPermissions.join(', ')}`,
+        `Access denied. Missing permissions: ${missingPermissions.join(', ')}`
       );
     }
 
@@ -121,25 +135,31 @@ export class PermissionsGuard implements CanActivate {
 
 /**
  * Combined RolesOrPermissionsGuard - Allows access if user has role OR permissions
- * 
+ *
  * Useful when you want flexible access control where either condition is sufficient.
+ *
+ * @remarks
+ * Reflector is optional - if not injected, uses a shared instance.
  */
 @Injectable()
 export class RolesOrPermissionsGuard implements CanActivate {
   private readonly logger = new Logger(RolesOrPermissionsGuard.name);
+  private readonly reflector: Reflector;
 
-  constructor(private reflector: Reflector) {}
+  constructor(@Optional() @Inject(Reflector) reflector?: Reflector) {
+    this.reflector = reflector || sharedReflector;
+  }
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
-      ROLES_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     // If neither roles nor permissions specified, allow access
     if (
@@ -165,13 +185,11 @@ export class RolesOrPermissionsGuard implements CanActivate {
 
     // Check if user has all required permissions
     const hasAllPermissions =
-      requiredPermissions?.every((permission) =>
-        userPermissions.includes(permission),
-      ) ?? false;
+      requiredPermissions?.every((permission) => userPermissions.includes(permission)) ?? false;
 
     if (!hasRole && !hasAllPermissions) {
       this.logger.warn(
-        `Access denied for user ${user.userId}. Role: ${userRole}, Required roles: ${requiredRoles?.join(', ') || 'none'}, Required permissions: ${requiredPermissions?.join(', ') || 'none'}`,
+        `Access denied for user ${user.userId}. Role: ${userRole}, Required roles: ${requiredRoles?.join(', ') || 'none'}, Required permissions: ${requiredPermissions?.join(', ') || 'none'}`
       );
       throw new ForbiddenException('Access denied. Insufficient permissions.');
     }

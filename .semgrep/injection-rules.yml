@@ -1,0 +1,286 @@
+rules:
+  # =============================================================================
+  # COMMAND INJECTION RULES
+  # =============================================================================
+
+  - id: command-injection-exec
+    patterns:
+      - pattern-either:
+          - pattern: exec($CMD, ...)
+          - pattern: execSync($CMD, ...)
+          - pattern: spawn($CMD, ...)
+          - pattern: spawnSync($CMD, ...)
+          - pattern: child_process.exec($CMD, ...)
+          - pattern: child_process.execSync($CMD, ...)
+      - pattern-not: exec($LITERAL, ...)
+      - metavariable-regex:
+          metavariable: $CMD
+          regex: .*\$.*
+    message: |
+      Command execution with dynamic input may lead to command injection.
+      Use parameterized commands or strict input validation.
+      Prefer spawn() with array arguments over exec() with string commands.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 - Injection"
+
+  # =============================================================================
+  # PATH TRAVERSAL RULES
+  # =============================================================================
+
+  - id: path-traversal
+    patterns:
+      - pattern-either:
+          - pattern: fs.readFile($PATH, ...)
+          - pattern: fs.readFileSync($PATH, ...)
+          - pattern: fs.writeFile($PATH, ...)
+          - pattern: fs.writeFileSync($PATH, ...)
+          - pattern: fs.unlink($PATH, ...)
+          - pattern: fs.unlinkSync($PATH, ...)
+      - pattern-not: fs.$METHOD(path.join(__dirname, ...), ...)
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: .*(req\.|params\.|query\.|body\.).*
+    message: |
+      User input in file path may lead to path traversal attack.
+      Use path.resolve() with path.basename() to sanitize filenames.
+      Example: const safePath = path.join(baseDir, path.basename(userInput))
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-22: Path Traversal"
+      owasp: "A01:2021 - Broken Access Control"
+
+  - id: directory-traversal-dots
+    patterns:
+      - pattern-either:
+          - pattern: $PATH.includes('..')
+          - pattern: $PATH.indexOf('..') >= 0
+      - pattern-not-inside: |
+          if ($PATH.includes('..')) {
+            throw ...
+          }
+    message: |
+      Check for path traversal should reject the request, not just detect it.
+      Throw an error or return early when '..' is detected in paths.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-22: Path Traversal"
+
+  # =============================================================================
+  # NOSQL INJECTION RULES
+  # =============================================================================
+
+  - id: mongodb-injection
+    patterns:
+      - pattern-either:
+          - pattern: $COLLECTION.find({ $FIELD: $INPUT })
+          - pattern: $COLLECTION.findOne({ $FIELD: $INPUT })
+          - pattern: $COLLECTION.updateOne({ $FIELD: $INPUT }, ...)
+          - pattern: $COLLECTION.deleteOne({ $FIELD: $INPUT })
+      - metavariable-regex:
+          metavariable: $INPUT
+          regex: .*(req\.|params\.|query\.|body\.).*
+    message: |
+      User input in MongoDB query may lead to NoSQL injection.
+      Validate and sanitize input, especially for operators like $gt, $lt, $where.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-943: Improper Neutralization of Special Elements in Data Query Logic"
+
+  # =============================================================================
+  # LDAP INJECTION RULES
+  # =============================================================================
+
+  - id: ldap-injection
+    patterns:
+      - pattern-either:
+          - pattern: $LDAP.search(`...(${$INPUT})...`)
+          - pattern: $LDAP.search("..." + $INPUT + "...")
+          - pattern: ldapFilter = `...(${$INPUT})...`
+    message: |
+      User input in LDAP query may lead to LDAP injection.
+      Escape special characters: ( ) \ * / NUL
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-90: LDAP Injection"
+
+  # =============================================================================
+  # TEMPLATE INJECTION RULES
+  # =============================================================================
+
+  - id: template-injection
+    patterns:
+      - pattern-either:
+          - pattern: $ENGINE.render($TEMPLATE, ...)
+          - pattern: $ENGINE.compile($TEMPLATE)
+          - pattern: new $ENGINE($TEMPLATE)
+      - metavariable-regex:
+          metavariable: $TEMPLATE
+          regex: .*(req\.|params\.|query\.|body\.).*
+    message: |
+      User input in template may lead to Server-Side Template Injection (SSTI).
+      Never pass user input as template content. Use data binding instead.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1336: Server-Side Template Injection"
+
+  # =============================================================================
+  # HEADER INJECTION RULES
+  # =============================================================================
+
+  - id: header-injection
+    patterns:
+      - pattern-either:
+          - pattern: res.setHeader($NAME, $VALUE)
+          - pattern: res.set($NAME, $VALUE)
+          - pattern: $RESPONSE.header($NAME, $VALUE)
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: .*(req\.|params\.|query\.|body\.).*
+    message: |
+      User input in HTTP header may lead to header injection or response splitting.
+      Validate and sanitize header values, remove newline characters.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-113: HTTP Response Splitting"
+
+  # =============================================================================
+  # EMAIL HEADER INJECTION RULES
+  # =============================================================================
+
+  - id: email-header-injection
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $MAIL.send({
+                ...,
+                to: $INPUT,
+                ...
+              })
+          - pattern: |
+              $MAIL.send({
+                ...,
+                cc: $INPUT,
+                ...
+              })
+          - pattern: |
+              $MAIL.send({
+                ...,
+                bcc: $INPUT,
+                ...
+              })
+      - metavariable-regex:
+          metavariable: $INPUT
+          regex: .*(req\.|params\.|query\.|body\.).*
+    message: |
+      User input in email headers may lead to email header injection.
+      Validate email addresses and reject input containing newlines or special characters.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-93: CRLF Injection"
+
+  # =============================================================================
+  # XML INJECTION / XXE RULES
+  # =============================================================================
+
+  - id: xxe-vulnerability
+    patterns:
+      - pattern-either:
+          - pattern: $PARSER.parseString($XML, ...)
+          - pattern: new DOMParser().parseFromString($XML, ...)
+          - pattern: xml2js.parseString($XML, ...)
+      - pattern-not-inside: |
+          $PARSER.parseString($XML, { ..., xmlMode: true, ... }, ...)
+    message: |
+      XML parsing without disabling external entities may be vulnerable to XXE attacks.
+      Configure parser to disable DTDs and external entities.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-611: XXE"
+      owasp: "A05:2021 - Security Misconfiguration"
+
+  # =============================================================================
+  # PROMPT INJECTION (AI/LLM) RULES
+  # =============================================================================
+
+  - id: ai-prompt-injection
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $AI.complete({
+                ...,
+                prompt: `...${$INPUT}...`,
+                ...
+              })
+          - pattern: |
+              $AI.chat({
+                ...,
+                messages: [..., { content: `...${$INPUT}...` }, ...],
+                ...
+              })
+          - pattern: openai.createCompletion({ ..., prompt: $INPUT, ... })
+          - pattern: openai.createChatCompletion({ ..., messages: $INPUT, ... })
+      - metavariable-regex:
+          metavariable: $INPUT
+          regex: .*(req\.|params\.|query\.|body\.|user).*
+    message: |
+      User input directly in AI prompt may lead to prompt injection attacks.
+      Implement input validation, use system prompts for instructions, and sanitize user content.
+      Consider using prompt templates with proper escaping.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: "CWE-74: Injection"
+
+  # =============================================================================
+  # REGEX INJECTION (ReDoS) RULES
+  # =============================================================================
+
+  - id: regex-dos
+    patterns:
+      - pattern-either:
+          - pattern: new RegExp($INPUT)
+          - pattern: new RegExp($INPUT, ...)
+      - metavariable-regex:
+          metavariable: $INPUT
+          regex: .*(req\.|params\.|query\.|body\.).*
+    message: |
+      User-controlled regex may lead to ReDoS (Regular Expression Denial of Service).
+      Never use user input directly in RegExp. Use libraries like safe-regex to validate patterns.
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-1333: Inefficient Regular Expression Complexity"
+
+  - id: dangerous-regex-pattern
+    patterns:
+      - pattern-regex: "(\\+|\\*|\\{\\d+,\\})\\)*(\\+|\\*|\\?|\\{\\d+,\\})"
+    message: |
+      Regex pattern may be vulnerable to ReDoS due to nested quantifiers.
+      Avoid patterns like (a+)+ or (a|b|c)* that can cause exponential backtracking.
+    languages: [typescript, javascript]
+    severity: INFO
+    metadata:
+      category: security
+      cwe: "CWE-1333: Inefficient Regular Expression Complexity"

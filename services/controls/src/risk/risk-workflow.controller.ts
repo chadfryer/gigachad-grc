@@ -1,16 +1,14 @@
- 
 import {
   Controller,
   Post,
   Get,
   Body,
   Param,
-  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
-import { 
+import {
   RiskWorkflowService,
   CreateRiskIntakeDto,
   ValidateRiskDto,
@@ -22,12 +20,11 @@ import {
   ExecutiveDecisionDto,
   MitigationUpdateDto,
 } from './risk-workflow.service';
-import { DevAuthGuard } from '../auth/dev-auth.guard';
+import { DevAuthGuard, User } from '../auth/dev-auth.guard';
+import type { UserContext } from '@gigachad-grc/shared';
 import { PermissionGuard } from '../auth/permission.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
-
-const DEFAULT_ORG_ID = 'org-default-001';
 
 @Controller('api/risks/workflow')
 @UseGuards(DevAuthGuard, PermissionGuard)
@@ -45,13 +42,8 @@ export class RiskWorkflowController {
   @Post('intake')
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission(Resource.RISK, Action.CREATE)
-  async submitRiskIntake(
-    @Body() dto: CreateRiskIntakeDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
-  ) {
-    return this.workflowService.submitRiskIntake(organizationId, dto, userId, userEmail);
+  async submitRiskIntake(@Body() dto: CreateRiskIntakeDto, @User() user: UserContext) {
+    return this.workflowService.submitRiskIntake(user.organizationId, dto, user.userId, user.email);
   }
 
   /**
@@ -64,11 +56,9 @@ export class RiskWorkflowController {
   async validateRisk(
     @Param('id') id: string,
     @Body() dto: ValidateRiskDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.validateRisk(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.validateRisk(id, user.organizationId, dto, user.userId, user.email);
   }
 
   /**
@@ -81,11 +71,15 @@ export class RiskWorkflowController {
   async assignRiskAssessor(
     @Param('id') id: string,
     @Body() dto: AssignRiskAssessorDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.assignRiskAssessor(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.assignRiskAssessor(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   // ===========================================
@@ -102,11 +96,15 @@ export class RiskWorkflowController {
   async submitAssessment(
     @Param('id') id: string,
     @Body() dto: SubmitAssessmentDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.submitAssessment(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.submitAssessment(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   /**
@@ -119,11 +117,15 @@ export class RiskWorkflowController {
   async reviewAssessment(
     @Param('id') id: string,
     @Body() dto: GrcReviewDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.reviewAssessment(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.reviewAssessment(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   /**
@@ -136,11 +138,15 @@ export class RiskWorkflowController {
   async submitGrcRevision(
     @Param('id') id: string,
     @Body() dto: SubmitAssessmentDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.submitGrcRevision(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.submitGrcRevision(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   // ===========================================
@@ -157,11 +163,15 @@ export class RiskWorkflowController {
   async submitTreatmentDecision(
     @Param('id') id: string,
     @Body() dto: SubmitTreatmentDecisionDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.submitTreatmentDecision(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.submitTreatmentDecision(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   /**
@@ -174,11 +184,15 @@ export class RiskWorkflowController {
   async setExecutiveApprover(
     @Param('id') id: string,
     @Body() dto: SetExecutiveApproverDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.setExecutiveApprover(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.setExecutiveApprover(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   /**
@@ -191,11 +205,15 @@ export class RiskWorkflowController {
   async submitExecutiveDecision(
     @Param('id') id: string,
     @Body() dto: ExecutiveDecisionDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.submitExecutiveDecision(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.submitExecutiveDecision(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   /**
@@ -208,11 +226,15 @@ export class RiskWorkflowController {
   async submitMitigationUpdate(
     @Param('id') id: string,
     @Body() dto: MitigationUpdateDto,
-    @Headers('x-user-id') userId: string = 'system',
-    @Headers('x-user-email') userEmail?: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
+    @User() user: UserContext
   ) {
-    return this.workflowService.submitMitigationUpdate(id, organizationId, dto, userId, userEmail);
+    return this.workflowService.submitMitigationUpdate(
+      id,
+      user.organizationId,
+      dto,
+      user.userId,
+      user.email
+    );
   }
 
   // ===========================================
@@ -225,11 +247,7 @@ export class RiskWorkflowController {
    */
   @Get(':id/state')
   @RequirePermission(Resource.RISK, Action.READ)
-  async getWorkflowState(
-    @Param('id') id: string,
-    @Headers('x-organization-id') organizationId: string = DEFAULT_ORG_ID,
-  ) {
-    return this.workflowService.getWorkflowState(id, organizationId);
+  async getWorkflowState(@Param('id') id: string, @User() user: UserContext) {
+    return this.workflowService.getWorkflowState(id, user.organizationId);
   }
 }
-

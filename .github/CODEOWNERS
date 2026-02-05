@@ -1,0 +1,148 @@
+# CODEOWNERS - Define code ownership for review requirements
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Order matters! Later rules override earlier ones.
+# Use GitHub usernames or team names (e.g., @org/team-name)
+
+# =============================================================================
+# DEFAULT OWNERS
+# =============================================================================
+# All files require at least one review from the engineering team
+*                                       @grcengineering/engineering
+
+# =============================================================================
+# SECURITY-SENSITIVE FILES (Require security team review)
+# =============================================================================
+
+# Authentication and authorization
+services/*/src/auth/                    @grcengineering/security-team @grcengineering/engineering
+services/shared/src/auth/               @grcengineering/security-team @grcengineering/engineering
+frontend/src/contexts/Auth*.tsx         @grcengineering/security-team @grcengineering/engineering
+auth/                                   @grcengineering/security-team @grcengineering/engineering
+
+# Encryption and secrets handling
+services/shared/src/encryption/         @grcengineering/security-team
+services/shared/src/security/           @grcengineering/security-team
+**/secrets*.ts                          @grcengineering/security-team
+**/crypto*.ts                           @grcengineering/security-team
+
+# API keys and integrations with external services
+services/*/src/integrations/            @grcengineering/security-team @grcengineering/engineering
+services/*/src/api-keys/                @grcengineering/security-team
+
+# Database schema (can affect data access patterns)
+services/shared/prisma/                 @grcengineering/security-team @grcengineering/engineering
+**/schema.prisma                        @grcengineering/security-team @grcengineering/engineering
+**/migrations/                          @grcengineering/security-team @grcengineering/engineering
+
+# Security scanning configurations
+.semgrep/                               @grcengineering/security-team
+.github/workflows/security.yml          @grcengineering/security-team
+.gitleaks.toml                          @grcengineering/security-team
+
+# =============================================================================
+# INFRASTRUCTURE (Require infrastructure team review)
+# =============================================================================
+
+# Terraform and cloud infrastructure
+terraform/                              @grcengineering/infrastructure-team @grcengineering/security-team
+
+# Docker and container configurations
+**/Dockerfile                           @grcengineering/infrastructure-team
+docker-compose*.yml                     @grcengineering/infrastructure-team
+
+# Deployment configurations
+deploy/                                 @grcengineering/infrastructure-team
+.github/workflows/deploy.yml            @grcengineering/infrastructure-team
+.github/workflows/build-push.yml        @grcengineering/infrastructure-team
+
+# Gateway and networking
+gateway/                                @grcengineering/infrastructure-team @grcengineering/security-team
+
+# Monitoring
+monitoring/                             @grcengineering/infrastructure-team
+
+# =============================================================================
+# CI/CD CONFIGURATION
+# =============================================================================
+
+# GitHub Actions workflows
+.github/workflows/                      @grcengineering/engineering
+.github/dependabot.yml                  @grcengineering/engineering @grcengineering/security-team
+
+# Pre-commit hooks
+.husky/                                 @grcengineering/engineering
+
+# =============================================================================
+# FRONTEND
+# =============================================================================
+
+# Frontend application
+frontend/                               @grcengineering/frontend-team @grcengineering/engineering
+
+# Frontend security (CSP, auth)
+frontend/nginx.conf                     @grcengineering/frontend-team @grcengineering/security-team
+frontend/src/lib/validations.ts         @grcengineering/frontend-team @grcengineering/security-team
+
+# =============================================================================
+# BACKEND SERVICES
+# =============================================================================
+
+# Controls service
+services/controls/                      @grcengineering/backend-team @grcengineering/engineering
+
+# Audit service
+services/audit/                         @grcengineering/backend-team @grcengineering/engineering
+
+# TPRM (Third-Party Risk Management) service
+services/tprm/                          @grcengineering/backend-team @grcengineering/engineering
+
+# Trust service
+services/trust/                         @grcengineering/backend-team @grcengineering/engineering
+
+# Policies service
+services/policies/                      @grcengineering/backend-team @grcengineering/engineering
+
+# Frameworks service
+services/frameworks/                    @grcengineering/backend-team @grcengineering/engineering
+
+# Shared library
+services/shared/                        @grcengineering/backend-team @grcengineering/engineering
+
+# =============================================================================
+# MCP SERVERS
+# =============================================================================
+
+mcp-servers/                            @grcengineering/engineering @grcengineering/security-team
+
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
+
+# Security documentation requires security review
+docs/SECURITY*.md                       @grcengineering/security-team
+SECURITY.md                             @grcengineering/security-team
+docs/security/                          @grcengineering/security-team
+
+# General documentation
+docs/                                   @grcengineering/engineering
+*.md                                    @grcengineering/engineering
+
+# =============================================================================
+# SENSITIVE CONFIGURATION FILES
+# =============================================================================
+
+# Environment configuration templates
+.env.example                            @grcengineering/security-team @grcengineering/engineering
+
+# Package manifests (supply chain security)
+package.json                            @grcengineering/engineering
+package-lock.json                       @grcengineering/engineering
+**/package.json                         @grcengineering/engineering
+
+# TypeScript configuration
+tsconfig*.json                          @grcengineering/engineering
+
+# ESLint and Prettier (code quality)
+.eslintrc*                              @grcengineering/engineering
+.prettierrc*                            @grcengineering/engineering

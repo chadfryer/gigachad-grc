@@ -6,7 +6,6 @@ import {
   Body,
   Param,
   Query,
-  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -22,10 +21,11 @@ import {
   UserFilterDto,
 } from './dto/user.dto';
 import { PermissionGuard } from '../auth/permission.guard';
-import { DevAuthGuard } from '../auth/dev-auth.guard';
+import { DevAuthGuard, User } from '../auth/dev-auth.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { Resource, Action } from '../permissions/dto/permission.dto';
 import { PaginationLimitPipe, PaginationPagePipe } from '../common/pagination.pipe';
+import type { UserContext } from '@gigachad-grc/shared';
 
 @Controller('api/users')
 @UseGuards(DevAuthGuard, PermissionGuard)
@@ -33,7 +33,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly permissionsService: PermissionsService,
-    private readonly groupsService: GroupsService,
+    private readonly groupsService: GroupsService
   ) {}
 
   // ===========================
@@ -46,32 +46,30 @@ export class UsersController {
     @Query() filters: UserFilterDto,
     @Query('page', new PaginationPagePipe()) page: number,
     @Query('limit', new PaginationLimitPipe({ default: 50 })) limit: number,
-    @Headers('x-organization-id') orgId: string = 'default',
+    @User() user: UserContext
   ) {
-    return this.usersService.findAll(orgId, filters, page, limit);
+    return this.usersService.findAll(user.organizationId, filters, page, limit);
   }
 
   @Get('stats')
   @RequirePermission(Resource.USERS, Action.READ)
-  async getUserStats(
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.usersService.getStats(orgId);
+  async getUserStats(@User() user: UserContext) {
+    return this.usersService.getStats(user.organizationId);
   }
 
   @Get('me')
-  async getCurrentUser(
-    @Headers('x-user-id') userId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    if (!userId) {
+  async getCurrentUser(@User() user: UserContext) {
+    if (!user.userId) {
       return null;
     }
-    
+
     try {
-      const user = await this.usersService.findOne(userId, orgId);
-      const permissions = await this.permissionsService.getUserPermissions(userId, orgId);
-      return { ...user, permissions };
+      const currentUser = await this.usersService.findOne(user.userId, user.organizationId);
+      const permissions = await this.permissionsService.getUserPermissions(
+        user.userId,
+        user.organizationId
+      );
+      return { ...currentUser, permissions };
     } catch {
       return null;
     }
@@ -79,31 +77,20 @@ export class UsersController {
 
   @Get(':id')
   @RequirePermission(Resource.USERS, Action.READ)
-  async getUser(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.usersService.findOne(id, orgId);
+  async getUser(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    return this.usersService.findOne(id, user.organizationId);
   }
 
   @Get(':id/permissions')
   @RequirePermission(Resource.USERS, Action.READ)
-  async getUserPermissions(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.permissionsService.getUserPermissions(id, orgId);
+  async getUserPermissions(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    return this.permissionsService.getUserPermissions(id, user.organizationId);
   }
 
   @Post()
   @RequirePermission(Resource.USERS, Action.CREATE)
-  async createUser(
-    @Body() dto: CreateUserDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    return this.usersService.create(orgId, dto, actorId, actorEmail);
+  async createUser(@Body() dto: CreateUserDto, @User() user: UserContext) {
+    return this.usersService.create(user.organizationId, dto, user.userId, user.email);
   }
 
   @Put(':id')
@@ -111,35 +98,23 @@ export class UsersController {
   async updateUser(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
+    @User() user: UserContext
   ) {
-    return this.usersService.update(id, orgId, dto, actorId, actorEmail);
+    return this.usersService.update(id, user.organizationId, dto, user.userId, user.email);
   }
 
   @Post(':id/deactivate')
   @RequirePermission(Resource.USERS, Action.UPDATE)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deactivateUser(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    await this.usersService.deactivate(id, orgId, actorId, actorEmail);
+  async deactivateUser(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    await this.usersService.deactivate(id, user.organizationId, user.userId, user.email);
   }
 
   @Post(':id/reactivate')
   @RequirePermission(Resource.USERS, Action.UPDATE)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async reactivateUser(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
-  ) {
-    await this.usersService.reactivate(id, orgId, actorId, actorEmail);
+  async reactivateUser(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    await this.usersService.reactivate(id, user.organizationId, user.userId, user.email);
   }
 
   // ===========================
@@ -148,12 +123,9 @@ export class UsersController {
 
   @Get(':id/groups')
   @RequirePermission(Resource.USERS, Action.READ)
-  async getUserGroups(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    const user = await this.usersService.findOne(id, orgId);
-    return user.groups;
+  async getUserGroups(@Param('id', ParseUUIDPipe) id: string, @User() user: UserContext) {
+    const targetUser = await this.usersService.findOne(id, user.organizationId);
+    return targetUser.groups;
   }
 
   @Post(':id/groups/:groupId')
@@ -162,11 +134,15 @@ export class UsersController {
   async addUserToGroup(
     @Param('id', ParseUUIDPipe) userId: string,
     @Param('groupId', ParseUUIDPipe) groupId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
+    @User() user: UserContext
   ) {
-    await this.groupsService.addMember(groupId, userId, orgId, actorId, actorEmail);
+    await this.groupsService.addMember(
+      groupId,
+      userId,
+      user.organizationId,
+      user.userId,
+      user.email
+    );
     return { success: true };
   }
 
@@ -176,11 +152,15 @@ export class UsersController {
   async removeUserFromGroup(
     @Param('id', ParseUUIDPipe) userId: string,
     @Param('groupId', ParseUUIDPipe) groupId: string,
-    @Headers('x-organization-id') orgId: string = 'default',
-    @Headers('x-user-id') actorId?: string,
-    @Headers('x-user-email') actorEmail?: string,
+    @User() user: UserContext
   ) {
-    await this.groupsService.removeMember(groupId, userId, orgId, actorId, actorEmail);
+    await this.groupsService.removeMember(
+      groupId,
+      userId,
+      user.organizationId,
+      user.userId,
+      user.email
+    );
   }
 
   // ===========================
@@ -188,11 +168,8 @@ export class UsersController {
   // ===========================
 
   @Post('sync')
-  async syncFromKeycloak(
-    @Body() dto: SyncUserFromKeycloakDto,
-    @Headers('x-organization-id') orgId: string = 'default',
-  ) {
-    return this.usersService.syncFromKeycloak(orgId, dto);
+  async syncFromKeycloak(@Body() dto: SyncUserFromKeycloakDto, @User() user: UserContext) {
+    return this.usersService.syncFromKeycloak(user.organizationId, dto);
   }
 
   @Get('keycloak/:keycloakId')
@@ -200,6 +177,3 @@ export class UsersController {
     return this.usersService.findByKeycloakId(keycloakId);
   }
 }
-
-
-

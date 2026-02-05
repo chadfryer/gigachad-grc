@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { VendorsModule } from './vendors/vendors.module';
 import { AssessmentsModule } from './assessments/assessments.module';
@@ -9,8 +9,9 @@ import { RiskAssessmentModule } from './risk-assessment/risk-assessment.module';
 import { SecurityScannerModule } from './security-scanner/security-scanner.module';
 import { PrismaService } from './common/prisma.service';
 import { AuditService } from './common/audit.service';
-import { StorageModule, CacheModule } from '@gigachad-grc/shared';
+import { StorageModule, CacheModule, DevAuthGuard, PRISMA_SERVICE } from '@gigachad-grc/shared';
 
+@Global()
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -29,7 +30,16 @@ import { StorageModule, CacheModule } from '@gigachad-grc/shared';
     VendorAIModule,
     TprmConfigModule,
   ],
-  providers: [PrismaService, AuditService],
-  exports: [PrismaService, AuditService],
+  providers: [
+    PrismaService,
+    AuditService,
+    // Provide PrismaService under the token expected by DevAuthGuard
+    {
+      provide: PRISMA_SERVICE,
+      useExisting: PrismaService,
+    },
+    DevAuthGuard,
+  ],
+  exports: [PrismaService, AuditService, DevAuthGuard, PRISMA_SERVICE],
 })
 export class AppModule {}
