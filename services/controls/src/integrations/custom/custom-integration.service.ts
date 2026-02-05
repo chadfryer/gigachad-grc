@@ -298,8 +298,19 @@ export class CustomIntegrationService {
       }
     }
 
-    // Encrypt sensitive auth config fields before saving
-    const encryptedAuthConfig = dto.authConfig ? this.encryptAuthConfig(dto.authConfig) : null;
+    // SECURITY: Handle auth config encryption properly
+    // - If new authConfig is provided, encrypt it
+    // - If not provided, preserve existing encrypted config (don't allow bypass)
+    // - Only clear if authType is explicitly set to null/undefined
+    let encryptedAuthConfig: Record<string, any> | null = null;
+    if (dto.authConfig) {
+      // New auth config provided - encrypt it
+      encryptedAuthConfig = this.encryptAuthConfig(dto.authConfig);
+    } else if (integration.customConfig?.authConfig && dto.authType !== undefined) {
+      // No new auth config but authType still set - preserve existing encrypted config
+      encryptedAuthConfig = integration.customConfig.authConfig as Record<string, any>;
+    }
+    // If authType is undefined/null and no authConfig, encryptedAuthConfig stays null (clearing auth)
 
     const configData = {
       mode: dto.mode,
@@ -471,9 +482,10 @@ export class CustomIntegrationService {
       ...endpoint.headers,
     };
 
-    // Add authentication - decrypt stored authConfig for use
-    const rawAuthConfig = dto.authConfig || config.authConfig;
-    const authConfig = rawAuthConfig ? this.decryptAuthConfig(rawAuthConfig) : null;
+    // SECURITY: Only use stored encrypted authConfig - do NOT allow user-provided overrides
+    // This prevents attackers from bypassing stored credentials with their own
+    // The stored config.authConfig is already encrypted and trusted
+    const authConfig = config.authConfig ? this.decryptAuthConfig(config.authConfig) : null;
     if (config.authType && authConfig) {
       const authHeaders = await this.getAuthHeaders(config.authType, authConfig);
       Object.assign(headers, authHeaders);

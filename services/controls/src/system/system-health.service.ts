@@ -20,7 +20,7 @@ export class SystemHealthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {}
 
   /**
@@ -30,21 +30,15 @@ export class SystemHealthService {
     const checks: HealthCheckResult[] = [];
 
     // Run all checks in parallel for performance
-    const [
-      securityChecks,
-      backupChecks,
-      databaseChecks,
-      storageChecks,
-      authChecks,
-      configChecks,
-    ] = await Promise.all([
-      this.runSecurityChecks(),
-      this.runBackupChecks(),
-      this.runDatabaseChecks(),
-      this.runStorageChecks(),
-      this.runAuthenticationChecks(),
-      this.runConfigurationChecks(),
-    ]);
+    const [securityChecks, backupChecks, databaseChecks, storageChecks, authChecks, configChecks] =
+      await Promise.all([
+        this.runSecurityChecks(),
+        this.runBackupChecks(),
+        this.runDatabaseChecks(),
+        this.runStorageChecks(),
+        this.runAuthenticationChecks(),
+        this.runConfigurationChecks(),
+      ]);
 
     checks.push(
       ...securityChecks,
@@ -52,7 +46,7 @@ export class SystemHealthService {
       ...databaseChecks,
       ...storageChecks,
       ...authChecks,
-      ...configChecks,
+      ...configChecks
     );
 
     const summary = {
@@ -106,9 +100,7 @@ export class SystemHealthService {
           : isDevAuth
             ? 'Using development authentication (acceptable for dev/test)'
             : 'Using Keycloak authentication',
-      recommendation: isDevAuth
-        ? 'Configure Keycloak for production authentication'
-        : undefined,
+      recommendation: isDevAuth ? 'Configure Keycloak for production authentication' : undefined,
       documentationUrl: '/docs/help/admin/organization.md',
     });
 
@@ -117,7 +109,15 @@ export class SystemHealthService {
     const redisPassword = process.env.REDIS_PASSWORD || '';
     const storagePassword = process.env.MINIO_ROOT_PASSWORD || '';
 
-    const defaultPasswords = ['password', 'grc_secret', 'redis_secret', 'minioadmin', 'rustfsadmin', 'admin', ''];
+    const defaultPasswords = [
+      'password',
+      'grc_secret',
+      'redis_secret',
+      'minioadmin',
+      'rustfsadmin',
+      'admin',
+      '',
+    ];
     const hasDefaultPassword =
       defaultPasswords.includes(postgresPassword) ||
       defaultPasswords.includes(redisPassword) ||
@@ -204,16 +204,8 @@ export class SystemHealthService {
       '/app/deploy/backup.sh', // Docker container path
       '/opt/gigachad-grc/deploy/backup.sh', // Production path
     ];
-    
-    let _backupScriptPath = '';
-    let backupExists = false;
-    for (const p of possibleBackupPaths) {
-      if (fs.existsSync(p)) {
-        _backupScriptPath = p;
-        backupExists = true;
-        break;
-      }
-    }
+
+    const backupExists = possibleBackupPaths.some((p) => fs.existsSync(p));
 
     checks.push({
       id: 'backup-script-exists',
@@ -320,9 +312,7 @@ export class SystemHealthService {
       message: usesSsl
         ? 'Database connections are encrypted with SSL'
         : 'Database connections are not using SSL',
-      recommendation: !usesSsl
-        ? 'Enable SSL for database connections in production'
-        : undefined,
+      recommendation: !usesSsl ? 'Enable SSL for database connections in production' : undefined,
     });
 
     // Connection pool is managed by Prisma - just verify the service is working
@@ -351,14 +341,14 @@ export class SystemHealthService {
     // Check S3-compatible storage configuration (RustFS, MinIO, or AWS S3)
     // Prefers S3_* env vars, falls back to MINIO_* for backwards compatibility
     const storageEndpoint = process.env.S3_ENDPOINT || process.env.MINIO_ENDPOINT;
-    const storageAccessKey = process.env.S3_ACCESS_KEY || process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER;
+    const storageAccessKey =
+      process.env.S3_ACCESS_KEY || process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER;
 
     checks.push({
       id: 'storage-s3-config',
       name: 'Object Storage Configuration',
       category: CheckCategory.STORAGE,
-      status:
-        storageEndpoint && storageAccessKey ? HealthStatus.HEALTHY : HealthStatus.WARNING,
+      status: storageEndpoint && storageAccessKey ? HealthStatus.HEALTHY : HealthStatus.WARNING,
       message:
         storageEndpoint && storageAccessKey
           ? `Object storage configured at ${storageEndpoint}`
@@ -421,9 +411,7 @@ export class SystemHealthService {
           ? `Keycloak configured at ${keycloakUrl} (realm: ${keycloakRealm})`
           : 'Keycloak is not configured',
       recommendation:
-        !keycloakUrl || !keycloakRealm
-          ? 'Configure Keycloak for SSO authentication'
-          : undefined,
+        !keycloakUrl || !keycloakRealm ? 'Configure Keycloak for SSO authentication' : undefined,
       documentationUrl: '/deploy/README.md#configure-keycloak',
     });
 
@@ -477,10 +465,7 @@ export class SystemHealthService {
       id: 'config-cors',
       name: 'CORS Configuration',
       category: CheckCategory.CONFIGURATION,
-      status:
-        nodeEnv === 'production' && hasWildcard
-          ? HealthStatus.WARNING
-          : HealthStatus.HEALTHY,
+      status: nodeEnv === 'production' && hasWildcard ? HealthStatus.WARNING : HealthStatus.HEALTHY,
       message: hasWildcard
         ? 'CORS allows all origins (wildcard)'
         : corsOrigins
@@ -498,15 +483,12 @@ export class SystemHealthService {
       id: 'config-rate-limit',
       name: 'Rate Limiting',
       category: CheckCategory.CONFIGURATION,
-      status:
-        rateLimitEnabled
-          ? HealthStatus.HEALTHY
-          : nodeEnv === 'production'
-            ? HealthStatus.WARNING
-            : HealthStatus.HEALTHY,
-      message: rateLimitEnabled
-        ? 'Rate limiting is enabled'
-        : 'Rate limiting is disabled',
+      status: rateLimitEnabled
+        ? HealthStatus.HEALTHY
+        : nodeEnv === 'production'
+          ? HealthStatus.WARNING
+          : HealthStatus.HEALTHY,
+      message: rateLimitEnabled ? 'Rate limiting is enabled' : 'Rate limiting is disabled',
       recommendation:
         !rateLimitEnabled && nodeEnv === 'production'
           ? 'Enable rate limiting to prevent abuse'
@@ -680,9 +662,7 @@ export class SystemHealthService {
     const healthyChecks = health.summary.healthy;
     const warningChecks = health.summary.warnings;
     // Critical checks are weighted more heavily
-    const score = Math.round(
-      ((healthyChecks + warningChecks * 0.5) / totalChecks) * 100,
-    );
+    const score = Math.round(((healthyChecks + warningChecks * 0.5) / totalChecks) * 100);
 
     return {
       ready: blockers.length === 0,
@@ -693,4 +673,3 @@ export class SystemHealthService {
     };
   }
 }
-

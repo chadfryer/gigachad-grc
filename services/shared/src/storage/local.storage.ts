@@ -2,15 +2,9 @@ import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
-import {
-  StorageProvider,
-  UploadOptions,
-  FileMetadata,
-  StorageConfig,
-} from './storage.interface';
+import { StorageProvider, UploadOptions, FileMetadata, StorageConfig } from './storage.interface';
 
 const mkdir = promisify(fs.mkdir);
-const stat = promisify(fs.stat);
 const lstat = promisify(fs.lstat);
 const unlink = promisify(fs.unlink);
 const readdir = promisify(fs.readdir);
@@ -33,13 +27,13 @@ export class LocalStorageProvider implements StorageProvider {
   private getFullPath(relativePath: string): string {
     // Resolve the full path
     const fullPath = path.resolve(this.basePath, relativePath);
-    
+
     // SECURITY: Ensure the resolved path is within the base path
     // This prevents path traversal attacks like "../../../etc/passwd"
     if (!fullPath.startsWith(this.basePath + path.sep) && fullPath !== this.basePath) {
       throw new Error('SECURITY: Path traversal detected - access denied');
     }
-    
+
     return fullPath;
   }
 
@@ -73,8 +67,8 @@ export class LocalStorageProvider implements StorageProvider {
 
   async download(storagePath: string): Promise<Readable> {
     const fullPath = this.getFullPath(storagePath);
-    
-    if (!await this.exists(storagePath)) {
+
+    if (!(await this.exists(storagePath))) {
       throw new Error(`File not found: ${storagePath}`);
     }
 
@@ -89,14 +83,14 @@ export class LocalStorageProvider implements StorageProvider {
 
   async delete(storagePath: string): Promise<void> {
     const fullPath = this.getFullPath(storagePath);
-    
+
     try {
       // SECURITY: Prevent symlink attacks - deny deletion of symbolic links
       const stats = await lstat(fullPath);
       if (stats.isSymbolicLink()) {
         throw new Error('SECURITY: Symlink access denied');
       }
-      
+
       await unlink(fullPath);
     } catch (error: unknown) {
       const fsError = error as NodeJS.ErrnoException;
@@ -108,7 +102,7 @@ export class LocalStorageProvider implements StorageProvider {
 
   async exists(storagePath: string): Promise<boolean> {
     const fullPath = this.getFullPath(storagePath);
-    
+
     try {
       await access(fullPath, fs.constants.F_OK);
       return true;
@@ -125,16 +119,16 @@ export class LocalStorageProvider implements StorageProvider {
 
   async getMetadata(storagePath: string): Promise<FileMetadata | null> {
     const fullPath = this.getFullPath(storagePath);
-    
+
     try {
       // SECURITY: Use lstat to detect symlinks without following them
       const stats = await lstat(fullPath);
-      
+
       // SECURITY: Prevent symlink attacks - deny access to symbolic links
       if (stats.isSymbolicLink()) {
         throw new Error('SECURITY: Symlink access denied');
       }
-      
+
       return {
         path: storagePath,
         size: stats.size,
@@ -158,7 +152,7 @@ export class LocalStorageProvider implements StorageProvider {
 
       for (const entry of entries) {
         const entryPath = path.join(prefix, entry.name);
-        
+
         if (entry.isFile()) {
           const metadata = await this.getMetadata(entryPath);
           if (metadata) {
@@ -196,6 +190,3 @@ export class LocalStorageProvider implements StorageProvider {
     return destPath;
   }
 }
-
-
-

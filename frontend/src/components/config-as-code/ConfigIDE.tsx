@@ -49,20 +49,27 @@ export default function ConfigIDE({ workspaceId }: Props) {
   const [fileContent, setFileContent] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['controls', 'frameworks']));
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set(['controls', 'frameworks'])
+  );
   const [componentError, setComponentError] = useState<Error | null>(null);
 
   const queryClient = useQueryClient();
 
   // Fetch file list and initialize if empty
   // Note: All hooks must be called before any conditional returns
-  const { data: filesData, isLoading: filesLoading, refetch: refetchFiles, error: filesError } = useQuery({
+  const {
+    data: filesData,
+    isLoading: filesLoading,
+    refetch: refetchFiles,
+    error: filesError,
+  } = useQuery({
     queryKey: ['config-files', workspaceId],
     queryFn: async () => {
       try {
         // First check if files exist
         const response = await configAsCodeApi.listFiles(workspaceId);
-        
+
         // If no files exist, try to initialize (but don't auto-initialize - let user click button)
         // Auto-initialization can be slow and might fail, so we'll let the user trigger it manually
         return response.data || { files: [], total: 0 };
@@ -109,12 +116,21 @@ export default function ConfigIDE({ workspaceId }: Props) {
 
   // Save file mutation
   const saveMutation = useMutation({
-    mutationFn: async (data: { path: string; content: string; format: string; commitMessage?: string }) => {
+    mutationFn: async (data: {
+      path: string;
+      content: string;
+      format: string;
+      commitMessage?: string;
+    }) => {
       // Check if file exists
       try {
         await configAsCodeApi.getFile(data.path, workspaceId);
         // File exists, update it
-        return configAsCodeApi.updateFile(data.path, { content: data.content, commitMessage: data.commitMessage }, workspaceId);
+        return configAsCodeApi.updateFile(
+          data.path,
+          { content: data.content, commitMessage: data.commitMessage },
+          workspaceId
+        );
       } catch {
         // File doesn't exist, create it
         return configAsCodeApi.createFile({
@@ -154,13 +170,21 @@ export default function ConfigIDE({ workspaceId }: Props) {
 
   // Apply mutation
   const applyMutation = useMutation({
-    mutationFn: async (data: { path: string; content: string; format: string; commitMessage?: string }) => {
-      return configAsCodeApi.applyChanges({
-        path: data.path,
-        content: data.content,
-        format: data.format as any,
-        commitMessage: data.commitMessage,
-      }, workspaceId);
+    mutationFn: async (data: {
+      path: string;
+      content: string;
+      format: string;
+      commitMessage?: string;
+    }) => {
+      return configAsCodeApi.applyChanges(
+        {
+          path: data.path,
+          content: data.content,
+          format: data.format as any,
+          commitMessage: data.commitMessage,
+        },
+        workspaceId
+      );
     },
     onSuccess: (response) => {
       const { created, updated, deleted, errors } = response.data;
@@ -170,7 +194,7 @@ export default function ConfigIDE({ workspaceId }: Props) {
       );
       // Invalidate config file queries
       queryClient.invalidateQueries({ queryKey: ['config-files', workspaceId] });
-      
+
       // Invalidate all resource queries that might have been affected by the apply
       // This ensures the list views and detail pages show updated data
       queryClient.invalidateQueries({ queryKey: ['controls'] });
@@ -183,7 +207,7 @@ export default function ConfigIDE({ workspaceId }: Props) {
       queryClient.invalidateQueries({ queryKey: ['risk'] });
       queryClient.invalidateQueries({ queryKey: ['vendors'] });
       queryClient.invalidateQueries({ queryKey: ['vendor'] });
-      
+
       setIsEditing(false);
       setCommitMessage('');
     },
@@ -196,19 +220,27 @@ export default function ConfigIDE({ workspaceId }: Props) {
   const refreshMutation = useMutation({
     mutationFn: async () => {
       // Show loading toast that persists during the operation
-      toast.loading('Syncing Terraform files from database...', { id: 'refresh-db', duration: Infinity });
+      toast.loading('Syncing Terraform files from database...', {
+        id: 'refresh-db',
+        duration: Infinity,
+      });
       return configAsCodeApi.refreshFromDatabase(workspaceId);
     },
     onSuccess: (response) => {
       const { filesUpdated } = response.data;
-      toast.success(`Refreshed ${filesUpdated} file(s) from database`, { id: 'refresh-db', duration: 3000 });
+      toast.success(`Refreshed ${filesUpdated} file(s) from database`, {
+        id: 'refresh-db',
+        duration: 3000,
+      });
       queryClient.invalidateQueries({ queryKey: ['config-files', workspaceId] });
       if (selectedFile) {
         queryClient.invalidateQueries({ queryKey: ['config-file', selectedFile, workspaceId] });
       }
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to refresh from database', { id: 'refresh-db' });
+      toast.error(error.response?.data?.message || 'Failed to refresh from database', {
+        id: 'refresh-db',
+      });
     },
   });
 
@@ -216,7 +248,7 @@ export default function ConfigIDE({ workspaceId }: Props) {
   const buildFileTree = useCallback((files: ConfigFile[]): FileTreeNode[] => {
     const tree: Record<string, FileTreeBuildNode> = {};
 
-    files.forEach(file => {
+    files.forEach((file) => {
       const parts = file.path.split('/');
       let current: Record<string, FileTreeBuildNode> = tree;
 
@@ -343,7 +375,7 @@ export default function ConfigIDE({ workspaceId }: Props) {
 
     // Add Terraform/HCL language support
     monaco.languages.register({ id: 'hcl' });
-    
+
     // Basic HCL syntax highlighting
     monaco.languages.setMonarchTokensProvider('hcl', {
       tokenizer: {
@@ -426,24 +458,38 @@ export default function ConfigIDE({ workspaceId }: Props) {
           <div className="p-4 text-surface-400 text-sm space-y-3">
             <div className="text-surface-300">No Terraform files yet.</div>
             <p className="text-xs">
-              Generate Terraform files from your current controls, frameworks, policies, and other GRC resources.
+              Generate Terraform files from your current controls, frameworks, policies, and other
+              GRC resources.
             </p>
             <button
               onClick={async () => {
                 try {
-                  toast.loading('Generating Terraform files from platform state... This may take a moment.', { id: 'init-files', duration: Infinity });
+                  toast.loading(
+                    'Generating Terraform files from platform state... This may take a moment.',
+                    { id: 'init-files', duration: Infinity }
+                  );
                   const response = await configAsCodeApi.listFiles(workspaceId, true);
                   await refetchFiles();
-                  
+
                   // Check if files were actually created
                   if (response.data?.files && response.data.files.length > 0) {
-                    toast.success(`Generated ${response.data.files.length} Terraform files from platform state`, { id: 'init-files', duration: 4000 });
+                    toast.success(
+                      `Generated ${response.data.files.length} Terraform files from platform state`,
+                      { id: 'init-files', duration: 4000 }
+                    );
                   } else {
-                    toast.error('Initialization completed but no files were created. Please check backend logs.', { id: 'init-files', duration: 8000 });
+                    toast.error(
+                      'Initialization completed but no files were created. Please check backend logs.',
+                      { id: 'init-files', duration: 8000 }
+                    );
                   }
                 } catch (error: any) {
-                  const errorMsg = error.response?.data?.message || error.message || 'Failed to initialize files';
-                  toast.error(`Initialization failed: ${errorMsg}`, { id: 'init-files', duration: 10000 });
+                  const errorMsg =
+                    error.response?.data?.message || error.message || 'Failed to initialize files';
+                  toast.error(`Initialization failed: ${errorMsg}`, {
+                    id: 'init-files',
+                    duration: 10000,
+                  });
                   console.error('Initialization error:', error);
                   // Don't disable the module on error - just show the error
                 }
@@ -453,12 +499,6 @@ export default function ConfigIDE({ workspaceId }: Props) {
               <ArrowPathIcon className="w-4 h-4" />
               Generate Terraform Files
             </button>
-            {filesError && (
-              <div className="text-xs text-yellow-400 mt-2 p-2 bg-yellow-900/20 rounded">
-                <div className="font-medium mb-1">Database tables not found</div>
-                <div>Run migrations: <code className="bg-surface-800 px-1 rounded text-yellow-300">./scripts/migrate-config-as-code.sh</code></div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="p-2">
@@ -522,17 +562,17 @@ export default function ConfigIDE({ workspaceId }: Props) {
               <div className="flex items-center gap-2">
                 <DocumentTextIcon className="w-5 h-5 text-surface-400" />
                 <span className="text-sm font-medium text-surface-200">{selectedFile}</span>
-                {fileData && (
-                  <span className="text-xs text-surface-500">v{fileData.version}</span>
-                )}
-                {isEditing && (
-                  <span className="text-xs text-yellow-400">● Modified</span>
-                )}
+                {fileData && <span className="text-xs text-surface-500">v{fileData.version}</span>}
+                {isEditing && <span className="text-xs text-yellow-400">● Modified</span>}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    if (confirm('Regenerate Terraform files from database? This will overwrite any unsaved changes in the editor.')) {
+                    if (
+                      confirm(
+                        'Regenerate Terraform files from database? This will overwrite any unsaved changes in the editor.'
+                      )
+                    ) {
                       refreshMutation.mutate();
                     }
                   }}
@@ -540,7 +580,9 @@ export default function ConfigIDE({ workspaceId }: Props) {
                   className="btn btn-secondary btn-sm flex items-center gap-1"
                   title="Regenerate Terraform files from your current GRC data (controls, frameworks, policies, etc.)"
                 >
-                  <ArrowPathIcon className={clsx('w-4 h-4', refreshMutation.isPending && 'animate-spin')} />
+                  <ArrowPathIcon
+                    className={clsx('w-4 h-4', refreshMutation.isPending && 'animate-spin')}
+                  />
                   {refreshMutation.isPending ? 'Syncing...' : 'Sync from DB'}
                 </button>
                 <div className="w-px h-6 bg-surface-600" />
@@ -660,4 +702,3 @@ export default function ConfigIDE({ workspaceId }: Props) {
     </div>
   );
 }
-

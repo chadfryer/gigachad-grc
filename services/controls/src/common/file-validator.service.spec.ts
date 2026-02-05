@@ -1,4 +1,4 @@
-import { FileValidatorService, ALLOWED_FILE_TYPES, SIZE_LIMITS } from './file-validator.service';
+import { FileValidatorService, SIZE_LIMITS } from './file-validator.service';
 
 describe('FileValidatorService', () => {
   let service: FileValidatorService;
@@ -224,7 +224,9 @@ describe('FileValidatorService', () => {
         const result = await service.validateFile(file);
         expect(result.valid).toBe(false);
         // Should be rejected for .exe extension
-        expect(result.errors.some(e => e.includes('.exe') || e.includes('Suspicious'))).toBe(true);
+        expect(result.errors.some((e) => e.includes('.exe') || e.includes('Suspicious'))).toBe(
+          true
+        );
       });
     });
 
@@ -248,25 +250,17 @@ describe('FileValidatorService', () => {
 
     describe('file size limits', () => {
       it('should reject files exceeding size limit', async () => {
-        const file = createMockFile(
-          'large.pdf',
-          'application/pdf',
-          SIZE_LIMITS.evidence + 1
-        );
+        const file = createMockFile('large.pdf', 'application/pdf', SIZE_LIMITS.evidence + 1);
         const result = await service.validateFile(file, { category: 'evidence' });
         expect(result.valid).toBe(false);
-        expect(result.errors.some(e => e.includes('too large'))).toBe(true);
+        expect(result.errors.some((e) => e.includes('too large'))).toBe(true);
       });
 
       it('should accept files within size limit', async () => {
-        const file = createMockFile(
-          'small.pdf',
-          'application/pdf',
-          1000
-        );
-        const result = await service.validateFile(file, { 
+        const file = createMockFile('small.pdf', 'application/pdf', 1000);
+        const result = await service.validateFile(file, {
           category: 'evidence',
-          checkMagicBytes: false 
+          checkMagicBytes: false,
         });
         expect(result.valid).toBe(true);
       });
@@ -274,28 +268,20 @@ describe('FileValidatorService', () => {
 
     describe('MIME type validation', () => {
       it('should reject disallowed MIME types', async () => {
-        const file = createMockFile(
-          'file.xyz',
-          'application/x-unknown',
-          1000
-        );
-        const result = await service.validateFile(file, { 
+        const file = createMockFile('file.xyz', 'application/x-unknown', 1000);
+        const result = await service.validateFile(file, {
           category: 'evidence',
-          checkMagicBytes: false 
+          checkMagicBytes: false,
         });
         expect(result.valid).toBe(false);
-        expect(result.errors.some(e => e.includes('not allowed'))).toBe(true);
+        expect(result.errors.some((e) => e.includes('not allowed'))).toBe(true);
       });
 
       it('should accept allowed MIME types', async () => {
-        const file = createMockFile(
-          'document.pdf',
-          'application/pdf',
-          1000
-        );
-        const result = await service.validateFile(file, { 
+        const file = createMockFile('document.pdf', 'application/pdf', 1000);
+        const result = await service.validateFile(file, {
           category: 'evidence',
-          checkMagicBytes: false 
+          checkMagicBytes: false,
         });
         expect(result.valid).toBe(true);
       });

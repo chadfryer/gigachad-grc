@@ -106,11 +106,6 @@ vi.mock('@/lib/api', () => ({
       ],
     }),
   },
-  customDashboardsApi: {
-    list: vi.fn().mockResolvedValue({
-      data: [],
-    }),
-  },
 }));
 
 // Mock localStorage
@@ -118,9 +113,15 @@ const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: (key: string) => store[key] || null,
-    setItem: (key: string, value: string) => { store[key] = value; },
-    removeItem: (key: string) => { delete store[key]; },
-    clear: () => { store = {}; },
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
   };
 })();
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
@@ -134,14 +135,14 @@ describe('Dashboard', () => {
   describe('Rendering', () => {
     it('renders the dashboard page', async () => {
       render(<Dashboard />);
-      
+
       // The page should render without crashing - just verify the component mounts
       expect(document.body).toBeInTheDocument();
     });
 
     it('renders without errors', async () => {
       render(<Dashboard />);
-      
+
       // Component should render
       expect(document.body).toBeInTheDocument();
     });
@@ -150,9 +151,9 @@ describe('Dashboard', () => {
   describe('Data Fetching', () => {
     it('calls dashboard API on mount', async () => {
       const { dashboardApi } = await import('@/lib/api');
-      
+
       render(<Dashboard />);
-      
+
       await waitFor(() => {
         // Dashboard now uses getFull() instead of getSummary()
         expect(dashboardApi.getFull).toHaveBeenCalled();
@@ -161,9 +162,9 @@ describe('Dashboard', () => {
 
     it('loads custom dashboards on mount', async () => {
       const { customDashboardsApi } = await import('@/lib/api');
-      
+
       render(<Dashboard />);
-      
+
       await waitFor(() => {
         expect(customDashboardsApi.list).toHaveBeenCalled();
       });
@@ -171,7 +172,7 @@ describe('Dashboard', () => {
 
     it('renders dashboard content', async () => {
       render(<Dashboard />);
-      
+
       // Wait for content to load - dashboard should render without throwing
       await waitFor(() => {
         expect(document.body).toBeInTheDocument();
@@ -182,7 +183,7 @@ describe('Dashboard', () => {
   describe('Widget Configuration', () => {
     it('persists widget configuration to localStorage', async () => {
       render(<Dashboard />);
-      
+
       await waitFor(() => {
         // Configuration should be saved
         const savedConfig = localStorageMock.getItem('dashboard-config');
@@ -194,7 +195,7 @@ describe('Dashboard', () => {
   describe('Navigation', () => {
     it('has navigation links', async () => {
       render(<Dashboard />);
-      
+
       await waitFor(() => {
         const links = screen.queryAllByRole('link');
         expect(links.length).toBeGreaterThanOrEqual(0);

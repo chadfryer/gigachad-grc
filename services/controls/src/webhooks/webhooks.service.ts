@@ -12,12 +12,7 @@ import {
   TestWebhookDto,
   TestWebhookResultDto,
 } from './dto/webhook.dto';
-import { 
-  parsePaginationParams, 
-  createPaginatedResponse,
-  safeFetch,
-  SSRFProtectionError,
-} from '@gigachad-grc/shared';
+import { parsePaginationParams, createPaginatedResponse, safeFetch } from '@gigachad-grc/shared';
 
 interface WebhookRecord {
   id: string;
@@ -74,9 +69,10 @@ export class WebhooksService {
   }
 
   async findAll(organizationId: string): Promise<WebhookDto[]> {
-    const webhooks = Array.from(webhookStore.values())
-      .filter(w => w.organizationId === organizationId);
-    return webhooks.map(w => this.toDto(w));
+    const webhooks = Array.from(webhookStore.values()).filter(
+      (w) => w.organizationId === organizationId
+    );
+    return webhooks.map((w) => this.toDto(w));
   }
 
   async findOne(organizationId: string, id: string): Promise<WebhookDto> {
@@ -87,11 +83,7 @@ export class WebhooksService {
     return this.toDto(webhook);
   }
 
-  async update(
-    organizationId: string,
-    id: string,
-    dto: UpdateWebhookDto,
-  ): Promise<WebhookDto> {
+  async update(organizationId: string, id: string, dto: UpdateWebhookDto): Promise<WebhookDto> {
     const webhook = webhookStore.get(id);
     if (!webhook || webhook.organizationId !== organizationId) {
       throw new NotFoundException(`Webhook ${id} not found`);
@@ -124,7 +116,7 @@ export class WebhooksService {
   async testWebhook(
     organizationId: string,
     id: string,
-    dto: TestWebhookDto,
+    dto: TestWebhookDto
   ): Promise<TestWebhookResultDto> {
     const webhook = webhookStore.get(id);
     if (!webhook || webhook.organizationId !== organizationId) {
@@ -141,14 +133,14 @@ export class WebhooksService {
       },
     };
 
-    return this.sendWebhook(webhook, dto.eventType || WebhookEventType.CONTROL_UPDATED, testPayload);
+    return this.sendWebhook(
+      webhook,
+      dto.eventType || WebhookEventType.CONTROL_UPDATED,
+      testPayload
+    );
   }
 
-  async getDeliveries(
-    organizationId: string,
-    webhookId: string,
-    query: WebhookDeliveryQueryDto,
-  ) {
+  async getDeliveries(organizationId: string, webhookId: string, query: WebhookDeliveryQueryDto) {
     const webhook = webhookStore.get(webhookId);
     if (!webhook || webhook.organizationId !== organizationId) {
       throw new NotFoundException(`Webhook ${webhookId} not found`);
@@ -159,14 +151,14 @@ export class WebhooksService {
       limit: query.limit,
     });
 
-    let filtered = deliveryStore.filter(d => d.webhookId === webhookId);
+    let filtered = deliveryStore.filter((d) => d.webhookId === webhookId);
 
     if (query.eventType) {
-      filtered = filtered.filter(d => d.eventType === query.eventType);
+      filtered = filtered.filter((d) => d.eventType === query.eventType);
     }
 
     if (query.successOnly !== undefined) {
-      filtered = filtered.filter(d => d.success === query.successOnly);
+      filtered = filtered.filter((d) => d.success === query.successOnly);
     }
 
     const total = filtered.length;
@@ -179,14 +171,14 @@ export class WebhooksService {
   async retryDelivery(
     organizationId: string,
     webhookId: string,
-    deliveryId: string,
+    deliveryId: string
   ): Promise<TestWebhookResultDto> {
     const webhook = webhookStore.get(webhookId);
     if (!webhook || webhook.organizationId !== organizationId) {
       throw new NotFoundException(`Webhook ${webhookId} not found`);
     }
 
-    const delivery = deliveryStore.find(d => d.id === deliveryId && d.webhookId === webhookId);
+    const delivery = deliveryStore.find((d) => d.id === deliveryId && d.webhookId === webhookId);
     if (!delivery) {
       throw new NotFoundException(`Delivery ${deliveryId} not found`);
     }
@@ -198,18 +190,15 @@ export class WebhooksService {
   async triggerEvent(
     organizationId: string,
     eventType: WebhookEventType,
-    payload: Record<string, unknown>,
+    payload: Record<string, unknown>
   ): Promise<void> {
-    const webhooks = Array.from(webhookStore.values())
-      .filter(w => 
-        w.organizationId === organizationId && 
-        w.isActive && 
-        w.events.includes(eventType)
-      );
+    const webhooks = Array.from(webhookStore.values()).filter(
+      (w) => w.organizationId === organizationId && w.isActive && w.events.includes(eventType)
+    );
 
     for (const webhook of webhooks) {
       // Fire and forget - don't block the caller
-      this.sendWebhook(webhook, eventType, payload).catch(err => {
+      this.sendWebhook(webhook, eventType, payload).catch((err) => {
         this.logger.error(`Failed to send webhook ${webhook.id}: ${err.message}`);
       });
     }
@@ -218,7 +207,7 @@ export class WebhooksService {
   private async sendWebhook(
     webhook: WebhookRecord,
     eventType: WebhookEventType,
-    payload: Record<string, unknown>,
+    payload: Record<string, unknown>
   ): Promise<TestWebhookResultDto> {
     const startTime = Date.now();
     const deliveryId = crypto.randomUUID();
@@ -240,10 +229,7 @@ export class WebhooksService {
 
     // Add HMAC signature if secret is configured
     if (webhook.secret) {
-      const signature = crypto
-        .createHmac('sha256', webhook.secret)
-        .update(body)
-        .digest('hex');
+      const signature = crypto.createHmac('sha256', webhook.secret).update(body).digest('hex');
       headers['X-Webhook-Signature'] = `sha256=${signature}`;
     }
 
@@ -292,10 +278,10 @@ export class WebhooksService {
       deliveryStore.unshift(delivery);
 
       // Keep only last 1000 deliveries per webhook
-      const webhookDeliveries = deliveryStore.filter(d => d.webhookId === webhook.id);
+      const webhookDeliveries = deliveryStore.filter((d) => d.webhookId === webhook.id);
       if (webhookDeliveries.length > 1000) {
         const toRemove = webhookDeliveries.slice(1000);
-        toRemove.forEach(d => {
+        toRemove.forEach((d) => {
           const idx = deliveryStore.indexOf(d);
           if (idx > -1) deliveryStore.splice(idx, 1);
         });

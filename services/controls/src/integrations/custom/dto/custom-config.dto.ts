@@ -97,14 +97,20 @@ export class SaveCustomConfigDto {
   @IsString()
   baseUrl?: string;
 
-  @ApiPropertyOptional({ type: [EndpointConfigDto], description: 'List of endpoint configurations' })
+  @ApiPropertyOptional({
+    type: [EndpointConfigDto],
+    description: 'List of endpoint configurations',
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => EndpointConfigDto)
   endpoints?: EndpointConfigDto[];
 
-  @ApiPropertyOptional({ enum: ['api_key', 'oauth2', 'basic', 'bearer'], description: 'Authentication type' })
+  @ApiPropertyOptional({
+    enum: ['api_key', 'oauth2', 'basic', 'bearer'],
+    description: 'Authentication type',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['api_key', 'oauth2', 'basic', 'bearer'])
@@ -138,10 +144,8 @@ export class TestEndpointDto {
   @IsString()
   baseUrl?: string;
 
-  @ApiPropertyOptional({ description: 'Override auth config for testing' })
-  @IsOptional()
-  @IsObject()
-  authConfig?: Record<string, unknown>;
+  // SECURITY: Removed authConfig override - tests must use stored encrypted credentials
+  // to prevent user-controlled bypass of authentication configuration
 }
 
 // Response DTOs
@@ -271,6 +275,3 @@ async function sync(context) {
 // Export the sync function
 module.exports = { sync };
 `;
-
-
-

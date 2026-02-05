@@ -6,7 +6,12 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType, NotificationSeverity } from '../notifications/dto/notification.dto';
 import { STORAGE_PROVIDER, StorageProvider } from '@gigachad-grc/shared';
-import { CreateCollectorDto, UpdateCollectorDto, TestCollectorDto, TestResultDto } from './dto/collector.dto';
+import {
+  CreateCollectorDto,
+  UpdateCollectorDto,
+  TestCollectorDto,
+  TestResultDto,
+} from './dto/collector.dto';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { CollectorRunStatus, EvidenceStatus, Prisma } from '@prisma/client';
 
@@ -19,7 +24,7 @@ export class CollectorsService {
     private auditService: AuditService,
     private notificationsService: NotificationsService,
     @Inject(STORAGE_PROVIDER) private storage: StorageProvider,
-    @InjectMetric('collectors_runs_total') private readonly collectorsRunsCounter: Counter<string>,
+    @InjectMetric('collectors_runs_total') private readonly collectorsRunsCounter: Counter<string>
   ) {}
 
   /**
@@ -69,7 +74,10 @@ export class CollectorsService {
 
     return {
       ...collector,
-      authConfig: this.maskAuthConfig(collector.authType, collector.authConfig as Record<string, unknown>),
+      authConfig: this.maskAuthConfig(
+        collector.authType,
+        collector.authConfig as Record<string, unknown>
+      ),
     };
   }
 
@@ -81,7 +89,7 @@ export class CollectorsService {
     implementationId: string,
     organizationId: string,
     userId: string,
-    dto: CreateCollectorDto,
+    dto: CreateCollectorDto
   ) {
     // Verify the implementation exists and belongs to this control
     const implementation = await this.prisma.controlImplementation.findFirst({
@@ -156,7 +164,10 @@ export class CollectorsService {
 
     return {
       ...collector,
-      authConfig: this.maskAuthConfig(collector.authType, collector.authConfig as Record<string, unknown>),
+      authConfig: this.maskAuthConfig(
+        collector.authType,
+        collector.authConfig as Record<string, unknown>
+      ),
     };
   }
 
@@ -239,7 +250,10 @@ export class CollectorsService {
 
     return {
       ...collector,
-      authConfig: this.maskAuthConfig(collector.authType, collector.authConfig as Record<string, unknown>),
+      authConfig: this.maskAuthConfig(
+        collector.authType,
+        collector.authConfig as Record<string, unknown>
+      ),
     };
   }
 
@@ -277,7 +291,12 @@ export class CollectorsService {
   /**
    * Test a collector configuration
    */
-  async test(id: string, organizationId: string, userId: string, dto?: TestCollectorDto): Promise<TestResultDto> {
+  async test(
+    id: string,
+    organizationId: string,
+    userId: string,
+    dto?: TestCollectorDto
+  ): Promise<TestResultDto> {
     const collector = await this.prisma.controlEvidenceCollector.findFirst({
       where: { id, organizationId },
       include: {
@@ -303,7 +322,6 @@ export class CollectorsService {
         responseTime: Date.now() - startTime,
         data: result.data,
       };
-
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return {
@@ -350,11 +368,7 @@ export class CollectorsService {
       const result = await this.executeApiCall(collector);
 
       // Create evidence from the result
-      const evidence = await this.createEvidenceFromResult(
-        collector,
-        result.data,
-        userId,
-      );
+      const evidence = await this.createEvidenceFromResult(collector, result.data, userId);
 
       // Update run record
       await this.prisma.collectorRun.update({
@@ -367,7 +381,10 @@ export class CollectorsService {
           responseCode: result.statusCode,
           logs: [
             ...(run.logs as any[]),
-            { timestamp: new Date().toISOString(), message: `API call successful (${result.statusCode})` },
+            {
+              timestamp: new Date().toISOString(),
+              message: `API call successful (${result.statusCode})`,
+            },
             { timestamp: new Date().toISOString(), message: `Created evidence: ${evidence.title}` },
           ],
         },
@@ -382,9 +399,10 @@ export class CollectorsService {
           lastRunError: null,
           totalRuns: { increment: 1 },
           successfulRuns: { increment: 1 },
-          nextRunAt: collector.scheduleEnabled && collector.scheduleFrequency
-            ? this.calculateNextRunTime(collector.scheduleFrequency)
-            : null,
+          nextRunAt:
+            collector.scheduleEnabled && collector.scheduleFrequency
+              ? this.calculateNextRunTime(collector.scheduleFrequency)
+              : null,
         },
       });
 
@@ -424,7 +442,6 @@ export class CollectorsService {
         evidenceId: evidence.id,
         message: `Successfully collected evidence: ${evidence.title}`,
       };
-
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       // Update run record with error
@@ -435,8 +452,12 @@ export class CollectorsService {
           completedAt: new Date(),
           errorMessage: errorMessage,
           logs: [
-            ...(run.logs as Prisma.InputJsonValue[] || []),
-            { timestamp: new Date().toISOString(), message: `Error: ${errorMessage}`, level: 'error' },
+            ...((run.logs as Prisma.InputJsonValue[]) || []),
+            {
+              timestamp: new Date().toISOString(),
+              message: `Error: ${errorMessage}`,
+              level: 'error',
+            },
           ] as Prisma.InputJsonValue,
         },
       });
@@ -449,9 +470,10 @@ export class CollectorsService {
           lastRunStatus: CollectorRunStatus.error,
           lastRunError: errorMessage,
           totalRuns: { increment: 1 },
-          nextRunAt: collector.scheduleEnabled && collector.scheduleFrequency
-            ? this.calculateNextRunTime(collector.scheduleFrequency)
-            : null,
+          nextRunAt:
+            collector.scheduleEnabled && collector.scheduleFrequency
+              ? this.calculateNextRunTime(collector.scheduleFrequency)
+              : null,
         },
       });
 
@@ -508,7 +530,7 @@ export class CollectorsService {
    */
   private async executeApiCall(
     collector: any,
-    overrides?: TestCollectorDto & { timeoutMs?: number; maxRetries?: number },
+    overrides?: TestCollectorDto & { timeoutMs?: number; maxRetries?: number }
   ): Promise<{ statusCode: number; data: any }> {
     const timeoutMs =
       overrides?.timeoutMs ??
@@ -543,12 +565,16 @@ export class CollectorsService {
     // Build headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(collector.headers as Record<string, string> || {}),
+      ...((collector.headers as Record<string, string>) || {}),
     };
 
     // Add authentication
     if (collector.authType && authConfig) {
-      const authHeaders = await this.getAuthHeaders(collector.authType, authConfig, collector.integration);
+      const authHeaders = await this.getAuthHeaders(
+        collector.authType,
+        authConfig,
+        collector.integration
+      );
       Object.assign(headers, authHeaders);
     }
 
@@ -571,7 +597,7 @@ export class CollectorsService {
     }
 
     this.logger.debug(
-      `Executing collector API call: ${collector.method} ${finalUrl} (timeout=${timeoutMs}ms, retries=${maxRetries})`,
+      `Executing collector API call: ${collector.method} ${finalUrl} (timeout=${timeoutMs}ms, retries=${maxRetries})`
     );
 
     const controller = new AbortController();
@@ -580,10 +606,7 @@ export class CollectorsService {
 
     let response: Response;
     try {
-      response = await this.retryWithBackoff(
-        () => fetch(finalUrl, fetchOptions),
-        maxRetries,
-      );
+      response = await this.retryWithBackoff(() => fetch(finalUrl, fetchOptions), maxRetries);
     } finally {
       clearTimeout(timeout);
     }
@@ -597,9 +620,11 @@ export class CollectorsService {
       data = responseText;
     }
 
-      if (!response.ok) {
+    if (!response.ok) {
       this.collectorsRunsCounter.inc({ status: 'failure' });
-      throw new Error(`API returned ${response.status}: ${typeof data === 'string' ? data : JSON.stringify(data)}`);
+      throw new Error(
+        `API returned ${response.status}: ${typeof data === 'string' ? data : JSON.stringify(data)}`
+      );
     }
 
     this.collectorsRunsCounter.inc({ status: 'success' });
@@ -611,7 +636,7 @@ export class CollectorsService {
    */
   private async retryWithBackoff(
     fn: () => Promise<Response>,
-    maxRetries: number,
+    maxRetries: number
   ): Promise<Response> {
     let attempt = 0;
     let lastError: any;
@@ -633,7 +658,7 @@ export class CollectorsService {
         this.logger.warn(
           `Collector call failed (attempt ${attempt + 1}/${maxRetries + 1}): ${
             (error as any)?.message || error
-          } – retrying in ${delay}ms`,
+          } – retrying in ${delay}ms`
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
         attempt++;
@@ -649,7 +674,7 @@ export class CollectorsService {
   private async getAuthHeaders(
     authType: string,
     authConfig: Record<string, unknown>,
-    integration?: { type?: string; config?: Record<string, unknown> },
+    integration?: { type?: string; config?: Record<string, unknown> }
   ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {};
 
@@ -679,7 +704,9 @@ export class CollectorsService {
 
       case 'basic':
         if (authConfig.username && authConfig.password) {
-          const credentials = Buffer.from(`${authConfig.username as string}:${authConfig.password as string}`).toString('base64');
+          const credentials = Buffer.from(
+            `${authConfig.username as string}:${authConfig.password as string}`
+          ).toString('base64');
           headers['Authorization'] = `Basic ${credentials}`;
         }
         break;
@@ -691,10 +718,14 @@ export class CollectorsService {
   /**
    * Get OAuth 2.0 access token
    */
-  private async getOAuth2Token(authConfig: Record<string, unknown>, integration?: { type?: string; config?: Record<string, unknown> }): Promise<string> {
+  private async getOAuth2Token(
+    authConfig: Record<string, unknown>,
+    integration?: { type?: string; config?: Record<string, unknown> }
+  ): Promise<string> {
     // Check if using Jamf-style auth from integration
     if (integration?.type === 'jamf' && authConfig.clientId && authConfig.clientSecret) {
-      const serverUrl = (authConfig.serverUrl as string) || (integration?.config?.serverUrl as string);
+      const serverUrl =
+        (authConfig.serverUrl as string) || (integration?.config?.serverUrl as string);
       const tokenUrl = `${serverUrl}/api/oauth/token`;
 
       const params = new URLSearchParams({
@@ -754,14 +785,10 @@ export class CollectorsService {
   /**
    * Create evidence from API result
    */
-  private async createEvidenceFromResult(
-    collector: any,
-    data: any,
-    userId: string,
-  ) {
+  private async createEvidenceFromResult(collector: any, data: any, userId: string) {
     // Generate evidence title
     let title = collector.evidenceTitle || `${collector.name} - ${new Date().toLocaleDateString()}`;
-    
+
     // Simple template interpolation
     title = title.replace(/\{\{(\w+)\}\}/g, (_match: string, key: string) => {
       return this.extractValue(data, key) || key;
@@ -785,11 +812,9 @@ export class CollectorsService {
     const storagePath = `collectors/${collector.id}/${timestamp}.json`;
 
     // Save to storage
-    await this.storage.upload(
-      Buffer.from(jsonData, 'utf-8'),
-      storagePath,
-      { contentType: 'application/json' },
-    );
+    await this.storage.upload(Buffer.from(jsonData, 'utf-8'), storagePath, {
+      contentType: 'application/json',
+    });
 
     // Create evidence record
     const evidence = await this.prisma.evidence.create({
@@ -852,13 +877,13 @@ export class CollectorsService {
    */
   private extractValue(obj: any, path: string): any {
     if (!path) return undefined;
-    
+
     const parts = path.replace(/^\$\.?/, '').split('.');
     let current = obj;
 
     for (const part of parts) {
       if (current === null || current === undefined) return undefined;
-      
+
       const arrayMatch = part.match(/(\w+)\[(\d+)\]/);
       if (arrayMatch) {
         current = current[arrayMatch[1]]?.[parseInt(arrayMatch[2])];
@@ -873,12 +898,15 @@ export class CollectorsService {
   /**
    * Mask sensitive auth config values
    */
-  private maskAuthConfig(authType: string | null, authConfig: Record<string, unknown> | null): Record<string, unknown> | null {
+  private maskAuthConfig(
+    authType: string | null,
+    authConfig: Record<string, unknown> | null
+  ): Record<string, unknown> | null {
     if (!authConfig) return null;
 
     const masked = { ...authConfig };
     const sensitiveFields = ['keyValue', 'clientSecret', 'password', 'token', 'apiKey'];
-    
+
     for (const field of sensitiveFields) {
       if (masked[field]) {
         const value = String(masked[field]);
@@ -911,4 +939,3 @@ export class CollectorsService {
     });
   }
 }
-

@@ -15,23 +15,19 @@ import {
 
 /**
  * Mock AI Provider Implementation
- * 
+ *
  * Provides template-based responses for testing AI features without an API key.
  * Useful for:
  * - Development and testing
  * - Demonstrations and stakeholder previews
  * - Environments without AI API access
- * 
+ *
  * The mock provider returns realistic, structured responses based on templates.
  */
 export class MockAIProvider extends BaseAIProvider {
   readonly name = 'mock';
-  
-  private static readonly AVAILABLE_MODELS = [
-    'mock-gpt-4',
-    'mock-claude',
-    'mock-fast',
-  ];
+
+  private static readonly AVAILABLE_MODELS = ['mock-gpt-4', 'mock-claude', 'mock-fast'];
 
   constructor(config?: Partial<AIProviderConfig>) {
     super({
@@ -71,7 +67,7 @@ export class MockAIProvider extends BaseAIProvider {
     await this.simulateDelay();
 
     const effectiveOptions = this.getEffectiveOptions(options);
-    const prompt = messages.map(m => m.content).join('\n');
+    const prompt = messages.map((m) => m.content).join('\n');
 
     // Detect the type of request and generate appropriate response
     const response = this.generateMockResponse(prompt, effectiveOptions);
@@ -93,7 +89,7 @@ export class MockAIProvider extends BaseAIProvider {
    */
   private async simulateDelay(): Promise<void> {
     const delay = Math.random() * 150 + 50; // 50-200ms
-    await new Promise(resolve => setTimeout(resolve, delay));
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
   /**
@@ -110,12 +106,22 @@ export class MockAIProvider extends BaseAIProvider {
     const promptLower = prompt.toLowerCase();
 
     // Policy drafting
-    if (promptLower.includes('policy') && (promptLower.includes('draft') || promptLower.includes('create') || promptLower.includes('generate'))) {
+    if (
+      promptLower.includes('policy') &&
+      (promptLower.includes('draft') ||
+        promptLower.includes('create') ||
+        promptLower.includes('generate'))
+    ) {
       return this.generatePolicyDraftResponse(prompt);
     }
 
     // Risk scoring
-    if (promptLower.includes('risk') && (promptLower.includes('analyze') || promptLower.includes('score') || promptLower.includes('assess'))) {
+    if (
+      promptLower.includes('risk') &&
+      (promptLower.includes('analyze') ||
+        promptLower.includes('score') ||
+        promptLower.includes('assess'))
+    ) {
       return this.generateRiskScoringResponse(prompt);
     }
 
@@ -125,7 +131,10 @@ export class MockAIProvider extends BaseAIProvider {
     }
 
     // Control suggestions
-    if (promptLower.includes('control') && (promptLower.includes('suggest') || promptLower.includes('recommend'))) {
+    if (
+      promptLower.includes('control') &&
+      (promptLower.includes('suggest') || promptLower.includes('recommend'))
+    ) {
       return this.generateControlSuggestionsResponse(prompt);
     }
 
@@ -143,12 +152,14 @@ export class MockAIProvider extends BaseAIProvider {
    */
   private generatePolicyDraftResponse(prompt: string): string {
     // Extract policy type and organization name from prompt
-    const policyTypeMatch = prompt.match(/(?:draft|create|generate)\s+(?:a\s+)?([^.]+?)(?:\s+for|\s+policy)/i);
+    const policyTypeMatch = prompt.match(
+      /(?:draft|create|generate)\s+(?:a\s+)?([^.]+?)(?:\s+for|\s+policy)/i
+    );
     const orgMatch = prompt.match(/(?:for|organization[:\s]+)([^.\n]+)/i);
     const frameworksMatch = prompt.match(/frameworks?(?:\s+to\s+address)?[:\s]+([^.\n]+)/i);
     const industryMatch = prompt.match(/industry[:\s]+([^.\n]+)/i);
 
-    let policyType = policyTypeMatch?.[1]?.trim() || 'Information Security Policy';
+    const policyType = policyTypeMatch?.[1]?.trim() || 'Information Security Policy';
     const organizationName = orgMatch?.[1]?.trim() || 'Acme Corporation';
     const frameworksStr = frameworksMatch?.[1]?.trim() || '';
     const industry = industryMatch?.[1]?.trim();
@@ -156,15 +167,14 @@ export class MockAIProvider extends BaseAIProvider {
     // Parse frameworks
     const frameworks = frameworksStr
       .split(/[,\s]+/)
-      .filter(f => f.length > 2)
-      .map(f => f.trim());
+      .filter((f) => f.length > 2)
+      .map((f) => f.trim());
 
     // Find matching template
     let template = getPolicyTemplate(policyType);
     if (!template) {
       // Default to Information Security Policy
       template = POLICY_TEMPLATES[0];
-      policyType = template.type;
     }
 
     // Generate full content
@@ -174,12 +184,13 @@ export class MockAIProvider extends BaseAIProvider {
     const response = {
       title: replacePlaceholders(template.title, organizationName, industry),
       content: fullContent,
-      sections: template.sections.map(s => ({
+      sections: template.sections.map((s) => ({
         title: replacePlaceholders(s.title, organizationName, industry),
         content: replacePlaceholders(s.content, organizationName, industry),
         order: s.order,
       })),
-      frameworksCovered: frameworks.length > 0 ? frameworks : Object.keys(template.frameworkMappings),
+      frameworksCovered:
+        frameworks.length > 0 ? frameworks : Object.keys(template.frameworkMappings),
       suggestedReviewSchedule: template.suggestedReviewSchedule,
       relatedPolicies: template.relatedPolicies,
     };
@@ -206,7 +217,11 @@ export class MockAIProvider extends BaseAIProvider {
     const promptLower = prompt.toLowerCase();
 
     // Adjust scores based on keywords
-    if (promptLower.includes('data breach') || promptLower.includes('ransomware') || promptLower.includes('critical')) {
+    if (
+      promptLower.includes('data breach') ||
+      promptLower.includes('ransomware') ||
+      promptLower.includes('critical')
+    ) {
       likelihood = 4;
       impact = 5;
       category = 'Security';
@@ -323,7 +338,8 @@ export class MockAIProvider extends BaseAIProvider {
         title: 'Access Control Management',
         description: 'Implement role-based access control (RBAC) with principle of least privilege',
         category: 'Access Control',
-        implementationGuidance: 'Define roles and permissions matrix. Implement access provisioning workflows. Enable access reviews.',
+        implementationGuidance:
+          'Define roles and permissions matrix. Implement access provisioning workflows. Enable access reviews.',
         effortEstimate: 'Medium',
         effectivenessRating: 5,
         frameworkMappings: ['SOC 2 CC6.1', 'ISO 27001 A.5.15', 'NIST CSF PR.AC-1'],
@@ -333,7 +349,8 @@ export class MockAIProvider extends BaseAIProvider {
         title: 'Security Monitoring and Logging',
         description: 'Establish centralized logging and security monitoring capabilities',
         category: 'Operations Security',
-        implementationGuidance: 'Deploy SIEM solution. Configure log collection from critical systems. Create alerting rules.',
+        implementationGuidance:
+          'Deploy SIEM solution. Configure log collection from critical systems. Create alerting rules.',
         effortEstimate: 'High',
         effectivenessRating: 5,
         frameworkMappings: ['SOC 2 CC7.2', 'ISO 27001 A.8.15', 'NIST CSF DE.CM-1'],
@@ -343,7 +360,8 @@ export class MockAIProvider extends BaseAIProvider {
         title: 'Vulnerability Management',
         description: 'Regular vulnerability scanning and remediation process',
         category: 'Operations Security',
-        implementationGuidance: 'Implement vulnerability scanning tools. Establish patching cadence. Track remediation metrics.',
+        implementationGuidance:
+          'Implement vulnerability scanning tools. Establish patching cadence. Track remediation metrics.',
         effortEstimate: 'Medium',
         effectivenessRating: 4,
         frameworkMappings: ['SOC 2 CC7.1', 'ISO 27001 A.8.8', 'NIST CSF ID.RA-1'],
@@ -353,7 +371,8 @@ export class MockAIProvider extends BaseAIProvider {
         title: 'Data Encryption',
         description: 'Encrypt sensitive data at rest and in transit',
         category: 'Cryptography',
-        implementationGuidance: 'Enable TLS 1.2+ for transit. Implement AES-256 for data at rest. Manage encryption keys securely.',
+        implementationGuidance:
+          'Enable TLS 1.2+ for transit. Implement AES-256 for data at rest. Manage encryption keys securely.',
         effortEstimate: 'Medium',
         effectivenessRating: 5,
         frameworkMappings: ['SOC 2 CC6.1', 'ISO 27001 A.8.24', 'PCI DSS 3.4'],
@@ -363,7 +382,8 @@ export class MockAIProvider extends BaseAIProvider {
         title: 'Security Awareness Training',
         description: 'Regular security training and phishing simulations for all employees',
         category: 'Human Resources Security',
-        implementationGuidance: 'Implement training platform. Create role-based training paths. Track completion rates.',
+        implementationGuidance:
+          'Implement training platform. Create role-based training paths. Track completion rates.',
         effortEstimate: 'Low',
         effectivenessRating: 4,
         frameworkMappings: ['SOC 2 CC1.4', 'ISO 27001 A.6.3', 'NIST CSF PR.AT-1'],
@@ -373,8 +393,10 @@ export class MockAIProvider extends BaseAIProvider {
 
     const response = {
       controls,
-      gapAnalysis: 'Based on the provided context, the organization would benefit from strengthening access controls, implementing comprehensive monitoring, and establishing a vulnerability management program. These foundational controls address common compliance requirements across SOC 2, ISO 27001, and other frameworks.',
-      implementationRoadmap: 'Phase 1 (0-3 months): Access Control and Encryption. Phase 2 (3-6 months): Security Monitoring and Logging. Phase 3 (6-9 months): Vulnerability Management and Training Program.',
+      gapAnalysis:
+        'Based on the provided context, the organization would benefit from strengthening access controls, implementing comprehensive monitoring, and establishing a vulnerability management program. These foundational controls address common compliance requirements across SOC 2, ISO 27001, and other frameworks.',
+      implementationRoadmap:
+        'Phase 1 (0-3 months): Access Control and Encryption. Phase 2 (3-6 months): Security Monitoring and Logging. Phase 3 (6-9 months): Vulnerability Management and Training Program.',
       totalEffortEstimate: '6-9 months for full implementation with dedicated resources',
     };
 
@@ -416,11 +438,17 @@ export class MockAIProvider extends BaseAIProvider {
    * Generate generic response for unrecognized prompts
    */
   private generateGenericResponse(_prompt: string): string {
-    return JSON.stringify({
-      message: 'This is a mock AI response. The mock provider is active because no AI API key is configured.',
-      suggestion: 'To enable full AI capabilities, configure OPENAI_API_KEY or ANTHROPIC_API_KEY environment variables.',
-      availablePolicyTypes: getAvailablePolicyTypes(),
-      note: 'Mock responses are template-based and suitable for testing and demonstrations.',
-    }, null, 2);
+    return JSON.stringify(
+      {
+        message:
+          'This is a mock AI response. The mock provider is active because no AI API key is configured.',
+        suggestion:
+          'To enable full AI capabilities, configure OPENAI_API_KEY or ANTHROPIC_API_KEY environment variables.',
+        availablePolicyTypes: getAvailablePolicyTypes(),
+        note: 'Mock responses are template-based and suitable for testing and demonstrations.',
+      },
+      null,
+      2
+    );
   }
 }
