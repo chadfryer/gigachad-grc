@@ -103,9 +103,24 @@ export class TestProceduresService {
 
   async update(id: string, organizationId: string, dto: UpdateTestProcedureDto) {
     await this.findOne(id, organizationId);
+    // Security: Explicit field mapping to prevent mass assignment vulnerabilities
     return this.prisma.auditTestProcedure.update({
       where: { id },
-      data: dto,
+      data: {
+        title: dto.title,
+        description: dto.description,
+        testType: dto.testType,
+        testMethod: dto.testMethod,
+        sampleSize: dto.sampleSize,
+        sampleSelection: dto.sampleSelection,
+        sampleCriteria: dto.sampleCriteria,
+        expectedResult: dto.expectedResult,
+        actualResult: dto.actualResult,
+        deviationsNoted: dto.deviationsNoted,
+        conclusion: dto.conclusion,
+        conclusionRationale: dto.conclusionRationale,
+        status: dto.status,
+      },
     });
   }
 
@@ -169,16 +184,19 @@ export class TestProceduresService {
       }),
     ]);
 
-    const effective = byConclusion.find(c => c.conclusion === 'effective')?._count.conclusion || 0;
+    const effective =
+      byConclusion.find((c) => c.conclusion === 'effective')?._count.conclusion || 0;
     const effectivenessRate = total > 0 ? Math.round((effective / total) * 100) : 0;
 
     return {
       total,
       effectivenessRate,
-      byConclusion: byConclusion.map(c => ({ conclusion: c.conclusion, count: c._count.conclusion })),
-      byStatus: byStatus.map(s => ({ status: s.status, count: s._count.status })),
-      byType: byType.map(t => ({ type: t.testType, count: t._count.testType })),
+      byConclusion: byConclusion.map((c) => ({
+        conclusion: c.conclusion,
+        count: c._count.conclusion,
+      })),
+      byStatus: byStatus.map((s) => ({ status: s.status, count: s._count.status })),
+      byType: byType.map((t) => ({ type: t.testType, count: t._count.testType })),
     };
   }
 }
-

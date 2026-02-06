@@ -1,4 +1,15 @@
-import { IsString, IsOptional, IsDateString, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsArray, IsEnum } from 'class-validator';
+import { FindingSeverity, FindingCategory } from './create-finding.dto';
+
+// Security: Enum validation for finding status prevents arbitrary value injection
+export enum FindingStatus {
+  OPEN = 'open',
+  ACKNOWLEDGED = 'acknowledged',
+  REMEDIATION_PLANNED = 'remediation_planned',
+  REMEDIATION_IN_PROGRESS = 'remediation_in_progress',
+  RESOLVED = 'resolved',
+  ACCEPTED_RISK = 'accepted_risk',
+}
 
 export class UpdateFindingDto {
   @IsOptional()
@@ -10,16 +21,16 @@ export class UpdateFindingDto {
   description?: string;
 
   @IsOptional()
-  @IsString()
-  category?: string;
+  @IsEnum(FindingCategory, { message: 'category must be a valid finding category' })
+  category?: FindingCategory;
 
   @IsOptional()
-  @IsString()
-  severity?: string;
+  @IsEnum(FindingSeverity, { message: 'severity must be a valid severity level' })
+  severity?: FindingSeverity;
 
   @IsOptional()
-  @IsString()
-  status?: string; // open, acknowledged, remediation_planned, remediation_in_progress, resolved, accepted_risk
+  @IsEnum(FindingStatus, { message: 'status must be a valid finding status' })
+  status?: FindingStatus;
 
   @IsOptional()
   @IsString()
@@ -66,8 +77,3 @@ export class UpdateFindingDto {
   @IsString({ each: true })
   tags?: string[];
 }
-
-
-
-
-

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useRecharts } from '@/components/charts/LazyCharts';
 import { DashboardWidget, WidgetType, CHART_COLORS } from '@/lib/dashboardWidgets';
 import ReactMarkdown from 'react-markdown';
+import { AlertTriangle } from 'lucide-react';
 
 // Loading state for chart widgets
 function ChartLoading() {
@@ -103,7 +104,11 @@ function PieChartWidget({ data, config }: { data: any[]; config: any }) {
 
   const chartData = useMemo(() => {
     return data.map((item, index) => ({
-      name: formatLabel(Object.keys(item).find((k) => k !== 'count') ? item[Object.keys(item).find((k) => k !== 'count')!] : `Item ${index + 1}`),
+      name: formatLabel(
+        Object.keys(item).find((k) => k !== 'count')
+          ? item[Object.keys(item).find((k) => k !== 'count')!]
+          : `Item ${index + 1}`
+      ),
       value: item.count || item.value || 1,
     }));
   }, [data]);
@@ -127,7 +132,11 @@ function PieChartWidget({ data, config }: { data: any[]; config: any }) {
           cy="50%"
           outerRadius="80%"
           dataKey="value"
-          label={config?.showValues ? ({ name, value }: { name: string; value: number }) => `${name}: ${value}` : false}
+          label={
+            config?.showValues
+              ? ({ name, value }: { name: string; value: number }) => `${name}: ${value}`
+              : false
+          }
         >
           {chartData.map((_, index) => (
             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
@@ -153,7 +162,11 @@ function DonutChartWidget({ data, config }: { data: any[]; config: any }) {
 
   const chartData = useMemo(() => {
     return data.map((item, index) => ({
-      name: formatLabel(Object.keys(item).find((k) => k !== 'count') ? item[Object.keys(item).find((k) => k !== 'count')!] : `Item ${index + 1}`),
+      name: formatLabel(
+        Object.keys(item).find((k) => k !== 'count')
+          ? item[Object.keys(item).find((k) => k !== 'count')!]
+          : `Item ${index + 1}`
+      ),
       value: item.count || item.value || 1,
     }));
   }, [data]);
@@ -173,14 +186,7 @@ function DonutChartWidget({ data, config }: { data: any[]; config: any }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
-        <Pie
-          data={chartData}
-          cx="50%"
-          cy="50%"
-          innerRadius="50%"
-          outerRadius="80%"
-          dataKey="value"
-        >
+        <Pie data={chartData} cx="50%" cy="50%" innerRadius="50%" outerRadius="80%" dataKey="value">
           {chartData.map((_, index) => (
             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
           ))}
@@ -243,7 +249,13 @@ function BarChartWidget({ data, config }: { data: any[]; config: any }) {
         {isHorizontal ? (
           <>
             <XAxis type="number" stroke="#71717a" />
-            <YAxis type="category" dataKey="name" stroke="#71717a" width={70} tick={{ fill: '#a1a1aa', fontSize: 11 }} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              stroke="#71717a"
+              width={70}
+              tick={{ fill: '#a1a1aa', fontSize: 11 }}
+            />
           </>
         ) : (
           <>
@@ -275,7 +287,8 @@ function LineChartWidget({ data, config }: { data: any[]; config: any }) {
 
   const chartData = useMemo(() => {
     return data.map((item, index) => {
-      const xField = config?.xAxisField || Object.keys(item).find((k) => k !== 'count' && k !== 'value');
+      const xField =
+        config?.xAxisField || Object.keys(item).find((k) => k !== 'count' && k !== 'value');
       const yField = config?.yAxisField || 'count';
       return {
         name: xField ? item[xField] : `Point ${index + 1}`,
@@ -320,7 +333,11 @@ function LineChartWidget({ data, config }: { data: any[]; config: any }) {
 
 // Table Widget
 function TableWidget({ data, config }: { data: any[]; config: any }) {
-  const columns = config?.columns || (data.length > 0 ? Object.keys(data[0]).map((k) => ({ field: k, header: formatLabel(k) })) : []);
+  const columns =
+    config?.columns ||
+    (data.length > 0
+      ? Object.keys(data[0]).map((k) => ({ field: k, header: formatLabel(k) }))
+      : []);
   const pageSize = config?.pageSize || 10;
   const displayData = data.slice(0, pageSize);
 
@@ -391,7 +408,9 @@ function ProgressWidget({ data, config }: { data: any[]; config: any }) {
   return (
     <div className="flex flex-col justify-center h-full">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-surface-400 text-sm">{value} / {target}</span>
+        <span className="text-surface-400 text-sm">
+          {value} / {target}
+        </span>
         <span className="text-surface-200 font-medium">{percentage}%</span>
       </div>
       <div className="w-full h-3 bg-surface-800 rounded-full overflow-hidden">
@@ -496,7 +515,7 @@ function HeatmapWidget({ data, config }: { data: any[]; config: any }) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 grid grid-cols-5 gap-1">
-        {yLabels.reverse().map((y, yi) => (
+        {yLabels.reverse().map((y, yi) =>
           xLabels.map((x, xi) => {
             const count = data.filter(
               (d) =>
@@ -504,7 +523,8 @@ function HeatmapWidget({ data, config }: { data: any[]; config: any }) {
                 d[yField]?.toLowerCase() === y.toLowerCase()
             ).length;
             const intensity = Math.min(count / 5, 1);
-            const baseColor = xi + (4 - yi) >= 6 ? '#ef4444' : xi + (4 - yi) >= 4 ? '#f59e0b' : '#22c55e';
+            const baseColor =
+              xi + (4 - yi) >= 6 ? '#ef4444' : xi + (4 - yi) >= 4 ? '#f59e0b' : '#22c55e';
             return (
               <div
                 key={`${xi}-${yi}`}
@@ -519,7 +539,7 @@ function HeatmapWidget({ data, config }: { data: any[]; config: any }) {
               </div>
             );
           })
-        ))}
+        )}
       </div>
     </div>
   );
@@ -536,14 +556,47 @@ function MarkdownWidget({ config }: { config: any }) {
   );
 }
 
+// URL validation function for iframe security
+function isValidIframeUrl(url: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(url);
+
+    // Block dangerous protocols
+    const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
+    if (dangerousProtocols.includes(parsed.protocol)) {
+      return { valid: false, error: 'Protocol not allowed' };
+    }
+
+    // Allow HTTPS (and HTTP in dev for localhost)
+    const allowedProtocols = ['https:'];
+    if (
+      import.meta.env.DEV &&
+      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
+    ) {
+      allowedProtocols.push('http:');
+    }
+
+    if (!allowedProtocols.includes(parsed.protocol)) {
+      return { valid: false, error: 'Only HTTPS URLs are allowed' };
+    }
+
+    return { valid: true };
+  } catch {
+    return { valid: false, error: 'Invalid URL format' };
+  }
+}
+
 // IFrame Widget
 function IframeWidget({ config }: { config: any }) {
   const url = config?.iframeUrl;
+  const validation = url ? isValidIframeUrl(url) : { valid: false, error: 'No URL configured' };
 
-  if (!url) {
+  if (!validation.valid) {
     return (
-      <div className="flex items-center justify-center h-full text-surface-500">
-        No URL configured
+      <div className="flex flex-col items-center justify-center h-full text-amber-500">
+        <AlertTriangle className="h-8 w-8 mb-2" />
+        <p className="text-sm">{validation.error}</p>
+        {url && <p className="text-xs text-surface-400 mt-1 truncate max-w-full px-4">{url}</p>}
       </div>
     );
   }
@@ -584,4 +637,3 @@ function formatValue(value: any): string {
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
-

@@ -8,6 +8,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Security
 
+#### Security Audit Fixes - February 2026
+
+Comprehensive security hardening based on internal security review and external penetration testing.
+
+##### IDOR Protection
+
+- **Systematic IDOR elimination**: Fixed 33+ Insecure Direct Object Reference vulnerabilities across all services
+- All `findOne`, `update`, and `delete` operations now validate `organizationId` from authenticated user context
+- Organization context derived exclusively from JWT token, never from request parameters
+- Affects: Audit, TPRM, Trust, Policies, Frameworks, Controls services
+
+##### Path Traversal Protection
+
+- **S3 Storage Provider**: Added path traversal validation blocking `..` sequences and null bytes
+- **Azure Blob Storage Provider**: Added path traversal validation with key sanitization
+- **Local Storage Provider**: Enhanced with symlink detection and directory escape prevention
+- All storage operations validate paths are within designated storage boundaries
+
+##### Rate Limiting Expansion
+
+- Extended rate limiting to all backend services (Audit, TPRM, Trust, Policies, Frameworks)
+- Endpoint-specific rate limits for sensitive operations (exports, bulk operations, reports)
+- Consistent rate limit response format with `retryAfter` header
+
+##### SSRF Protection Enhancement
+
+- **Vendor AI Service**: Added URL validation for AI provider endpoints
+- **Security Scanner Service**: Blocked scanning of private/internal IP ranges
+- **Compliance Collector**: External endpoint validation before collection
+- **Trust AI Service**: AI provider URL validation
+- DNS rebinding attack prevention with resolved IP verification
+
+##### XSS Protection
+
+- **DOMPurify integration**: All user-generated HTML sanitized via DOMPurify
+- **Widget URL sanitization**: Dashboard widgets validate and sanitize iframe sources
+- **Input sanitization**: Enhanced DTO validation with strict length limits
+- **Export filename sanitization**: Prevents injection via generated filenames
+
+##### CSRF Protection
+
+- **Timing-safe comparisons**: All secret/token comparisons use `crypto.timingSafeEqual()`
+- **SameSite cookies**: Session cookies configured with `SameSite=Strict`
+- **Proxy secret verification**: Backend validates proxy authentication secrets
+
+##### Infrastructure Hardening
+
+- **Localhost port binding**: Database and monitoring ports bound to localhost in development
+- **Traefik TLS**: Configured for TLS 1.2+ with strong cipher suites
+- **Security headers**: HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+- **Docker security contexts**: Added `no-new-privileges` to all containers
+
+##### Frontend Security
+
+- **Iframe URL validation**: Widget iframe sources validated against allowlist
+- **SessionStorage for tokens**: JWT tokens stored in sessionStorage (cleared on tab close)
+- **Cross-tab logout**: Logout events broadcast via BroadcastChannel to all tabs
+- **AuthContext hardening**: Token refresh with race condition prevention
+
 #### Comprehensive Security Hardening (Phase 2)
 
 ##### Secrets & Credential Management

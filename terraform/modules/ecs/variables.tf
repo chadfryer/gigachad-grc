@@ -13,6 +13,12 @@ variable "keycloak_secret_arn" {
   type        = string
 }
 
+variable "kms_key_arns" {
+  description = "List of KMS key ARNs used for encrypting secrets (for IAM policy scoping)"
+  type        = list(string)
+  default     = []
+}
+
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string

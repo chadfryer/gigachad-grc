@@ -28,7 +28,8 @@ services:
     networks:
       - grc-network
     ports:
-      - '9090:9090'
+      # SECURITY: Bind to localhost only to prevent external network access
+      - '127.0.0.1:9090:9090'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -58,7 +59,8 @@ services:
     networks:
       - grc-network
     ports:
-      - '3030:3000'
+      # SECURITY: Bind to localhost only to prevent external network access
+      - '127.0.0.1:3030:3000'
     depends_on:
       - prometheus
     restart: unless-stopped
@@ -84,7 +86,8 @@ services:
     networks:
       - grc-network
     ports:
-      - '3100:3100'
+      # SECURITY: Bind to localhost only to prevent external network access
+      - '127.0.0.1:3100:3100'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -129,7 +132,8 @@ services:
     networks:
       - grc-network
     ports:
-      - '8081:8080'
+      # SECURITY: Bind to localhost only to prevent external network access
+      - '127.0.0.1:8081:8080'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -152,7 +156,8 @@ services:
     networks:
       - grc-network
     ports:
-      - '9100:9100'
+      # SECURITY: Bind to localhost only to prevent external network access
+      - '127.0.0.1:9100:9100'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -172,7 +177,8 @@ services:
     networks:
       - grc-network
     ports:
-      - '9093:9093'
+      # SECURITY: Bind to localhost only to prevent external network access
+      - '127.0.0.1:9093:9093'
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

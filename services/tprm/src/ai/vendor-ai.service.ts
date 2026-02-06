@@ -457,11 +457,20 @@ Respond in JSON format with this structure:
     userId: string,
     organizationId: string
   ): Promise<VendorAssessment> {
-    // Get vendor name for audit log
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-      select: { name: true },
+    // SECURITY: Verify vendor belongs to user's organization before creating assessment
+    // This prevents IDOR attacks where a user could create assessments for vendors
+    // in other organizations by guessing/knowing vendor IDs
+    const vendor = await this.prisma.vendor.findFirst({
+      where: {
+        id: vendorId,
+        organizationId, // Tenant isolation - prevents cross-organization access
+      },
+      select: { name: true, organizationId: true },
     });
+
+    if (!vendor) {
+      throw new NotFoundException(`Vendor with ID ${vendorId} not found`);
+    }
 
     // Create a new vendor assessment based on the AI analysis
     const assessment = await this.prisma.vendorAssessment.create({

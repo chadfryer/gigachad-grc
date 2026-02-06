@@ -24,9 +24,11 @@ async function bootstrap() {
   );
 
   // Global validation pipe
+  // Security: forbidNonWhitelisted rejects requests with unexpected properties
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
     })
   );

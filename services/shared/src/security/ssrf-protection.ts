@@ -45,11 +45,44 @@ function ipToNumber(ip: string): number {
 function isPrivateIP(ip: string): boolean {
   if (!net.isIPv4(ip)) {
     if (net.isIPv6(ip)) {
-      return ip === '::1' || ip.startsWith('fe80:') || ip.startsWith('fc') || ip.startsWith('fd');
+      const normalizedIp = ip.toLowerCase();
+      // Security: Comprehensive IPv6 private address detection
+      // ::1 - loopback
+      // fe80:: - link-local
+      // fc00::/7 - unique local addresses (includes fc00:: and fd00::)
+      // ::ffff:0:0/96 - IPv4-mapped addresses (check the mapped portion separately)
+      return (
+        normalizedIp === '::1' ||
+        normalizedIp.startsWith('fe80:') ||
+        normalizedIp.startsWith('fc00:') ||
+        normalizedIp.startsWith('fd00:') ||
+        normalizedIp.startsWith('fc') ||
+        normalizedIp.startsWith('fd') ||
+        normalizedIp === '::' ||
+        normalizedIp.startsWith('::ffff:127.') ||
+        normalizedIp.startsWith('::ffff:10.') ||
+        normalizedIp.startsWith('::ffff:192.168.') ||
+        normalizedIp.startsWith('::ffff:172.16.') ||
+        normalizedIp.startsWith('::ffff:172.17.') ||
+        normalizedIp.startsWith('::ffff:172.18.') ||
+        normalizedIp.startsWith('::ffff:172.19.') ||
+        normalizedIp.startsWith('::ffff:172.20.') ||
+        normalizedIp.startsWith('::ffff:172.21.') ||
+        normalizedIp.startsWith('::ffff:172.22.') ||
+        normalizedIp.startsWith('::ffff:172.23.') ||
+        normalizedIp.startsWith('::ffff:172.24.') ||
+        normalizedIp.startsWith('::ffff:172.25.') ||
+        normalizedIp.startsWith('::ffff:172.26.') ||
+        normalizedIp.startsWith('::ffff:172.27.') ||
+        normalizedIp.startsWith('::ffff:172.28.') ||
+        normalizedIp.startsWith('::ffff:172.29.') ||
+        normalizedIp.startsWith('::ffff:172.30.') ||
+        normalizedIp.startsWith('::ffff:172.31.')
+      );
     }
     return false;
   }
-  
+
   const ipNum = ipToNumber(ip);
   for (const range of PRIVATE_IP_RANGES) {
     const start = ipToNumber(range.start);
@@ -70,41 +103,46 @@ export async function validateUrl(
 
   try {
     const parsed = new URL(targetUrl);
-    
+
     if (!opts.allowedProtocols?.includes(parsed.protocol)) {
       return { valid: false, error: `Protocol ${parsed.protocol} not allowed` };
     }
-    
+
     const hostname = parsed.hostname.toLowerCase();
-    
-    if (opts.blockedHosts?.some(h => hostname === h || hostname.endsWith('.' + h))) {
+
+    if (opts.blockedHosts?.some((h) => hostname === h || hostname.endsWith('.' + h))) {
       return { valid: false, error: `Host ${hostname} is blocked` };
     }
-    
-    if (opts.allowedHosts?.length && !opts.allowedHosts.some(h => hostname === h || hostname.endsWith('.' + h))) {
+
+    if (
+      opts.allowedHosts?.length &&
+      !opts.allowedHosts.some((h) => hostname === h || hostname.endsWith('.' + h))
+    ) {
       return { valid: false, error: `Host ${hostname} not in allowlist` };
     }
-    
+
     if (net.isIP(hostname)) {
       if (!opts.allowPrivateIPs && isPrivateIP(hostname)) {
         return { valid: false, error: `Direct IP ${hostname} is a private address` };
       }
       return { valid: true, resolvedIP: hostname };
     }
-    
+
     try {
       const { address } = await dnsLookup(hostname);
-      
+
       if (!opts.allowPrivateIPs && isPrivateIP(address)) {
-        logger.warn(`DNS rebinding attempt detected: ${hostname} resolved to private IP ${address}`);
+        logger.warn(
+          `DNS rebinding attempt detected: ${hostname} resolved to private IP ${address}`
+        );
         return { valid: false, error: `Host ${hostname} resolves to private IP ${address}` };
       }
-      
+
       return { valid: true, resolvedIP: address };
-    } catch (dnsError) {
+    } catch {
       return { valid: false, error: `Failed to resolve hostname: ${hostname}` };
     }
-  } catch (parseError) {
+  } catch {
     return { valid: false, error: `Invalid URL: ${targetUrl}` };
   }
 }
@@ -115,41 +153,41 @@ export async function safeFetch(
   ssrfOptions: SSRFValidationOptions = {}
 ): Promise<Response> {
   const validation = await validateUrl(targetUrl, ssrfOptions);
-  
+
   if (!validation.valid) {
     throw new SSRFProtectionError(validation.error || 'URL validation failed');
   }
-  
+
   const fetchOptions: RequestInit = {
     ...options,
     redirect: 'manual',
   };
-  
+
   let currentUrl = targetUrl;
   let redirectCount = 0;
   const maxRedirects = ssrfOptions.maxRedirects ?? DEFAULT_OPTIONS.maxRedirects ?? 5;
-  
+
   while (redirectCount < maxRedirects) {
     const response = await fetch(currentUrl, fetchOptions);
-    
+
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
       if (!location) break;
-      
+
       const redirectUrl = new URL(location, currentUrl).toString();
       const redirectValidation = await validateUrl(redirectUrl, ssrfOptions);
-      
+
       if (!redirectValidation.valid) {
         throw new SSRFProtectionError(`Redirect blocked: ${redirectValidation.error}`);
       }
-      
+
       currentUrl = redirectUrl;
       redirectCount++;
       continue;
     }
-    
+
     return response;
   }
-  
+
   throw new SSRFProtectionError('Too many redirects');
 }

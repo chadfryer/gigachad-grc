@@ -78,10 +78,7 @@ describe('FrameworksService', () => {
       expect(mockPrismaService.framework.findMany).toHaveBeenCalledWith({
         where: {
           deletedAt: null,
-          OR: [
-            { organizationId: null, isActive: true },
-            { organizationId: 'org-123' },
-          ],
+          OR: [{ organizationId: null, isActive: true }, { organizationId: 'org-123' }],
         },
         include: expect.any(Object),
         orderBy: expect.any(Array),
@@ -141,7 +138,7 @@ describe('FrameworksService', () => {
           data: expect.objectContaining({
             version: '1.0',
           }),
-        }),
+        })
       );
     });
   });
@@ -186,7 +183,7 @@ describe('FrameworksService', () => {
         ...mockUpdateDto,
       });
 
-      const result = await service.update('fw-123', mockUpdateDto);
+      const result = await service.update('fw-123', mockUpdateDto, 'org-123');
 
       expect(mockPrismaService.framework.update).toHaveBeenCalledWith({
         where: { id: 'fw-123' },
@@ -199,8 +196,8 @@ describe('FrameworksService', () => {
     it('should throw NotFoundException if framework not found', async () => {
       mockPrismaService.framework.findFirst.mockResolvedValue(null);
 
-      await expect(service.update('nonexistent', mockUpdateDto)).rejects.toThrow(
-        NotFoundException,
+      await expect(service.update('nonexistent', mockUpdateDto, 'org-123')).rejects.toThrow(
+        NotFoundException
       );
     });
   });
@@ -213,7 +210,7 @@ describe('FrameworksService', () => {
       });
       mockPrismaService.framework.update.mockResolvedValue({});
 
-      const result = await service.delete('fw-123', 'user-123');
+      const result = await service.delete('fw-123', 'user-123', 'org-123');
 
       expect(mockPrismaService.framework.update).toHaveBeenCalledWith({
         where: { id: 'fw-123' },
@@ -251,7 +248,7 @@ describe('FrameworksService', () => {
             reference: 'CC1.1',
             title: 'Control Environment',
           }),
-        }),
+        })
       );
       expect(result.id).toBe('req-123');
     });
@@ -284,7 +281,7 @@ describe('FrameworksService', () => {
             level: 2,
             parentId: 'parent-123',
           }),
-        }),
+        })
       );
     });
   });
@@ -330,9 +327,7 @@ describe('FrameworksService', () => {
         {
           id: 'req-1',
           isCategory: false,
-          mappings: [
-            { control: { implementations: [{ status: 'implemented' }] } },
-          ],
+          mappings: [{ control: { implementations: [{ status: 'implemented' }] } }],
         },
         {
           id: 'req-2',
@@ -345,9 +340,7 @@ describe('FrameworksService', () => {
         {
           id: 'req-3',
           isCategory: false,
-          mappings: [
-            { control: { implementations: [{ status: 'in_progress' }] } },
-          ],
+          mappings: [{ control: { implementations: [{ status: 'in_progress' }] } }],
         },
       ]);
 
@@ -364,9 +357,7 @@ describe('FrameworksService', () => {
         {
           id: 'req-1',
           isCategory: false,
-          mappings: [
-            { control: { implementations: [{ status: 'not_applicable' }] } },
-          ],
+          mappings: [{ control: { implementations: [{ status: 'not_applicable' }] } }],
         },
       ]);
 

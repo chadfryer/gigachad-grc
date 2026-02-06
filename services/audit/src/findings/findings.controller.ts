@@ -35,7 +35,7 @@ export class FindingsController {
 
   @Post()
   create(@Body() createFindingDto: CreateFindingDto, @Req() req: AuthenticatedRequest) {
-    return this.findingsService.create(createFindingDto, req.user.userId);
+    return this.findingsService.create(createFindingDto, req.user.organizationId, req.user.userId);
   }
 
   @Get()

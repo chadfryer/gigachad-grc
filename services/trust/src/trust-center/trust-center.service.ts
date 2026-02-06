@@ -5,12 +5,13 @@ import { UpdateTrustCenterConfigDto } from './dto/update-config.dto';
 import { CreateTrustCenterContentDto } from './dto/create-content.dto';
 import { UpdateTrustCenterContentDto } from './dto/update-content.dto';
 import { Prisma, TrustCenterContent } from '@prisma/client';
+import { sanitizeInput } from '@gigachad-grc/shared';
 
 @Injectable()
 export class TrustCenterService {
   constructor(
     private prisma: PrismaService,
-    private audit: AuditService,
+    private audit: AuditService
   ) {}
 
   // Config Management
@@ -33,7 +34,11 @@ export class TrustCenterService {
     return config;
   }
 
-  async updateConfig(organizationId: string, updateConfigDto: UpdateTrustCenterConfigDto, userId: string) {
+  async updateConfig(
+    organizationId: string,
+    updateConfigDto: UpdateTrustCenterConfigDto,
+    userId: string
+  ) {
     const { customSections, ...restDto } = updateConfigDto;
     const config = await this.prisma.trustCenterConfig.upsert({
       where: { organizationId },
@@ -65,11 +70,21 @@ export class TrustCenterService {
 
   // Content Management
   async createContent(createContentDto: CreateTrustCenterContentDto, userId: string) {
+    // XSS Protection: Sanitize content before storing
+    // Use 'rich' level to allow safe HTML formatting while removing malicious scripts
+    const sanitizedDto = {
+      ...createContentDto,
+      title: sanitizeInput(createContentDto.title, 'strict'),
+      content: createContentDto.content
+        ? sanitizeInput(createContentDto.content, 'rich')
+        : undefined,
+    };
+
     const content = await this.prisma.trustCenterContent.create({
       data: {
-        ...createContentDto,
-        order: createContentDto.order || 0,
-        isPublished: createContentDto.isPublished || false,
+        ...sanitizedDto,
+        order: sanitizedDto.order || 0,
+        isPublished: sanitizedDto.isPublished || false,
         createdBy: userId,
       },
     });
@@ -100,16 +115,15 @@ export class TrustCenterService {
 
     return this.prisma.trustCenterContent.findMany({
       where,
-      orderBy: [
-        { section: 'asc' },
-        { order: 'asc' },
-      ],
+      orderBy: [{ section: 'asc' }, { order: 'asc' }],
     });
   }
 
-  async getContentById(id: string) {
-    const content = await this.prisma.trustCenterContent.findUnique({
-      where: { id },
+  async getContentById(id: string, organizationId: string) {
+    // SECURITY: Include organizationId in query to prevent IDOR
+    // This ensures users can only access content within their organization
+    const content = await this.prisma.trustCenterContent.findFirst({
+      where: { id, organizationId },
     });
 
     if (!content) {
@@ -119,12 +133,27 @@ export class TrustCenterService {
     return content;
   }
 
-  async updateContent(id: string, updateContentDto: UpdateTrustCenterContentDto, userId: string) {
-    const _content = await this.getContentById(id);
+  async updateContent(
+    id: string,
+    updateContentDto: UpdateTrustCenterContentDto,
+    userId: string,
+    organizationId: string
+  ) {
+    // SECURITY: Verify content belongs to user's organization before updating
+    const _content = await this.getContentById(id, organizationId);
+
+    // XSS Protection: Sanitize content before storing
+    const sanitizedDto: UpdateTrustCenterContentDto = { ...updateContentDto };
+    if (updateContentDto.title !== undefined) {
+      sanitizedDto.title = sanitizeInput(updateContentDto.title, 'strict');
+    }
+    if (updateContentDto.content !== undefined) {
+      sanitizedDto.content = sanitizeInput(updateContentDto.content, 'rich');
+    }
 
     const updated = await this.prisma.trustCenterContent.update({
       where: { id },
-      data: updateContentDto,
+      data: sanitizedDto,
     });
 
     await this.audit.log({
@@ -141,8 +170,9 @@ export class TrustCenterService {
     return updated;
   }
 
-  async deleteContent(id: string, userId: string) {
-    const content = await this.getContentById(id);
+  async deleteContent(id: string, userId: string, organizationId: string) {
+    // SECURITY: Verify content belongs to user's organization before deleting
+    const content = await this.getContentById(id, organizationId);
 
     await this.prisma.trustCenterContent.delete({
       where: { id },
@@ -173,13 +203,16 @@ export class TrustCenterService {
     }
 
     // Group content by section
-    const contentBySection = content.reduce((acc, item) => {
-      if (!acc[item.section]) {
-        acc[item.section] = [];
-      }
-      acc[item.section].push(item);
-      return acc;
-    }, {} as Record<string, TrustCenterContent[]>);
+    const contentBySection = content.reduce(
+      (acc, item) => {
+        if (!acc[item.section]) {
+          acc[item.section] = [];
+        }
+        acc[item.section].push(item);
+        return acc;
+      },
+      {} as Record<string, TrustCenterContent[]>
+    );
 
     return {
       config: {

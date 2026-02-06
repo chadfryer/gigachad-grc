@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FindingsService } from './findings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
+import { FindingStatus } from './dto/update-finding.dto';
+import { FindingSeverity, FindingCategory } from './dto/create-finding.dto';
 
 describe('FindingsService', () => {
   let service: FindingsService;
@@ -45,9 +47,8 @@ describe('FindingsService', () => {
     const mockCreateDto = {
       title: 'Access Control Gap',
       description: 'Insufficient access controls on production database',
-      severity: 'high',
-      category: 'access_control',
-      status: 'open',
+      severity: FindingSeverity.HIGH,
+      category: FindingCategory.CONTROL_DEFICIENCY,
       auditId: 'audit-123',
       organizationId: 'org-123',
     };
@@ -63,8 +64,12 @@ describe('FindingsService', () => {
     it('should create a finding with auto-generated findingNumber', async () => {
       mockPrismaService.auditFinding.count.mockResolvedValue(0);
       mockPrismaService.auditFinding.create.mockResolvedValue(mockCreatedFinding);
+      mockPrismaService.audit.findFirst.mockResolvedValue({
+        id: 'audit-123',
+        organizationId: 'org-123',
+      });
 
-      const result = await service.create(mockCreateDto, 'user-123');
+      const result = await service.create(mockCreateDto, 'org-123', 'user-123');
 
       expect(mockPrismaService.auditFinding.count).toHaveBeenCalledWith({
         where: { auditId: 'audit-123' },
@@ -73,11 +78,11 @@ describe('FindingsService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             title: 'Access Control Gap',
-            severity: 'high',
+            severity: FindingSeverity.HIGH,
             findingNumber: 'F-001',
             identifiedBy: 'user-123',
           }),
-        }),
+        })
       );
       expect(result).toEqual(mockCreatedFinding);
     });
@@ -88,15 +93,19 @@ describe('FindingsService', () => {
         ...mockCreatedFinding,
         findingNumber: 'F-006',
       });
+      mockPrismaService.audit.findFirst.mockResolvedValue({
+        id: 'audit-123',
+        organizationId: 'org-123',
+      });
 
-      await service.create(mockCreateDto, 'user-123');
+      await service.create(mockCreateDto, 'org-123', 'user-123');
 
       expect(mockPrismaService.auditFinding.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             findingNumber: 'F-006',
           }),
-        }),
+        })
       );
     });
   });
@@ -195,16 +204,14 @@ describe('FindingsService', () => {
     it('should throw NotFoundException if finding not found', async () => {
       mockPrismaService.auditFinding.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne('nonexistent', 'org-123')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.findOne('nonexistent', 'org-123')).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('update', () => {
     const mockUpdateDto = {
       title: 'Updated Finding Title',
-      status: 'in_remediation',
+      status: FindingStatus.REMEDIATION_IN_PROGRESS,
     };
 
     const mockUpdatedFinding = {
@@ -222,7 +229,7 @@ describe('FindingsService', () => {
         where: { id: 'finding-123' },
         data: expect.objectContaining({
           title: 'Updated Finding Title',
-          status: 'in_remediation',
+          status: FindingStatus.REMEDIATION_IN_PROGRESS,
         }),
         include: expect.any(Object),
       });
@@ -232,9 +239,9 @@ describe('FindingsService', () => {
     it('should throw NotFoundException if finding does not exist', async () => {
       mockPrismaService.auditFinding.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.update('nonexistent', 'org-123', mockUpdateDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update('nonexistent', 'org-123', mockUpdateDto)).rejects.toThrow(
+        NotFoundException
+      );
     });
 
     it('should set responseDate when managementResponse is provided', async () => {
@@ -255,7 +262,7 @@ describe('FindingsService', () => {
             managementResponse: 'We will fix this',
             responseDate: expect.any(Date),
           }),
-        }),
+        })
       );
     });
   });
