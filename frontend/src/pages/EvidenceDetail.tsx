@@ -6,6 +6,53 @@ import { evidenceApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+
+// Safe CSS properties allowlist for DOMPurify style filtering
+const SAFE_CSS_PROPERTIES = [
+  'color',
+  'background-color',
+  'font-weight',
+  'font-style',
+  'font-size',
+  'text-align',
+  'text-decoration',
+  'margin',
+  'margin-left',
+  'margin-right',
+  'margin-top',
+  'margin-bottom',
+  'padding',
+  'padding-left',
+  'padding-right',
+  'padding-top',
+  'padding-bottom',
+  'border',
+  'border-collapse',
+  'width',
+  'max-width',
+  'min-width',
+  'height',
+  'max-height',
+  'min-height',
+  'list-style-type',
+  'vertical-align',
+];
+
+// Configure DOMPurify to filter style attributes for security
+DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
+  if (data.attrName === 'style') {
+    const filteredStyle = data.attrValue
+      .split(';')
+      .filter((rule: string) => {
+        const prop = rule.split(':')[0]?.trim().toLowerCase();
+        return SAFE_CSS_PROPERTIES.some(
+          (safeProp) => prop === safeProp || prop?.startsWith(safeProp + '-')
+        );
+      })
+      .join(';');
+    data.attrValue = filteredStyle;
+  }
+});
 import EntityAuditHistory from '@/components/EntityAuditHistory';
 import {
   ArrowLeftIcon,
@@ -34,7 +81,11 @@ const TYPE_ICONS: Record<string, any> = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  pending_review: { label: 'Pending Review', color: 'text-yellow-400 bg-yellow-400/10', icon: ClockIcon },
+  pending_review: {
+    label: 'Pending Review',
+    color: 'text-yellow-400 bg-yellow-400/10',
+    icon: ClockIcon,
+  },
   approved: { label: 'Approved', color: 'text-green-400 bg-green-400/10', icon: CheckCircleIcon },
   rejected: { label: 'Rejected', color: 'text-red-400 bg-red-400/10', icon: XCircleIcon },
   expired: { label: 'Expired', color: 'text-surface-400 bg-surface-400/10', icon: CalendarIcon },
@@ -56,8 +107,7 @@ export default function EvidenceDetail() {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: (data: { status: string; notes: string }) =>
-      evidenceApi.review(id!, data),
+    mutationFn: (data: { status: string; notes: string }) => evidenceApi.review(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['evidence', id] });
       queryClient.invalidateQueries({ queryKey: ['evidence'] });
@@ -77,13 +127,13 @@ export default function EvidenceDetail() {
         setIsLightboxOpen(false);
       }
     };
-    
+
     if (isLightboxOpen) {
       document.addEventListener('keydown', handleKeyDown);
       // Prevent scrolling when lightbox is open
       document.body.style.overflow = 'hidden';
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
@@ -146,7 +196,8 @@ export default function EvidenceDetail() {
   // Check if file is previewable
   const isImage = evidence.mimeType?.startsWith('image/');
   const isPDF = evidence.mimeType === 'application/pdf';
-  const isText = evidence.mimeType?.startsWith('text/') || 
+  const isText =
+    evidence.mimeType?.startsWith('text/') ||
     ['application/json', 'application/xml', 'application/javascript'].includes(evidence.mimeType);
   const isExcel = [
     'application/vnd.ms-excel',
@@ -187,13 +238,15 @@ export default function EvidenceDetail() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleDownload} leftIcon={<ArrowDownTrayIcon className="w-4 h-4" />}>
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              leftIcon={<ArrowDownTrayIcon className="w-4 h-4" />}
+            >
               Download
             </Button>
             {hasPermission('evidence:review') && evidence.status === 'pending_review' && (
-              <Button onClick={() => setIsReviewing(true)}>
-                Review
-              </Button>
+              <Button onClick={() => setIsReviewing(true)}>Review</Button>
             )}
           </div>
         </div>
@@ -235,15 +288,9 @@ export default function EvidenceDetail() {
                     sandbox="allow-scripts allow-same-origin"
                   />
                 )}
-                {isText && (
-                  <TextPreview evidenceId={evidence.id} />
-                )}
-                {isExcel && (
-                  <ExcelPreview evidenceId={evidence.id} />
-                )}
-                {isWord && (
-                  <WordPreview evidenceId={evidence.id} />
-                )}
+                {isText && <TextPreview evidenceId={evidence.id} />}
+                {isExcel && <ExcelPreview evidenceId={evidence.id} />}
+                {isWord && <WordPreview evidenceId={evidence.id} />}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-surface-500">
@@ -286,9 +333,7 @@ export default function EvidenceDetail() {
                         <p className="text-sm font-mono text-brand-400">
                           {link.control?.controlId}
                         </p>
-                        <p className="text-sm text-surface-300">
-                          {link.control?.title}
-                        </p>
+                        <p className="text-sm text-surface-300">{link.control?.title}</p>
                       </div>
                     </Link>
                     {hasPermission('evidence:write') && (
@@ -347,21 +392,15 @@ export default function EvidenceDetail() {
             <dl className="space-y-3">
               <div>
                 <dt className="text-xs text-surface-500">File Size</dt>
-                <dd className="text-sm text-surface-200 mt-1">
-                  {formatFileSize(evidence.size)}
-                </dd>
+                <dd className="text-sm text-surface-200 mt-1">{formatFileSize(evidence.size)}</dd>
               </div>
               <div>
                 <dt className="text-xs text-surface-500">File Type</dt>
-                <dd className="text-sm text-surface-200 mt-1">
-                  {evidence.mimeType || 'Unknown'}
-                </dd>
+                <dd className="text-sm text-surface-200 mt-1">{evidence.mimeType || 'Unknown'}</dd>
               </div>
               <div>
                 <dt className="text-xs text-surface-500">Source</dt>
-                <dd className="text-sm text-surface-200 mt-1 capitalize">
-                  {evidence.source}
-                </dd>
+                <dd className="text-sm text-surface-200 mt-1 capitalize">{evidence.source}</dd>
               </div>
               <div>
                 <dt className="text-xs text-surface-500">Collected</dt>
@@ -385,9 +424,7 @@ export default function EvidenceDetail() {
               )}
               <div>
                 <dt className="text-xs text-surface-500">Version</dt>
-                <dd className="text-sm text-surface-200 mt-1">
-                  v{evidence.version}
-                </dd>
+                <dd className="text-sm text-surface-200 mt-1">v{evidence.version}</dd>
               </div>
             </dl>
           </div>
@@ -486,7 +523,9 @@ export default function EvidenceDetail() {
                 </div>
                 <div>
                   <dt className="text-xs text-surface-500">MIME Type</dt>
-                  <dd className="text-sm text-surface-200 mt-1">{evidence.mimeType || 'Unknown'}</dd>
+                  <dd className="text-sm text-surface-200 mt-1">
+                    {evidence.mimeType || 'Unknown'}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-surface-500">Version</dt>
@@ -495,9 +534,7 @@ export default function EvidenceDetail() {
               </dl>
             </div>
           )}
-          {activeTab === 'history' && (
-            <EntityAuditHistory entityType="evidence" entityId={id!} />
-          )}
+          {activeTab === 'history' && <EntityAuditHistory entityType="evidence" entityId={id!} />}
         </div>
       </div>
 
@@ -543,7 +580,7 @@ export default function EvidenceDetail() {
 
       {/* Image Lightbox Modal */}
       {isLightboxOpen && isImage && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
           onClick={() => setIsLightboxOpen(false)}
         >
@@ -554,7 +591,7 @@ export default function EvidenceDetail() {
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
-          
+
           {/* Download button */}
           <button
             onClick={(e) => {
@@ -568,7 +605,7 @@ export default function EvidenceDetail() {
           </button>
 
           {/* Image container */}
-          <div 
+          <div
             className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
@@ -577,7 +614,7 @@ export default function EvidenceDetail() {
               alt={evidence.title}
               className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
             />
-            
+
             {/* Image title */}
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent rounded-b-lg">
               <p className="text-white font-medium">{evidence.title}</p>
@@ -587,7 +624,8 @@ export default function EvidenceDetail() {
 
           {/* Keyboard hint */}
           <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 text-sm">
-            Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-xs">ESC</kbd> or click anywhere to close
+            Press <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-xs">ESC</kbd> or click
+            anywhere to close
           </p>
         </div>
       )}
@@ -653,12 +691,12 @@ function ExcelPreview({ evidenceId }: { evidenceId: string }) {
       try {
         const response = await fetch(`/api/evidence/${evidenceId}/preview`);
         if (!response.ok) throw new Error('Failed to load file');
-        
+
         const arrayBuffer = await response.arrayBuffer();
         const ExcelJS = await import('exceljs');
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(arrayBuffer);
-        
+
         const parsedSheets = workbook.worksheets.map((worksheet) => {
           const data: any[][] = [];
           worksheet.eachRow((row) => {
@@ -673,7 +711,7 @@ function ExcelPreview({ evidenceId }: { evidenceId: string }) {
             data,
           };
         });
-        
+
         setSheets(parsedSheets);
       } catch (err: any) {
         setError(err.message);
@@ -681,7 +719,7 @@ function ExcelPreview({ evidenceId }: { evidenceId: string }) {
         setLoading(false);
       }
     };
-    
+
     loadExcel();
   }, [evidenceId]);
 
@@ -725,7 +763,7 @@ function ExcelPreview({ evidenceId }: { evidenceId: string }) {
           ))}
         </div>
       )}
-      
+
       {/* Table */}
       <div className="overflow-auto max-h-[500px]">
         <table className="w-full text-sm">
@@ -764,15 +802,40 @@ function WordPreview({ evidenceId }: { evidenceId: string }) {
       try {
         const response = await fetch(`/api/evidence/${evidenceId}/preview`);
         if (!response.ok) throw new Error('Failed to load file');
-        
+
         const arrayBuffer = await response.arrayBuffer();
         const mammoth = await import('mammoth');
         const result = await mammoth.convertToHtml({ arrayBuffer });
-        
+
         // Sanitize HTML to prevent XSS attacks from malicious documents
         const sanitizedHtml = DOMPurify.sanitize(result.value, {
-          ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
-                        'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'a', 'span', 'div'],
+          ALLOWED_TAGS: [
+            'p',
+            'br',
+            'b',
+            'i',
+            'u',
+            'strong',
+            'em',
+            'h1',
+            'h2',
+            'h3',
+            'h4',
+            'h5',
+            'h6',
+            'ul',
+            'ol',
+            'li',
+            'table',
+            'thead',
+            'tbody',
+            'tr',
+            'th',
+            'td',
+            'a',
+            'span',
+            'div',
+          ],
           ALLOWED_ATTR: ['href', 'class', 'style'],
           ALLOW_DATA_ATTR: false,
         });
@@ -783,7 +846,7 @@ function WordPreview({ evidenceId }: { evidenceId: string }) {
         setLoading(false);
       }
     };
-    
+
     loadWord();
   }, [evidenceId]);
 
@@ -805,7 +868,7 @@ function WordPreview({ evidenceId }: { evidenceId: string }) {
   }
 
   return (
-    <div 
+    <div
       className="p-6 prose prose-invert max-w-none overflow-auto max-h-[600px]
         prose-headings:text-surface-100 prose-p:text-surface-300 
         prose-strong:text-surface-200 prose-a:text-brand-400
@@ -815,4 +878,3 @@ function WordPreview({ evidenceId }: { evidenceId: string }) {
     />
   );
 }
-

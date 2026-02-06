@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAuditRequestDto } from './dto/create-request.dto';
 import { UpdateAuditRequestDto } from './dto/update-request.dto';
@@ -91,6 +91,14 @@ export class RequestsService {
   }
 
   async update(id: string, organizationId: string, updateRequestDto: UpdateAuditRequestDto) {
+    // SECURITY: First verify the request belongs to this organization (IDOR prevention)
+    const request = await this.prisma.auditRequest.findFirst({
+      where: { id, organizationId, deletedAt: null },
+    });
+    if (!request) {
+      throw new NotFoundException(`Request with ID ${id} not found`);
+    }
+
     const updates: Record<string, unknown> = { ...updateRequestDto };
 
     // Update timestamps based on status changes
@@ -117,6 +125,14 @@ export class RequestsService {
   }
 
   async delete(id: string, organizationId: string, userId?: string) {
+    // SECURITY: First verify the request belongs to this organization (IDOR prevention)
+    const request = await this.prisma.auditRequest.findFirst({
+      where: { id, organizationId, deletedAt: null },
+    });
+    if (!request) {
+      throw new NotFoundException(`Request with ID ${id} not found`);
+    }
+
     // Soft delete
     return this.prisma.auditRequest.update({
       where: { id },

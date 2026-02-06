@@ -31,7 +31,7 @@ export class TrustCenterController {
   @Patch('config')
   updateConfig(
     @Body() updateConfigDto: UpdateTrustCenterConfigDto,
-    @CurrentUser() user: UserContext,
+    @CurrentUser() user: UserContext
   ) {
     // SECURITY: Organization ID extracted from authenticated context, not query param
     return this.trustCenterService.updateConfig(user.organizationId, updateConfigDto, user.userId);
@@ -41,7 +41,7 @@ export class TrustCenterController {
   @Post('content')
   createContent(
     @Body() createContentDto: CreateTrustCenterContentDto,
-    @CurrentUser() user: UserContext,
+    @CurrentUser() user: UserContext
   ) {
     return this.trustCenterService.createContent(createContentDto, user.userId);
   }
@@ -50,36 +50,41 @@ export class TrustCenterController {
   getContent(
     @CurrentUser() user: UserContext,
     @Query('section') section?: string,
-    @Query('publishedOnly') publishedOnly?: string,
+    @Query('publishedOnly') publishedOnly?: string
   ) {
     // SECURITY: Organization ID extracted from authenticated context, not query param
     return this.trustCenterService.getContent(
       user.organizationId,
       section,
-      publishedOnly === 'true',
+      publishedOnly === 'true'
     );
   }
 
   @Get('content/:id')
-  getContentById(@Param('id') id: string) {
-    return this.trustCenterService.getContentById(id);
+  getContentById(@Param('id') id: string, @CurrentUser() user: UserContext) {
+    // SECURITY: Organization ID extracted from authenticated context, not query param
+    return this.trustCenterService.getContentById(id, user.organizationId);
   }
 
   @Patch('content/:id')
   updateContent(
     @Param('id') id: string,
     @Body() updateContentDto: UpdateTrustCenterContentDto,
-    @CurrentUser() user: UserContext,
+    @CurrentUser() user: UserContext
   ) {
-    return this.trustCenterService.updateContent(id, updateContentDto, user.userId);
+    // SECURITY: Organization ID extracted from authenticated context, not query param
+    return this.trustCenterService.updateContent(
+      id,
+      updateContentDto,
+      user.userId,
+      user.organizationId
+    );
   }
 
   @Delete('content/:id')
-  deleteContent(
-    @Param('id') id: string,
-    @CurrentUser() user: UserContext,
-  ) {
-    return this.trustCenterService.deleteContent(id, user.userId);
+  deleteContent(@Param('id') id: string, @CurrentUser() user: UserContext) {
+    // SECURITY: Organization ID extracted from authenticated context, not query param
+    return this.trustCenterService.deleteContent(id, user.userId, user.organizationId);
   }
 
   // Public Trust Center view

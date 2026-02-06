@@ -12,20 +12,63 @@ accessLog:
 
 entryPoints:
   web:
-    address: ":80"
+    address: ':80'
   websecure:
-    address: ":443"
+    address: ':443'
 
 providers:
   docker:
-    endpoint: "unix:///var/run/docker.sock"
+    endpoint: 'unix:///var/run/docker.sock'
     exposedByDefault: false
     network: grc-network
+    watch: true
+  # Enable file provider for dynamic configuration (middlewares)
+  file:
+    filename: '/etc/traefik/traefik.yml'
     watch: true
 
 # Health check endpoint
 ping:
   entryPoint: web
 
+# ===========================================
+# HTTP Middlewares - Security Hardening
+# ===========================================
+http:
+  middlewares:
+    # SECURITY: Rate limiting to prevent DoS and brute force attacks
+    # Limits requests to 100/second average with burst capacity of 50
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
 
+    # SECURITY: Security headers to protect against common web vulnerabilities
+    security-headers:
+      headers:
+        # Prevent clickjacking by denying iframe embedding
+        frameDeny: true
+        # Prevent MIME type sniffing attacks
+        contentTypeNosniff: true
+        # Enable XSS filter in browsers (legacy, but still useful)
+        browserXssFilter: true
+        # Force HTTPS with HSTS header
+        forceSTSHeader: true
+        # HSTS max-age: 1 year (31536000 seconds)
+        stsSeconds: 31536000
+        # Apply HSTS to all subdomains
+        stsIncludeSubdomains: true
+        # Allow preloading HSTS in browsers
+        stsPreload: true
+        # Referrer policy for privacy
+        referrerPolicy: 'strict-origin-when-cross-origin'
+        # Content Security Policy - adjust as needed for your application
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'"
 
+    # Combined middleware chain for API endpoints
+    api-security:
+      chain:
+        middlewares:
+          - rate-limit
+          - security-headers

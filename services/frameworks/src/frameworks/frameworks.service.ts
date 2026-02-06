@@ -45,7 +45,7 @@ export class FrameworksService {
             requirementsByStatus: readiness.requirementsByStatus,
           },
         };
-      }),
+      })
     );
 
     return frameworksWithReadiness;
@@ -59,7 +59,7 @@ export class FrameworksService {
       version?: string;
       description?: string;
       isActive?: boolean;
-    },
+    }
   ) {
     const framework = await this.prisma.framework.create({
       data: {
@@ -77,13 +77,25 @@ export class FrameworksService {
       },
     });
 
-    this.logger.log(`Created framework ${framework.name} (${framework.id}) for org ${organizationId}`);
+    this.logger.log(
+      `Created framework ${framework.name} (${framework.id}) for org ${organizationId}`
+    );
     return framework;
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, organizationId?: string) {
     const framework = await this.prisma.framework.findFirst({
-      where: { id, deletedAt: null },
+      where: {
+        id,
+        deletedAt: null,
+        // Allow access to system frameworks (organizationId: null) or org-specific frameworks
+        ...(organizationId && {
+          OR: [
+            { organizationId: null }, // System frameworks
+            { organizationId }, // Org-specific frameworks
+          ],
+        }),
+      },
       include: {
         _count: {
           select: { requirements: true, mappings: true },
@@ -107,9 +119,16 @@ export class FrameworksService {
       description?: string;
       isActive?: boolean;
     },
+    organizationId: string
   ) {
-    // Verify framework exists
-    await this.findOne(id);
+    // Verify framework exists and belongs to this organization (IDOR protection)
+    const existingFramework = await this.prisma.framework.findFirst({
+      where: { id, organizationId, deletedAt: null },
+    });
+
+    if (!existingFramework) {
+      throw new NotFoundException(`Framework with ID ${id} not found`);
+    }
 
     const framework = await this.prisma.framework.update({
       where: { id },
@@ -127,13 +146,21 @@ export class FrameworksService {
       },
     });
 
-    this.logger.log(`Updated framework ${framework.name} (${framework.id})`);
+    this.logger.log(
+      `Updated framework ${framework.name} (${framework.id}) for org ${organizationId}`
+    );
     return framework;
   }
 
-  async delete(id: string, userId?: string) {
-    // Verify framework exists
-    const framework = await this.findOne(id);
+  async delete(id: string, userId?: string, organizationId?: string) {
+    // Verify framework exists and belongs to this organization (IDOR protection)
+    const framework = await this.prisma.framework.findFirst({
+      where: { id, organizationId, deletedAt: null },
+    });
+
+    if (!framework) {
+      throw new NotFoundException(`Framework with ID ${id} not found`);
+    }
 
     // Soft delete
     await this.prisma.framework.update({
@@ -144,7 +171,9 @@ export class FrameworksService {
       },
     });
 
-    this.logger.log(`Deleted framework ${framework.name} (${framework.id})`);
+    this.logger.log(
+      `Deleted framework ${framework.name} (${framework.id}) for org ${organizationId}`
+    );
     return { success: true };
   }
 
@@ -158,7 +187,7 @@ export class FrameworksService {
       parentId?: string;
       isCategory?: boolean;
       order?: number;
-    },
+    }
   ) {
     // Verify framework exists
     await this.findOne(frameworkId);
@@ -206,7 +235,9 @@ export class FrameworksService {
       },
     });
 
-    this.logger.log(`Created requirement ${requirement.reference} (${requirement.id}) for framework ${frameworkId}`);
+    this.logger.log(
+      `Created requirement ${requirement.reference} (${requirement.id}) for framework ${frameworkId}`
+    );
     return requirement;
   }
 
@@ -228,9 +259,23 @@ export class FrameworksService {
       } else if (fileExt === 'xlsx' || fileExt === 'xls') {
         requirements = await this.parseExcel(file.buffer);
       } else if (fileExt === 'json') {
-        requirements = JSON.parse(file.buffer.toString()) as Record<string, unknown>[];
+        try {
+          const parsed = JSON.parse(file.buffer.toString());
+          // Validate the parsed object has expected shape (must be an array)
+          if (!Array.isArray(parsed)) {
+            throw new BadRequestException('Invalid JSON format: expected an array of requirements');
+          }
+          requirements = parsed as Record<string, unknown>[];
+        } catch (jsonError) {
+          if (jsonError instanceof BadRequestException) {
+            throw jsonError;
+          }
+          throw new BadRequestException('Invalid JSON format: unable to parse file contents');
+        }
       } else {
-        throw new BadRequestException('Unsupported file type. Please upload CSV, Excel (.xlsx, .xls), or JSON file');
+        throw new BadRequestException(
+          'Unsupported file type. Please upload CSV, Excel (.xlsx, .xls), or JSON file'
+        );
       }
 
       // Validate and create requirements
@@ -239,7 +284,7 @@ export class FrameworksService {
         const reference = req.reference as string | undefined;
         const title = req.title as string | undefined;
         const description = req.description as string | undefined;
-        
+
         if (!reference || !title || !description) {
           this.logger.warn(`Skipping invalid requirement: ${JSON.stringify(req)}`);
           continue;
@@ -274,8 +319,11 @@ export class FrameworksService {
         requirements: created,
       };
     } catch (error) {
-      this.logger.error(`Failed to parse file: ${error.message}`);
-      throw new BadRequestException(`Failed to parse file: ${error.message}`);
+      // Security: Log detailed error internally but return generic message to client
+      this.logger.error(`Failed to parse file: ${error.message}`, error.stack);
+      throw new BadRequestException(
+        'Failed to parse uploaded file. Please verify the file format is valid.'
+      );
     }
   }
 
@@ -291,20 +339,24 @@ export class FrameworksService {
   private async parseExcel(buffer: Buffer): Promise<Record<string, unknown>[]> {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
-    
+
     const worksheet = workbook.worksheets[0];
     if (!worksheet) {
       throw new BadRequestException('Excel file has no worksheets');
     }
-    
+
     const records: Record<string, unknown>[] = [];
     const headers: string[] = [];
-    
+
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) {
         // First row is headers
         row.eachCell((cell) => {
-          headers.push(String(cell.value || '').toLowerCase().trim());
+          headers.push(
+            String(cell.value || '')
+              .toLowerCase()
+              .trim()
+          );
         });
       } else {
         // Data rows
@@ -320,12 +372,12 @@ export class FrameworksService {
         }
       }
     });
-    
+
     return records;
   }
 
-  async getRequirements(frameworkId: string, parentId?: string) {
-    await this.findOne(frameworkId);
+  async getRequirements(frameworkId: string, parentId?: string, organizationId?: string) {
+    await this.findOne(frameworkId, organizationId);
 
     const requirements = await this.prisma.frameworkRequirement.findMany({
       where: {
@@ -360,15 +412,17 @@ export class FrameworksService {
         mappings: {
           include: {
             control: {
-              select: { 
-                id: true, 
-                controlId: true, 
+              select: {
+                id: true,
+                controlId: true,
                 title: true,
-                implementations: organizationId ? {
-                  where: { organizationId },
-                  take: 1,
-                  select: { status: true },
-                } : false,
+                implementations: organizationId
+                  ? {
+                      where: { organizationId },
+                      take: 1,
+                      select: { status: true },
+                    }
+                  : false,
               },
             },
           },
@@ -391,19 +445,19 @@ export class FrameworksService {
     };
 
     // Calculate compliance status for each requirement
-    const requirementsWithStatus = allRequirements.map(req => {
+    const requirementsWithStatus = allRequirements.map((req) => {
       let complianceStatus = 'not_assessed';
-      
+
       if (!req.isCategory && req.mappings.length > 0) {
         const implementations = req.mappings
-          .map(m => getImplementationStatus(m.control as ControlWithImplementations))
+          .map((m) => getImplementationStatus(m.control as ControlWithImplementations))
           .filter(Boolean);
-        
+
         if (implementations.length === 0) {
           complianceStatus = 'not_assessed';
         } else {
-          const implementedCount = implementations.filter(s => s === 'implemented').length;
-          const naCount = implementations.filter(s => s === 'not_applicable').length;
+          const implementedCount = implementations.filter((s) => s === 'implemented').length;
+          const naCount = implementations.filter((s) => s === 'not_applicable').length;
           const totalMappings = req.mappings.length;
 
           if (naCount === totalMappings) {
@@ -419,17 +473,18 @@ export class FrameworksService {
       }
 
       // Add status to each mapping for frontend filtering
-      const mappingsWithStatus = req.mappings.map(m => {
+      const mappingsWithStatus = req.mappings.map((m) => {
         const implStatus = getImplementationStatus(m.control as ControlWithImplementations);
         return {
           ...m,
-          status: implStatus === 'implemented' 
-            ? 'compliant' 
-            : implStatus === 'not_applicable'
-              ? 'not_applicable'
-              : implStatus
-                ? 'non_compliant'
-                : 'not_assessed',
+          status:
+            implStatus === 'implemented'
+              ? 'compliant'
+              : implStatus === 'not_applicable'
+                ? 'not_applicable'
+                : implStatus
+                  ? 'non_compliant'
+                  : 'not_assessed',
         };
       });
 
@@ -441,11 +496,15 @@ export class FrameworksService {
     });
 
     // Build tree structure - define tree node type
-    type RequirementTreeNode = typeof requirementsWithStatus[0] & { children: RequirementTreeNode[] };
-    const requirementMap = new Map(requirementsWithStatus.map(r => [r.id, { ...r, children: [] as RequirementTreeNode[] }]));
+    type RequirementTreeNode = (typeof requirementsWithStatus)[0] & {
+      children: RequirementTreeNode[];
+    };
+    const requirementMap = new Map(
+      requirementsWithStatus.map((r) => [r.id, { ...r, children: [] as RequirementTreeNode[] }])
+    );
     const roots: RequirementTreeNode[] = [];
 
-    requirementsWithStatus.forEach(req => {
+    requirementsWithStatus.forEach((req) => {
       const node = requirementMap.get(req.id)!;
       if (req.parentId && requirementMap.has(req.parentId)) {
         requirementMap.get(req.parentId)!.children.push(node);
@@ -457,7 +516,10 @@ export class FrameworksService {
     return roots;
   }
 
-  async getRequirement(frameworkId: string, requirementId: string) {
+  async getRequirement(frameworkId: string, requirementId: string, organizationId?: string) {
+    // First verify the framework is accessible to this organization
+    await this.findOne(frameworkId, organizationId);
+
     const requirement = await this.prisma.frameworkRequirement.findFirst({
       where: { id: requirementId, frameworkId },
       include: {
@@ -489,7 +551,7 @@ export class FrameworksService {
       ownerNotes?: string;
       dueDate?: string;
       priority?: string;
-    },
+    }
   ) {
     // Verify requirement exists
     const existing = await this.prisma.frameworkRequirement.findFirst({
@@ -552,18 +614,18 @@ export class FrameworksService {
     let notApplicable = 0;
     let notAssessed = 0;
 
-    requirements.forEach(req => {
+    requirements.forEach((req) => {
       if (req.mappings.length === 0) {
         notAssessed++;
         return;
       }
 
       const implementedCount = req.mappings.filter(
-        m => m.control.implementations[0]?.status === 'implemented',
+        (m) => m.control.implementations[0]?.status === 'implemented'
       ).length;
 
       const naCount = req.mappings.filter(
-        m => m.control.implementations[0]?.status === 'not_applicable',
+        (m) => m.control.implementations[0]?.status === 'not_applicable'
       ).length;
 
       const totalMappings = req.mappings.length;
@@ -581,9 +643,7 @@ export class FrameworksService {
 
     const total = requirements.length;
     const applicable = total - notApplicable;
-    const score = applicable > 0
-      ? Math.round(((compliant + partial * 0.5) / applicable) * 100)
-      : 0;
+    const score = applicable > 0 ? Math.round(((compliant + partial * 0.5) / applicable) * 100) : 0;
 
     return {
       frameworkId,
@@ -605,7 +665,7 @@ export class FrameworksService {
       _count: true,
     });
 
-    return types.map(t => ({
+    return types.map((t) => ({
       type: t.type,
       count: t._count,
     }));

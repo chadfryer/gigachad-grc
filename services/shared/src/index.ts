@@ -90,6 +90,8 @@ export {
   sanitizeFilename,
   sanitizeFilenameStrict,
   escapeHtml,
+  sanitizeInput,
+  SanitizeLevel,
   // error-handler - some renamed to avoid conflicts with types
   ErrorDetails,
   DomainError,

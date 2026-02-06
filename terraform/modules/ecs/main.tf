@@ -1,3 +1,7 @@
+# Data sources for account and region information (used for IAM policy scoping)
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "${var.name_prefix}-cluster"
@@ -43,6 +47,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 }
 
 # Additional policy for Secrets Manager and CloudWatch
+# SECURITY: Policies are scoped to specific resources following least-privilege principle
 resource "aws_iam_role_policy" "ecs_task_execution_additional" {
   name = "${var.name_prefix}-ecs-task-execution-additional"
   role = aws_iam_role.ecs_task_execution_role.id
@@ -51,22 +56,42 @@ resource "aws_iam_role_policy" "ecs_task_execution_additional" {
     Version = "2012-10-17"
     Statement = [
       {
+        # SECURITY: Scoped to specific secret ARNs instead of wildcard
         Effect = "Allow"
         Action = [
           "secretsmanager:GetSecretValue",
-          "secretsmanager:DescribeSecret",
-          "kms:Decrypt"
+          "secretsmanager:DescribeSecret"
         ]
-        Resource = "*"
+        Resource = [
+          var.database_secret_arn,
+          var.keycloak_secret_arn
+        ]
       },
       {
+        # SECURITY: KMS decrypt scoped to secrets encryption keys
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt"
+        ]
+        Resource = var.kms_key_arns
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "secretsmanager.${data.aws_region.current.name}.amazonaws.com"
+          }
+        }
+      },
+      {
+        # SECURITY: Scoped to specific log groups for this application
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.name_prefix}/*",
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.name_prefix}/*:log-stream:*"
+        ]
       }
     ]
   })
@@ -96,6 +121,7 @@ resource "aws_iam_role" "ecs_task_role" {
 }
 
 # Task role policy for S3, CloudWatch, and Secrets Manager
+# SECURITY: Policies are scoped to specific resources following least-privilege principle
 resource "aws_iam_role_policy" "ecs_task_role_policy" {
   name = "${var.name_prefix}-ecs-task-policy"
   role = aws_iam_role.ecs_task_role.id
@@ -117,6 +143,7 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
         ]
       },
       {
+        # SECURITY: Scoped to specific log groups for this application
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
@@ -124,22 +151,36 @@ resource "aws_iam_role_policy" "ecs_task_role_policy" {
           "logs:PutLogEvents",
           "logs:DescribeLogStreams"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.name_prefix}/*",
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.name_prefix}/*:log-stream:*"
+        ]
       },
       {
+        # SECURITY: Scoped to specific secret ARNs instead of wildcard
         Effect = "Allow"
         Action = [
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ]
-        Resource = "*"
+        Resource = [
+          var.database_secret_arn,
+          var.keycloak_secret_arn
+        ]
       },
       {
+        # NOTE: cloudwatch:PutMetricData does not support resource-level permissions
+        # Scoping by condition on namespace instead
         Effect = "Allow"
         Action = [
           "cloudwatch:PutMetricData"
         ]
         Resource = "*"
+        Condition = {
+          StringEquals = {
+            "cloudwatch:namespace" = "GigaChadGRC/${var.name_prefix}"
+          }
+        }
       }
     ]
   })

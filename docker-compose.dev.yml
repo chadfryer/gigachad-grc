@@ -1,5 +1,8 @@
 # Development overrides for docker-compose.yml
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# SECURITY NOTE: security_opt is inherited from docker-compose.yml base file.
+# These overrides only add development-specific configurations.
 
 version: '3.8'
 
@@ -9,6 +12,9 @@ services:
     build:
       context: ./services/controls
       dockerfile: Dockerfile.dev
+    # SECURITY: Prevent privilege escalation even in development
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./services/controls/src:/app/src
       - ./services/shared:/app/shared
@@ -20,6 +26,9 @@ services:
     build:
       context: ./services/frameworks
       dockerfile: Dockerfile.dev
+    # SECURITY: Prevent privilege escalation even in development
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./services/frameworks/src:/app/src
       - ./services/shared:/app/shared
@@ -31,6 +40,9 @@ services:
     build:
       context: ./services/integrations
       dockerfile: Dockerfile.dev
+    # SECURITY: Prevent privilege escalation even in development
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./services/integrations/src:/app/src
       - ./services/shared:/app/shared
@@ -42,6 +54,9 @@ services:
     build:
       context: ./services/policies
       dockerfile: Dockerfile.dev
+    # SECURITY: Prevent privilege escalation even in development
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./services/policies/src:/app/src
       - ./services/shared:/app/shared
@@ -53,6 +68,9 @@ services:
     build:
       context: ./services/mcp
       dockerfile: Dockerfile.dev
+    # SECURITY: Prevent privilege escalation even in development
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./services/mcp/src:/app/src
       - ./services/shared:/app/shared
@@ -64,11 +82,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
+    # SECURITY: Prevent privilege escalation even in development
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./frontend/src:/app/src
       - /app/node_modules
     environment:
       NODE_ENV: development
-
-
-

@@ -7,7 +7,12 @@ import {
   UpdatePolicyStatusDto,
   PolicyFilterDto,
 } from './dto/policy.dto';
-import { generateId, STORAGE_PROVIDER, StorageProvider } from '@gigachad-grc/shared';
+import {
+  generateId,
+  STORAGE_PROVIDER,
+  StorageProvider,
+  sanitizeFilename,
+} from '@gigachad-grc/shared';
 import { PolicyStatus, Prisma } from '@prisma/client';
 
 @Injectable()
@@ -166,7 +171,9 @@ export class PoliciesService {
   ) {
     const policyId = generateId();
     const versionNumber = dto.version || '1.0';
-    const storagePath = `policies/${organizationId}/${policyId}/${versionNumber}/${file.originalname}`;
+    // SECURITY: Sanitize filename to prevent path traversal attacks
+    const safeFilename = sanitizeFilename(file.originalname);
+    const storagePath = `policies/${organizationId}/${policyId}/${versionNumber}/${safeFilename}`;
 
     // Upload file to storage
     await this.storage.upload(file.buffer, storagePath, {
@@ -183,7 +190,7 @@ export class PoliciesService {
         category: dto.category,
         status: PolicyStatus.draft,
         version: versionNumber,
-        filename: file.originalname,
+        filename: safeFilename,
         mimeType: file.mimetype,
         size: file.size,
         storagePath,
@@ -202,7 +209,7 @@ export class PoliciesService {
         id: generateId(),
         policyId: policy.id,
         version: versionNumber,
-        filename: file.originalname,
+        filename: safeFilename,
         storagePath,
         size: file.size,
         createdBy: userId,
@@ -239,9 +246,9 @@ export class PoliciesService {
       entityType: 'policy',
       entityId: policy.id,
       entityName: policy.title,
-      description: `Uploaded policy "${policy.title}" (${file.originalname})`,
+      description: `Uploaded policy "${policy.title}" (${safeFilename})`,
       metadata: {
-        filename: file.originalname,
+        filename: safeFilename,
         mimeType: file.mimetype,
         size: file.size,
         category: dto.category,
@@ -317,7 +324,9 @@ export class PoliciesService {
   ) {
     const policy = await this.findOne(id, organizationId);
     const oldVersion = policy.version;
-    const storagePath = `policies/${organizationId}/${id}/${versionNumber}/${file.originalname}`;
+    // SECURITY: Sanitize filename to prevent path traversal attacks
+    const safeFilename = sanitizeFilename(file.originalname);
+    const storagePath = `policies/${organizationId}/${id}/${versionNumber}/${safeFilename}`;
 
     // Upload new version
     await this.storage.upload(file.buffer, storagePath, {
@@ -330,7 +339,7 @@ export class PoliciesService {
         id: generateId(),
         policyId: id,
         version: versionNumber,
-        filename: file.originalname,
+        filename: safeFilename,
         storagePath,
         size: file.size,
         createdBy: userId,
@@ -343,7 +352,7 @@ export class PoliciesService {
       where: { id },
       data: {
         version: versionNumber,
-        filename: file.originalname,
+        filename: safeFilename,
         storagePath,
         size: file.size,
         mimeType: file.mimetype,
@@ -365,7 +374,7 @@ export class PoliciesService {
       metadata: {
         oldVersion,
         newVersion: versionNumber,
-        filename: file.originalname,
+        filename: safeFilename,
         changeNotes,
       },
     });

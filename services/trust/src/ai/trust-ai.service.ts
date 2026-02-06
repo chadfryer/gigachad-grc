@@ -2,6 +2,46 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../common/audit.service';
 import axios from 'axios';
+import { sanitizeInput } from '@gigachad-grc/shared';
+
+/**
+ * Sanitize user input to prevent prompt injection attacks
+ * This removes potentially dangerous patterns that could manipulate AI behavior
+ */
+function sanitizeForAI(input: string): string {
+  if (!input || typeof input !== 'string') {
+    return '';
+  }
+
+  // First, apply HTML sanitization to remove any script tags, etc.
+  let sanitized = sanitizeInput(input, 'strict');
+
+  // Remove common prompt injection patterns
+  const injectionPatterns = [
+    // Instruction override attempts
+    /ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules?)/gi,
+    /disregard\s+(all\s+)?(previous|prior|above)/gi,
+    /forget\s+(all\s+)?(previous|prior|above)/gi,
+    // System prompt extraction attempts
+    /what\s+(is|are)\s+(your|the)\s+(system\s+)?(prompt|instructions?)/gi,
+    /show\s+(me\s+)?(your|the)\s+(system\s+)?(prompt|instructions?)/gi,
+    /reveal\s+(your|the)\s+(system\s+)?(prompt|instructions?)/gi,
+    // Role-play manipulation
+    /pretend\s+(you\s+are|to\s+be)\s+(a\s+)?/gi,
+    /act\s+as\s+(if\s+)?(you\s+are\s+)?/gi,
+    /you\s+are\s+now\s+(a\s+)?/gi,
+    // Delimiter manipulation
+    /```.*?```/gs,
+    /\[\[.*?\]\]/gs,
+    /\{\{.*?\}\}/gs,
+  ];
+
+  for (const pattern of injectionPatterns) {
+    sanitized = sanitized.replace(pattern, '[removed]');
+  }
+
+  return sanitized.trim();
+}
 
 export interface AnswerSuggestion {
   suggestedAnswer: string;
@@ -58,7 +98,7 @@ export class TrustAiService {
 
   constructor(
     private prisma: PrismaService,
-    private audit: AuditService,
+    private audit: AuditService
   ) {}
 
   // Check if AI is enabled for the organization
@@ -68,7 +108,7 @@ export class TrustAiService {
     });
 
     if (!config) return false;
-    
+
     const aiSettings = config.aiSettings as { enabled?: boolean } | null;
     return aiSettings?.enabled === true;
   }
@@ -77,13 +117,16 @@ export class TrustAiService {
   async generateAnswerDraft(
     organizationId: string,
     questionText: string,
-    userId: string,
+    userId: string
   ): Promise<AnswerSuggestion> {
     // Check if AI is enabled
     const enabled = await this.isAiEnabled(organizationId);
     if (!enabled) {
       throw new Error('AI features are not enabled for this organization');
     }
+
+    // SECURITY: Sanitize user input to prevent prompt injection
+    const sanitizedQuestion = sanitizeForAI(questionText);
 
     // Search knowledge base for relevant entries
     const kbEntries = await this.prisma.knowledgeBaseEntry.findMany({
@@ -106,9 +149,12 @@ export class TrustAiService {
     });
 
     // Prepare context from KB entries
-    const kbContext = kbEntries.map((entry, index) => 
-      `[${index + 1}] Title: ${entry.title}\nQ: ${entry.question || 'N/A'}\nA: ${entry.answer || 'N/A'}`
-    ).join('\n\n');
+    const kbContext = kbEntries
+      .map(
+        (entry, index) =>
+          `[${index + 1}] Title: ${entry.title}\nQ: ${entry.question || 'N/A'}\nA: ${entry.answer || 'N/A'}`
+      )
+      .join('\n\n');
 
     // Build prompt for AI
     const prompt = `You are a trust and compliance expert helping to answer customer security questionnaires.
@@ -118,7 +164,7 @@ Based on the following knowledge base entries from our organization:
 ${kbContext}
 
 Please draft an answer to this customer question:
-"${questionText}"
+"${sanitizedQuestion}"
 
 Requirements:
 1. Be professional, accurate, and concise
@@ -136,19 +182,23 @@ Provide your response in the following JSON format:
 
     try {
       // Call the controls service AI endpoint
-      const response = await axios.post(`${this.controlsServiceUrl}/ai/analyze`, {
-        content: prompt,
-        analysisType: 'questionnaire_response',
-        options: {
-          returnJson: true,
+      const response = await axios.post(
+        `${this.controlsServiceUrl}/ai/analyze`,
+        {
+          content: prompt,
+          analysisType: 'questionnaire_response',
+          options: {
+            returnJson: true,
+          },
         },
-      }, {
-        headers: {
-          'x-user-id': userId,
-          'x-organization-id': organizationId,
-        },
-        timeout: 60000,
-      });
+        {
+          headers: {
+            'x-user-id': userId,
+            'x-organization-id': organizationId,
+          },
+          timeout: 60000,
+        }
+      );
 
       const aiResult = response.data;
 
@@ -214,15 +264,15 @@ Provide your response in the following JSON format:
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       this.logger.error(`AI answer generation failed: ${errorMessage}`, getErrorStack(error));
-      
+
       // Return a fallback response with relevant KB entries
       const relevantEntries = this.findRelevantEntries(questionText, kbEntries);
-      
+
       if (relevantEntries.length > 0) {
         return {
           suggestedAnswer: `Based on our knowledge base:\n\n${relevantEntries[0].answer || 'No answer available'}`,
           confidence: 30,
-          sources: relevantEntries.slice(0, 3).map(e => ({
+          sources: relevantEntries.slice(0, 3).map((e) => ({
             id: e.id,
             title: e.title,
             relevance: 60,
@@ -239,12 +289,15 @@ Provide your response in the following JSON format:
   async categorizeQuestion(
     organizationId: string,
     questionText: string,
-    userId: string,
+    userId: string
   ): Promise<QuestionCategorization> {
     const enabled = await this.isAiEnabled(organizationId);
     if (!enabled) {
       throw new Error('AI features are not enabled for this organization');
     }
+
+    // SECURITY: Sanitize user input to prevent prompt injection
+    const sanitizedQuestion = sanitizeForAI(questionText);
 
     const prompt = `Categorize the following security questionnaire question into one of these categories:
 - security: Questions about security controls, encryption, access management
@@ -254,7 +307,7 @@ Provide your response in the following JSON format:
 - technical: Questions about infrastructure, architecture, integrations
 - general: General questions that don't fit other categories
 
-Question: "${questionText}"
+Question: "${sanitizedQuestion}"
 
 Respond in JSON format:
 {
@@ -264,21 +317,29 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await axios.post(`${this.controlsServiceUrl}/ai/analyze`, {
-        content: prompt,
-        analysisType: 'categorization',
-        options: { returnJson: true },
-      }, {
-        headers: {
-          'x-user-id': userId,
-          'x-organization-id': organizationId,
+      const response = await axios.post(
+        `${this.controlsServiceUrl}/ai/analyze`,
+        {
+          content: prompt,
+          analysisType: 'categorization',
+          options: { returnJson: true },
         },
-        timeout: 30000,
-      });
+        {
+          headers: {
+            'x-user-id': userId,
+            'x-organization-id': organizationId,
+          },
+          timeout: 30000,
+        }
+      );
 
       const jsonMatch = response.data.analysis?.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]) as { category?: string; confidence?: number; suggestedTags?: string[] };
+        const result = JSON.parse(jsonMatch[0]) as {
+          category?: string;
+          confidence?: number;
+          suggestedTags?: string[];
+        };
         return {
           category: result.category || 'general',
           confidence: result.confidence || 50,
@@ -298,18 +359,22 @@ Respond in JSON format:
     organizationId: string,
     questionText: string,
     currentAnswer: string,
-    userId: string,
+    userId: string
   ): Promise<AnswerSuggestion> {
     const enabled = await this.isAiEnabled(organizationId);
     if (!enabled) {
       throw new Error('AI features are not enabled for this organization');
     }
 
+    // SECURITY: Sanitize user input to prevent prompt injection
+    const sanitizedQuestion = sanitizeForAI(questionText);
+    const sanitizedAnswer = sanitizeForAI(currentAnswer);
+
     const prompt = `As a trust and compliance expert, improve the following answer to a security questionnaire question.
 
-Question: "${questionText}"
+Question: "${sanitizedQuestion}"
 
-Current Answer: "${currentAnswer}"
+Current Answer: "${sanitizedAnswer}"
 
 Please improve this answer by:
 1. Making it more professional and clear
@@ -325,26 +390,35 @@ Respond in JSON format:
 }`;
 
     try {
-      const response = await axios.post(`${this.controlsServiceUrl}/ai/analyze`, {
-        content: prompt,
-        analysisType: 'answer_improvement',
-        options: { returnJson: true },
-      }, {
-        headers: {
-          'x-user-id': userId,
-          'x-organization-id': organizationId,
+      const response = await axios.post(
+        `${this.controlsServiceUrl}/ai/analyze`,
+        {
+          content: prompt,
+          analysisType: 'answer_improvement',
+          options: { returnJson: true },
         },
-        timeout: 60000,
-      });
+        {
+          headers: {
+            'x-user-id': userId,
+            'x-organization-id': organizationId,
+          },
+          timeout: 60000,
+        }
+      );
 
       const jsonMatch = response.data.analysis?.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]) as { suggestedAnswer?: string; confidence?: number; improvements?: string[] };
+        const result = JSON.parse(jsonMatch[0]) as {
+          suggestedAnswer?: string;
+          confidence?: number;
+          improvements?: string[];
+        };
         return {
           suggestedAnswer: result.suggestedAnswer || currentAnswer,
           confidence: result.confidence || 60,
           sources: [],
-          reasoning: result.improvements?.join(', ') || 'Answer improved for clarity and completeness',
+          reasoning:
+            result.improvements?.join(', ') || 'Answer improved for clarity and completeness',
         };
       }
     } catch (error: unknown) {
@@ -360,15 +434,19 @@ Respond in JSON format:
   }
 
   // Simple keyword-based relevance matching
-  private findRelevantEntries(questionText: string, entries: KnowledgeBaseEntryForSearch[]): KnowledgeBaseEntryWithScore[] {
+  private findRelevantEntries(
+    questionText: string,
+    entries: KnowledgeBaseEntryForSearch[]
+  ): KnowledgeBaseEntryWithScore[] {
     const questionWords = questionText.toLowerCase().split(/\s+/);
-    
+
     return entries
-      .map(entry => {
+      .map((entry) => {
         let score = 0;
-        const entryText = `${entry.title} ${entry.question || ''} ${entry.answer || ''}`.toLowerCase();
-        
-        questionWords.forEach(word => {
+        const entryText =
+          `${entry.title} ${entry.question || ''} ${entry.answer || ''}`.toLowerCase();
+
+        questionWords.forEach((word) => {
           if (word.length > 3 && entryText.includes(word)) {
             score += 1;
           }
@@ -376,20 +454,58 @@ Respond in JSON format:
 
         return { ...entry, relevanceScore: score };
       })
-      .filter(e => e.relevanceScore > 0)
+      .filter((e) => e.relevanceScore > 0)
       .sort((a, b) => b.relevanceScore - a.relevanceScore);
   }
 
   // Fallback categorization without AI
   private fallbackCategorization(questionText: string): QuestionCategorization {
     const text = questionText.toLowerCase();
-    
+
     const categories: Record<string, string[]> = {
-      security: ['security', 'encrypt', 'password', 'access', 'authentication', 'firewall', 'vulnerability', 'penetration', 'soc 2', 'soc2'],
-      privacy: ['privacy', 'gdpr', 'ccpa', 'personal data', 'pii', 'data subject', 'consent', 'retention'],
-      compliance: ['compliance', 'audit', 'certification', 'iso', 'hipaa', 'pci', 'regulation', 'standard'],
+      security: [
+        'security',
+        'encrypt',
+        'password',
+        'access',
+        'authentication',
+        'firewall',
+        'vulnerability',
+        'penetration',
+        'soc 2',
+        'soc2',
+      ],
+      privacy: [
+        'privacy',
+        'gdpr',
+        'ccpa',
+        'personal data',
+        'pii',
+        'data subject',
+        'consent',
+        'retention',
+      ],
+      compliance: [
+        'compliance',
+        'audit',
+        'certification',
+        'iso',
+        'hipaa',
+        'pci',
+        'regulation',
+        'standard',
+      ],
       legal: ['legal', 'contract', 'liability', 'indemnity', 'agreement', 'terms', 'warranty'],
-      technical: ['api', 'integration', 'infrastructure', 'architecture', 'cloud', 'aws', 'azure', 'database'],
+      technical: [
+        'api',
+        'integration',
+        'infrastructure',
+        'architecture',
+        'cloud',
+        'aws',
+        'azure',
+        'database',
+      ],
     };
 
     let bestCategory = 'general';
@@ -398,7 +514,7 @@ Respond in JSON format:
 
     for (const [category, keywords] of Object.entries(categories)) {
       let score = 0;
-      keywords.forEach(keyword => {
+      keywords.forEach((keyword) => {
         if (text.includes(keyword)) {
           score += 1;
           if (!suggestedTags.includes(keyword)) {
@@ -420,4 +536,3 @@ Respond in JSON format:
     };
   }
 }
-

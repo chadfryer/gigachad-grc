@@ -4,6 +4,11 @@ services:
   # ===========================================
   # API Gateway - Traefik (Official Docker Image)
   # ===========================================
+  # SECURITY: TLS is properly configured with Let's Encrypt ACME
+  # - HTTP to HTTPS redirect enabled (entrypoints.web.http.redirections)
+  # - Automatic certificate management via ACME HTTP challenge
+  # - Certificates stored securely in /letsencrypt/acme.json
+  # - All backend services use tls.certresolver=letsencrypt
   traefik:
     image: traefik:v3.0
     container_name: grc-traefik
@@ -13,8 +18,10 @@ services:
       - '--providers.docker.exposedbydefault=false'
       - '--entrypoints.web.address=:80'
       - '--entrypoints.websecure.address=:443'
+      # SECURITY: Force HTTPS by redirecting all HTTP traffic
       - '--entrypoints.web.http.redirections.entryPoint.to=websecure'
       - '--entrypoints.web.http.redirections.entryPoint.scheme=https'
+      # SECURITY: Let's Encrypt ACME for automatic TLS certificate management
       - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
       - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web'
       - '--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}'

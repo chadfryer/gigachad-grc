@@ -512,7 +512,14 @@ export class FieldGuideService {
   }
 
   private verifyWebhookSignature(rawBody: string, signature: string, secret?: string): boolean {
-    if (!secret) return true; // Skip verification if no secret configured
+    // SECURITY: Deny access when no webhook secret is configured
+    // Previously this returned true (bypass), which allowed unauthenticated webhook calls
+    if (!secret) {
+      this.logger.warn(
+        'Webhook signature verification failed: no webhook secret configured - denying request'
+      );
+      return false;
+    }
 
     const expectedSignature = createHmac('sha256', secret).update(rawBody).digest('hex');
 

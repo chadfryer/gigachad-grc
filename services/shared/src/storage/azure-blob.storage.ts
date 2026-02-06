@@ -124,17 +124,19 @@ export class AzureBlobStorage implements StorageProvider {
   }
 
   async download(path: string): Promise<Readable> {
-    const blobClient = this.containerClient.getBlobClient(path);
+    // SECURITY: Validate path to prevent path traversal
+    const safePath = this.validatePath(path);
+    const blobClient = this.containerClient.getBlobClient(safePath);
 
     const exists = await blobClient.exists();
     if (!exists) {
-      throw new Error(`File not found: ${path}`);
+      throw new Error(`File not found: ${safePath}`);
     }
 
     const downloadResponse = await blobClient.download();
 
     if (!downloadResponse.readableStreamBody) {
-      throw new Error(`Failed to download file: ${path}`);
+      throw new Error(`Failed to download file: ${safePath}`);
     }
 
     // Convert Node.js web stream to Readable
@@ -142,14 +144,18 @@ export class AzureBlobStorage implements StorageProvider {
   }
 
   async delete(path: string): Promise<void> {
-    const blobClient = this.containerClient.getBlobClient(path);
+    // SECURITY: Validate path to prevent path traversal
+    const safePath = this.validatePath(path);
+    const blobClient = this.containerClient.getBlobClient(safePath);
     await blobClient.deleteIfExists({
       deleteSnapshots: 'include',
     });
   }
 
   async exists(path: string): Promise<boolean> {
-    const blobClient = this.containerClient.getBlobClient(path);
+    // SECURITY: Validate path to prevent path traversal
+    const safePath = this.validatePath(path);
+    const blobClient = this.containerClient.getBlobClient(safePath);
     return blobClient.exists();
   }
 

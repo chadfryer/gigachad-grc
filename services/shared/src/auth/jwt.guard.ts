@@ -39,7 +39,7 @@ export class JwtAuthGuard implements CanActivate {
 
   constructor(
     private reflector: Reflector,
-    @Optional() @Inject(TokenBlacklistService) private tokenBlacklistService?: TokenBlacklistService,
+    @Optional() @Inject(TokenBlacklistService) private tokenBlacklistService?: TokenBlacklistService
   ) {
     const keycloakUrl = process.env.KEYCLOAK_URL || 'http://localhost:8080';
     const realm = process.env.KEYCLOAK_REALM || 'gigachad-grc';
@@ -62,7 +62,7 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const decoded = await this.verifyToken(token);
-      
+
       // Check if token is revoked (if blacklist service is available)
       if (this.tokenBlacklistService && decoded.jti) {
         const isRevoked = await this.tokenBlacklistService.isTokenRevoked(decoded.jti);
@@ -70,19 +70,19 @@ export class JwtAuthGuard implements CanActivate {
           throw new UnauthorizedException('Token has been revoked');
         }
       }
-      
+
       const userContext = this.buildUserContext(decoded);
-      
+
       // Attach user context and token info to request
       request.user = userContext;
       request.tokenJti = decoded.jti;
       request.tokenExp = decoded.exp;
 
       // Check role requirements
-      const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
-        ROLES_KEY,
-        [context.getHandler(), context.getClass()]
-      );
+      const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
 
       if (requiredRoles && requiredRoles.length > 0) {
         const hasRole = requiredRoles.some((role: UserRole) => userContext.role === role);
@@ -135,7 +135,7 @@ export class JwtAuthGuard implements CanActivate {
   private buildUserContext(payload: JwtPayload): UserContext {
     // Extract roles from Keycloak token
     const roles = payload.realm_access?.roles || payload.roles || [];
-    
+
     // Map Keycloak role to our UserRole type
     let role: UserRole = 'viewer';
     if (roles.includes('admin')) {
@@ -159,7 +159,26 @@ export class JwtAuthGuard implements CanActivate {
   }
 }
 
-// Optional guard for API key authentication
+/**
+ * Optional guard for API key authentication.
+ *
+ * SECURITY NOTE: This guard only verifies that an API key header is present.
+ * It does NOT validate the API key against any database or secret store.
+ *
+ * Services using this guard MUST implement their own API key validation logic
+ * because the shared module cannot access service-specific databases.
+ *
+ * Implementation pattern for services:
+ * 1. Use this guard to extract the API key from the request
+ * 2. In your service/controller, validate request.apiKey against your database
+ * 3. Throw UnauthorizedException if the key is invalid or expired
+ *
+ * Example:
+ *   const apiKeyRecord = await this.prisma.apiKey.findFirst({
+ *     where: { key: request.apiKey, organizationId, revokedAt: null }
+ *   });
+ *   if (!apiKeyRecord) throw new UnauthorizedException('Invalid API key');
+ */
 @Injectable()
 export class ApiKeyAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -170,8 +189,9 @@ export class ApiKeyAuthGuard implements CanActivate {
       throw new UnauthorizedException('No API key provided');
     }
 
-    // API key validation should be done by the service
-    // This guard just ensures the header is present
+    // SECURITY: This guard only checks for header presence.
+    // Actual API key validation MUST be performed by the consuming service
+    // since this shared module cannot access service-specific databases.
     request.apiKey = apiKey;
     return true;
   }
@@ -182,19 +202,18 @@ export class ApiKeyAuthGuard implements CanActivate {
 export class CombinedAuthGuard implements CanActivate {
   constructor(
     private jwtGuard: JwtAuthGuard,
-    private apiKeyGuard: ApiKeyAuthGuard,
+    private apiKeyGuard: ApiKeyAuthGuard
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    
+
     // Check for API key first
     if (request.headers['x-api-key']) {
       return this.apiKeyGuard.canActivate(context);
     }
-    
+
     // Fall back to JWT
     return this.jwtGuard.canActivate(context);
   }
 }
-

@@ -237,6 +237,14 @@ export class AuditsService {
   }
 
   async enablePortal(id: string, organizationId: string, expiresInDays = 90) {
+    // First verify audit belongs to this organization
+    const audit = await this.prisma.audit.findFirst({
+      where: { id, organizationId, deletedAt: null },
+    });
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
     const portalAccessCode = this.generateAccessCode();
     const portalExpiresAt = new Date();
     portalExpiresAt.setDate(portalExpiresAt.getDate() + expiresInDays);
@@ -251,7 +259,15 @@ export class AuditsService {
     });
   }
 
-  async disablePortal(id: string, _organizationId: string) {
+  async disablePortal(id: string, organizationId: string) {
+    // First verify audit belongs to this organization
+    const audit = await this.prisma.audit.findFirst({
+      where: { id, organizationId, deletedAt: null },
+    });
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${id} not found`);
+    }
+
     return this.prisma.audit.update({
       where: { id },
       data: {

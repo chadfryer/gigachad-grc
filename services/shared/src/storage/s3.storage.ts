@@ -127,34 +127,40 @@ export class S3StorageProvider implements StorageProvider {
   }
 
   async download(path: string): Promise<Readable> {
+    // SECURITY: Validate path to prevent path traversal
+    const safePath = this.validatePath(path);
     const command = new GetObjectCommand({
       Bucket: this.bucket,
-      Key: path,
+      Key: safePath,
     });
 
     const response = await this.client.send(command);
 
     if (!response.Body) {
-      throw new Error(`File not found: ${path}`);
+      throw new Error(`File not found: ${safePath}`);
     }
 
     return response.Body as Readable;
   }
 
   async delete(path: string): Promise<void> {
+    // SECURITY: Validate path to prevent path traversal
+    const safePath = this.validatePath(path);
     const command = new DeleteObjectCommand({
       Bucket: this.bucket,
-      Key: path,
+      Key: safePath,
     });
 
     await this.client.send(command);
   }
 
   async exists(path: string): Promise<boolean> {
+    // SECURITY: Validate path to prevent path traversal
+    const safePath = this.validatePath(path);
     try {
       const command = new HeadObjectCommand({
         Bucket: this.bucket,
-        Key: path,
+        Key: safePath,
       });
       await this.client.send(command);
       return true;

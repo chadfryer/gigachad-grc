@@ -23,6 +23,9 @@ services:
   traefik:
     image: traefik:v3.0
     container_name: grc-traefik
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     command:
       # SECURITY: api.insecure is only for development - NEVER use in production
       - '--api.insecure=${TRAEFIK_API_INSECURE:-false}'
@@ -50,6 +53,9 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: grc-postgres
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     environment:
       # SECURITY: POSTGRES_PASSWORD must be set - no default value
       # Run: export POSTGRES_PASSWORD=$(openssl rand -base64 32)
@@ -85,6 +91,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: grc-redis
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     # SECURITY: REDIS_PASSWORD must be set - no default value
     # Run: export REDIS_PASSWORD=$(openssl rand -base64 32)
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
@@ -116,6 +125,9 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:25.0
     container_name: grc-keycloak
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     command: start-dev --import-realm
     environment:
       KC_DB: postgres
@@ -131,7 +143,9 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
     ports:
-      - '8080:8080'
+      # SECURITY: Bound to localhost - access via Traefik in production
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:8080:8080'
     volumes:
       - ./auth/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     depends_on:
@@ -153,12 +167,17 @@ services:
   rustfs:
     image: rustfs/rustfs:latest
     container_name: grc-rustfs
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     environment:
       RUSTFS_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
       RUSTFS_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
     ports:
-      - '9000:9000' # S3 API
-      - '9001:9001' # Console
+      # SECURITY: Bound to localhost - internal services access via Docker network
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:9000:9000' # S3 API
+      - '127.0.0.1:9001:9001' # Console
     volumes:
       - rustfs_data:/data
       - rustfs_logs:/logs
@@ -211,7 +230,9 @@ services:
       DR_REMOTE_BACKUP_ENABLED: ${DR_REMOTE_BACKUP_ENABLED:-false}
       DR_REMOTE_BACKUP_S3_BUCKET: ${DR_REMOTE_BACKUP_S3_BUCKET:-}
     ports:
-      - '3001:3001'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3001:3001'
     volumes:
       - ./deploy:/app/deploy:ro
     depends_on:
@@ -228,14 +249,22 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.controls.rule=PathPrefix(`/api/controls`)'
+      # SECURITY: Apply rate limiting and security headers middleware to all controls routes
+      - 'traefik.http.routers.controls.middlewares=api-security@file'
       - 'traefik.http.routers.controls-evidence.rule=PathPrefix(`/api/evidence`)'
+      - 'traefik.http.routers.controls-evidence.middlewares=api-security@file'
       - 'traefik.http.routers.controls-workspaces.rule=PathPrefix(`/api/workspaces`)'
+      - 'traefik.http.routers.controls-workspaces.middlewares=api-security@file'
       # Risk module is in controls service, not frameworks
       - 'traefik.http.routers.controls-risks.rule=PathPrefix(`/api/risks`)'
+      - 'traefik.http.routers.controls-risks.middlewares=api-security@file'
       - 'traefik.http.routers.controls-risk-config.rule=PathPrefix(`/api/risk-config`)'
+      - 'traefik.http.routers.controls-risk-config.middlewares=api-security@file'
       - 'traefik.http.routers.controls-risk-tasks.rule=PathPrefix(`/api/risk-tasks`)'
+      - 'traefik.http.routers.controls-risk-tasks.middlewares=api-security@file'
       # BC/DR module is also in controls service
       - 'traefik.http.routers.controls-bcdr.rule=PathPrefix(`/api/bcdr`)'
+      - 'traefik.http.routers.controls-bcdr.middlewares=api-security@file'
       - 'traefik.http.services.controls.loadbalancer.server.port=3001'
     restart: unless-stopped
     # Resource limits - example configuration for development
@@ -256,6 +285,9 @@ services:
       context: .
       dockerfile: services/frameworks/Dockerfile
     container_name: grc-frameworks
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3002
@@ -274,7 +306,9 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - '3002:3002'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3002:3002'
     depends_on:
       postgres:
         condition: service_healthy
@@ -289,6 +323,8 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.frameworks.rule=PathPrefix(`/api/frameworks`)'
+      # SECURITY: Apply rate limiting and security headers middleware
+      - 'traefik.http.routers.frameworks.middlewares=api-security@file'
       - 'traefik.http.services.frameworks.loadbalancer.server.port=3002'
     restart: unless-stopped
 
@@ -300,6 +336,9 @@ services:
       context: .
       dockerfile: services/policies/Dockerfile
     container_name: grc-policies
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3004
@@ -318,7 +357,9 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - '3004:3004'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3004:3004'
     depends_on:
       postgres:
         condition: service_healthy
@@ -333,6 +374,8 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.policies.rule=PathPrefix(`/api/policies`)'
+      # SECURITY: Apply rate limiting and security headers middleware
+      - 'traefik.http.routers.policies.middlewares=api-security@file'
       - 'traefik.http.services.policies.loadbalancer.server.port=3004'
     restart: unless-stopped
 
@@ -364,7 +407,9 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - '3005:3005'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3005:3005'
     depends_on:
       postgres:
         condition: service_healthy
@@ -379,9 +424,14 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.tprm-vendors.rule=PathPrefix(`/api/vendors`)'
+      # SECURITY: Apply rate limiting and security headers middleware
+      - 'traefik.http.routers.tprm-vendors.middlewares=api-security@file'
       - 'traefik.http.routers.tprm-assessments.rule=PathPrefix(`/api/assessments`)'
+      - 'traefik.http.routers.tprm-assessments.middlewares=api-security@file'
       - 'traefik.http.routers.tprm-contracts.rule=PathPrefix(`/api/contracts`)'
+      - 'traefik.http.routers.tprm-contracts.middlewares=api-security@file'
       - 'traefik.http.routers.tprm-config.rule=PathPrefix(`/api/tprm-config`)'
+      - 'traefik.http.routers.tprm-config.middlewares=api-security@file'
       - 'traefik.http.services.tprm.loadbalancer.server.port=3005'
     restart: unless-stopped
 
@@ -393,6 +443,9 @@ services:
       context: .
       dockerfile: services/trust/Dockerfile
     container_name: grc-trust
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3006
@@ -411,7 +464,9 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - '3006:3006'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3006:3006'
     depends_on:
       postgres:
         condition: service_healthy
@@ -426,8 +481,12 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.trust-questionnaires.rule=PathPrefix(`/api/questionnaires`)'
+      # SECURITY: Apply rate limiting and security headers middleware
+      - 'traefik.http.routers.trust-questionnaires.middlewares=api-security@file'
       - 'traefik.http.routers.trust-knowledge-base.rule=PathPrefix(`/api/knowledge-base`)'
+      - 'traefik.http.routers.trust-knowledge-base.middlewares=api-security@file'
       - 'traefik.http.routers.trust-center.rule=PathPrefix(`/api/trust-center`)'
+      - 'traefik.http.routers.trust-center.middlewares=api-security@file'
       - 'traefik.http.services.trust.loadbalancer.server.port=3006'
     restart: unless-stopped
 
@@ -459,7 +518,9 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-gigachad-grc}
     ports:
-      - '3007:3007'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3007:3007'
     depends_on:
       postgres:
         condition: service_healthy
@@ -474,17 +535,30 @@ services:
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.audit-audits.rule=PathPrefix(`/api/audits`)'
+      # SECURITY: Apply rate limiting and security headers middleware to all audit routes
+      - 'traefik.http.routers.audit-audits.middlewares=api-security@file'
       - 'traefik.http.routers.audit-requests.rule=PathPrefix(`/api/audit-requests`)'
+      - 'traefik.http.routers.audit-requests.middlewares=api-security@file'
       - 'traefik.http.routers.audit-findings.rule=PathPrefix(`/api/audit-findings`)'
+      - 'traefik.http.routers.audit-findings.middlewares=api-security@file'
       - 'traefik.http.routers.audit-portal.rule=PathPrefix(`/api/audit-portal`)'
+      - 'traefik.http.routers.audit-portal.middlewares=api-security@file'
       - 'traefik.http.routers.audit-templates.rule=PathPrefix(`/api/audit/templates`)'
+      - 'traefik.http.routers.audit-templates.middlewares=api-security@file'
       - 'traefik.http.routers.audit-workpapers.rule=PathPrefix(`/api/audit/workpapers`)'
+      - 'traefik.http.routers.audit-workpapers.middlewares=api-security@file'
       - 'traefik.http.routers.audit-test-procedures.rule=PathPrefix(`/api/audit/test-procedures`)'
+      - 'traefik.http.routers.audit-test-procedures.middlewares=api-security@file'
       - 'traefik.http.routers.audit-remediation.rule=PathPrefix(`/api/audit/remediation`)'
+      - 'traefik.http.routers.audit-remediation.middlewares=api-security@file'
       - 'traefik.http.routers.audit-analytics.rule=PathPrefix(`/api/audit/analytics`)'
+      - 'traefik.http.routers.audit-analytics.middlewares=api-security@file'
       - 'traefik.http.routers.audit-planning.rule=PathPrefix(`/api/audit/planning`)'
+      - 'traefik.http.routers.audit-planning.middlewares=api-security@file'
       - 'traefik.http.routers.audit-reports.rule=PathPrefix(`/api/audit/reports`)'
+      - 'traefik.http.routers.audit-reports.middlewares=api-security@file'
       - 'traefik.http.routers.audit-ai.rule=PathPrefix(`/api/audit/audit-ai`)'
+      - 'traefik.http.routers.audit-ai.middlewares=api-security@file'
       - 'traefik.http.services.audit.loadbalancer.server.port=3007'
     restart: unless-stopped
 
@@ -496,8 +570,13 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: grc-frontend
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     ports:
-      - '3000:80'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3000:80'
     environment:
       - VITE_API_URL=http://localhost:3001
       - VITE_ENABLE_DEV_AUTH=true
@@ -509,6 +588,8 @@ services:
       - 'traefik.enable=true'
       - 'traefik.http.routers.frontend.rule=Host(`localhost`)'
       - 'traefik.http.routers.frontend.priority=1'
+      # SECURITY: Apply security headers middleware to frontend
+      - 'traefik.http.routers.frontend.middlewares=security-headers@file'
       - 'traefik.http.services.frontend.loadbalancer.server.port=80'
     restart: unless-stopped
 
@@ -518,6 +599,9 @@ services:
   prometheus:
     image: prom/prometheus:v2.47.1
     container_name: grc-prometheus
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -542,6 +626,9 @@ services:
   grafana:
     image: grafana/grafana:10.2.0
     container_name: grc-grafana
+    # SECURITY: Prevent privilege escalation attacks
+    security_opt:
+      - no-new-privileges:true
     environment:
       # SECURITY WARNING: These credentials MUST be set via environment variables!
       # DO NOT use default values in production - set strong credentials:
@@ -557,7 +644,9 @@ services:
       - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
     ports:
-      - '3003:3000'
+      # SECURITY: Bound to localhost - access via Traefik gateway
+      # Direct port access only for local development/debugging
+      - '127.0.0.1:3003:3000'
     networks:
       - grc-network
     restart: unless-stopped

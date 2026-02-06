@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+  useRef,
+} from 'react';
 import Keycloak from 'keycloak-js';
 import { setErrorTrackingUser, addBreadcrumb } from '@/lib/errorTracking';
 import { secureStorage, STORAGE_KEYS } from '@/lib/secureStorage';
@@ -50,6 +58,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+
+  // BroadcastChannel for cross-tab auth synchronization
+  const authChannel = useRef<BroadcastChannel | null>(null);
+
+  // Set up cross-tab logout synchronization
+  useEffect(() => {
+    // Create broadcast channel for cross-tab auth sync
+    authChannel.current = new BroadcastChannel('grc_auth_channel');
+
+    authChannel.current.onmessage = (event) => {
+      if (event.data.type === 'logout') {
+        // Force logout on this tab when another tab logs out
+        setIsAuthenticated(false);
+        setUser(null);
+        setToken(null);
+      }
+    };
+
+    return () => {
+      authChannel.current?.close();
+    };
+  }, []);
 
   const loadUserProfile = useCallback(async (kc: Keycloak) => {
     try {
@@ -228,6 +258,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     const kc = getKeycloak();
+
+    // Broadcast logout to other tabs for cross-tab sync
+    authChannel.current?.postMessage({ type: 'logout' });
+
     // Clear dev login state and user info
     localStorage.removeItem('grc-dev-auth');
     localStorage.removeItem('userId');

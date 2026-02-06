@@ -35,9 +35,15 @@ export class QuestionnaireExportService {
   constructor(private prisma: PrismaService) {}
 
   // Export a single questionnaire
-  async exportQuestionnaire(id: string, options: ExportOptions): Promise<Buffer | string> {
+  async exportQuestionnaire(
+    id: string,
+    organizationId: string,
+    options: ExportOptions
+  ): Promise<Buffer | string> {
+    // SECURITY: Include organizationId in query to prevent IDOR
+    // This ensures users can only export questionnaires within their organization
     const questionnaire = await this.prisma.questionnaireRequest.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, organizationId, deletedAt: null },
       include: {
         questions: {
           orderBy: { questionNumber: 'asc' },
@@ -62,9 +68,15 @@ export class QuestionnaireExportService {
   }
 
   // Export multiple questionnaires
-  async exportMultiple(ids: string[], options: ExportOptions): Promise<Buffer | string> {
+  async exportMultiple(
+    ids: string[],
+    organizationId: string,
+    options: ExportOptions
+  ): Promise<Buffer | string> {
+    // SECURITY: Include organizationId in query to prevent IDOR
+    // This ensures users can only export questionnaires within their organization
     const questionnaires = await this.prisma.questionnaireRequest.findMany({
-      where: { id: { in: ids }, deletedAt: null },
+      where: { id: { in: ids }, organizationId, deletedAt: null },
       include: {
         questions: {
           orderBy: { questionNumber: 'asc' },
@@ -83,7 +95,10 @@ export class QuestionnaireExportService {
   }
 
   // Export to Excel format
-  private async exportToExcel(questionnaire: ExportQuestionnaire, options: ExportOptions): Promise<Buffer> {
+  private async exportToExcel(
+    questionnaire: ExportQuestionnaire,
+    options: ExportOptions
+  ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'GigaChad GRC';
     workbook.created = new Date();
@@ -101,7 +116,10 @@ export class QuestionnaireExportService {
       sheet.addRow(['Company:', questionnaire.company || 'N/A']);
       sheet.addRow(['Status:', questionnaire.status]);
       sheet.addRow(['Priority:', questionnaire.priority]);
-      sheet.addRow(['Due Date:', questionnaire.dueDate ? new Date(questionnaire.dueDate).toLocaleDateString() : 'N/A']);
+      sheet.addRow([
+        'Due Date:',
+        questionnaire.dueDate ? new Date(questionnaire.dueDate).toLocaleDateString() : 'N/A',
+      ]);
       sheet.addRow(['Created:', new Date(questionnaire.createdAt).toLocaleDateString()]);
       if (questionnaire.completedAt) {
         sheet.addRow(['Completed:', new Date(questionnaire.completedAt).toLocaleDateString()]);
@@ -130,9 +148,10 @@ export class QuestionnaireExportService {
     sheet.getColumn(5).width = 15;
 
     // Add questions
-    const questions = options.includePending !== false 
-      ? questionnaire.questions 
-      : questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved');
+    const questions =
+      options.includePending !== false
+        ? questionnaire.questions
+        : questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved');
 
     questions.forEach((question, index) => {
       const row = sheet.addRow([
@@ -142,7 +161,7 @@ export class QuestionnaireExportService {
         question.status,
         question.category || '',
       ]);
-      
+
       // Wrap text for long content
       row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
       row.getCell(3).alignment = { wrapText: true, vertical: 'top' };
@@ -166,55 +185,76 @@ export class QuestionnaireExportService {
     // Add summary at the bottom
     sheet.addRow([]);
     const _totalRow = sheet.addRow(['', `Total Questions: ${questionnaire.questions.length}`]);
-    const _answeredRow = sheet.addRow(['', `Answered: ${questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved').length}`]);
-    const _pendingRow = sheet.addRow(['', `Pending: ${questionnaire.questions.filter((q) => q.status === 'pending').length}`]);
+    const _answeredRow = sheet.addRow([
+      '',
+      `Answered: ${questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved').length}`,
+    ]);
+    const _pendingRow = sheet.addRow([
+      '',
+      `Pending: ${questionnaire.questions.filter((q) => q.status === 'pending').length}`,
+    ]);
 
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
   // Export to CSV format
-  private async exportToCsv(questionnaire: ExportQuestionnaire, options: ExportOptions): Promise<string> {
+  private async exportToCsv(
+    questionnaire: ExportQuestionnaire,
+    options: ExportOptions
+  ): Promise<string> {
     const rows: string[] = [];
 
     // Header
     rows.push('"#","Question","Answer","Status","Category"');
 
     // Questions
-    const questions = options.includePending !== false 
-      ? questionnaire.questions 
-      : questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved');
+    const questions =
+      options.includePending !== false
+        ? questionnaire.questions
+        : questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved');
 
     questions.forEach((question, index) => {
-      rows.push([
-        question.questionNumber || (index + 1).toString(),
-        this.escapeCsv(question.questionText),
-        this.escapeCsv(question.answerText || ''),
-        question.status,
-        question.category || '',
-      ].map(val => `"${val}"`).join(','));
+      rows.push(
+        [
+          question.questionNumber || (index + 1).toString(),
+          this.escapeCsv(question.questionText),
+          this.escapeCsv(question.answerText || ''),
+          question.status,
+          question.category || '',
+        ]
+          .map((val) => `"${val}"`)
+          .join(',')
+      );
     });
 
     return rows.join('\n');
   }
 
   // Export to JSON format
-  private async exportToJson(questionnaire: ExportQuestionnaire, options: ExportOptions): Promise<string> {
-    const questions = options.includePending !== false 
-      ? questionnaire.questions 
-      : questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved');
+  private async exportToJson(
+    questionnaire: ExportQuestionnaire,
+    options: ExportOptions
+  ): Promise<string> {
+    const questions =
+      options.includePending !== false
+        ? questionnaire.questions
+        : questionnaire.questions.filter((q) => q.status === 'answered' || q.status === 'approved');
 
     const exportData = {
-      metadata: options.includeMetadata !== false ? {
-        title: questionnaire.title,
-        requesterName: questionnaire.requesterName,
-        requesterEmail: questionnaire.requesterEmail,
-        company: questionnaire.company,
-        status: questionnaire.status,
-        priority: questionnaire.priority,
-        dueDate: questionnaire.dueDate,
-        createdAt: questionnaire.createdAt,
-        completedAt: questionnaire.completedAt,
-      } : undefined,
+      metadata:
+        options.includeMetadata !== false
+          ? {
+              title: questionnaire.title,
+              requesterName: questionnaire.requesterName,
+              requesterEmail: questionnaire.requesterEmail,
+              company: questionnaire.company,
+              status: questionnaire.status,
+              priority: questionnaire.priority,
+              dueDate: questionnaire.dueDate,
+              createdAt: questionnaire.createdAt,
+              completedAt: questionnaire.completedAt,
+            }
+          : undefined,
       questions: questions.map((q, index) => ({
         number: q.questionNumber || (index + 1).toString(),
         question: q.questionText,
@@ -228,7 +268,10 @@ export class QuestionnaireExportService {
   }
 
   // Export multiple questionnaires to a single Excel file
-  private async exportMultipleToExcel(questionnaires: ExportQuestionnaire[], _options: ExportOptions): Promise<Buffer> {
+  private async exportMultipleToExcel(
+    questionnaires: ExportQuestionnaire[],
+    _options: ExportOptions
+  ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'GigaChad GRC';
     workbook.created = new Date();
@@ -241,13 +284,20 @@ export class QuestionnaireExportService {
     summarySheet.addRow(['Generated:', new Date().toLocaleDateString()]);
     summarySheet.addRow(['Total Questionnaires:', questionnaires.length]);
     summarySheet.addRow([]);
-    
-    const summaryHeader = summarySheet.addRow(['Title', 'Requester', 'Company', 'Status', 'Questions', 'Completed']);
+
+    const summaryHeader = summarySheet.addRow([
+      'Title',
+      'Requester',
+      'Company',
+      'Status',
+      'Questions',
+      'Completed',
+    ]);
     summaryHeader.font = { bold: true };
 
     questionnaires.forEach((q) => {
-      const answeredCount = q.questions.filter((question) => 
-        question.status === 'answered' || question.status === 'approved'
+      const answeredCount = q.questions.filter(
+        (question) => question.status === 'answered' || question.status === 'approved'
       ).length;
       summarySheet.addRow([
         q.title,
@@ -300,4 +350,3 @@ export class QuestionnaireExportService {
     return value.replace(/"/g, '""').replace(/\n/g, ' ');
   }
 }
-

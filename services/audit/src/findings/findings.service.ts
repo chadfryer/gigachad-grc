@@ -7,8 +7,16 @@ import { UpdateFindingDto } from './dto/update-finding.dto';
 export class FindingsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createFindingDto: CreateFindingDto, identifiedBy: string) {
+  async create(createFindingDto: CreateFindingDto, organizationId: string, identifiedBy: string) {
     const { auditId } = createFindingDto;
+
+    // Verify the audit belongs to the user's organization
+    const audit = await this.prisma.audit.findFirst({
+      where: { id: auditId, organizationId, deletedAt: null },
+    });
+    if (!audit) {
+      throw new NotFoundException(`Audit with ID ${auditId} not found`);
+    }
 
     // Generate finding number
     const findingCount = await this.prisma.auditFinding.count({
@@ -16,14 +24,16 @@ export class FindingsService {
     });
     const findingNumber = `F-${String(findingCount + 1).padStart(3, '0')}`;
 
+    // Override any organizationId from DTO with auth context
+    const { organizationId: _dtoOrgId, ...restDto } = createFindingDto;
+
     return this.prisma.auditFinding.create({
       data: {
-        ...createFindingDto,
+        ...restDto,
+        organizationId,
         findingNumber,
         identifiedBy,
-        targetDate: createFindingDto.targetDate
-          ? new Date(createFindingDto.targetDate)
-          : undefined,
+        targetDate: createFindingDto.targetDate ? new Date(createFindingDto.targetDate) : undefined,
       },
       include: {
         audit: {
@@ -53,7 +63,7 @@ export class FindingsService {
       severity?: string;
       category?: string;
       remediationOwner?: string;
-    },
+    }
   ) {
     const where: Record<string, unknown> = { organizationId };
 
@@ -173,11 +183,7 @@ export class FindingsService {
     });
   }
 
-  async bulkUpdateStatus(
-    ids: string[],
-    organizationId: string,
-    status: string,
-  ) {
+  async bulkUpdateStatus(ids: string[], organizationId: string, status: string) {
     return this.prisma.auditFinding.updateMany({
       where: {
         id: { in: ids },
@@ -223,8 +229,3 @@ export class FindingsService {
     };
   }
 }
-
-
-
-
-

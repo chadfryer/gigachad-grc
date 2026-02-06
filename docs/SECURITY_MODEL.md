@@ -5,28 +5,29 @@ This document provides a comprehensive overview of the security architecture, au
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
-2. [Authentication](#authentication)
-3. [Authorization](#authorization)
-4. [Module Configuration Security](#module-configuration-security)
-5. [Tenant Isolation](#tenant-isolation)
-6. [Audit Logging](#audit-logging)
-7. [Frontend Security](#frontend-security)
-8. [File Upload Security](#file-upload-security-v110)
-9. [SSRF Protection](#ssrf-protection-v120)
-10. [Rate Limiting](#rate-limiting-v120)
-11. [Log Sanitization](#log-sanitization-v120)
-12. [Encryption Security](#encryption-security-v110)
-13. [AI & Integration Security](#ai--integration-security)
-14. [Custom Code Execution Security](#custom-code-execution-security-v130)
-15. [Command Injection Prevention](#command-injection-prevention-v130)
-16. [Input Validation Enhancements](#input-validation-enhancements-v130)
-17. [Docker Security Hardening](#docker-security-hardening-v130)
-18. [Nginx Security Headers](#nginx-security-headers-v130)
+2. [Security Audit Fixes (February 2026)](#security-audit-fixes-february-2026)
+3. [Authentication](#authentication)
+4. [Authorization](#authorization)
+5. [Module Configuration Security](#module-configuration-security)
+6. [Tenant Isolation](#tenant-isolation)
+7. [Audit Logging](#audit-logging)
+8. [Frontend Security](#frontend-security)
+9. [File Upload Security](#file-upload-security-v110)
+10. [SSRF Protection](#ssrf-protection-v120)
+11. [Rate Limiting](#rate-limiting-v120)
+12. [Log Sanitization](#log-sanitization-v120)
+13. [Encryption Security](#encryption-security-v110)
+14. [AI & Integration Security](#ai--integration-security)
+15. [Custom Code Execution Security](#custom-code-execution-security-v130)
+16. [Command Injection Prevention](#command-injection-prevention-v130)
+17. [Input Validation Enhancements](#input-validation-enhancements-v130)
+18. [Docker Security Hardening](#docker-security-hardening-v130)
+19. [Nginx Security Headers](#nginx-security-headers-v130)
     - [Content Security Policy Limitations](#content-security-policy-limitations)
-19. [Symlink Protection](#symlink-protection-v130)
-20. [Content-Disposition Header Security](#content-disposition-header-security-v130)
-21. [Deployment Hardening](#deployment-hardening)
-22. [Production Readiness Checklist](#production-readiness-checklist)
+20. [Symlink Protection](#symlink-protection-v130)
+21. [Content-Disposition Header Security](#content-disposition-header-security-v130)
+22. [Deployment Hardening](#deployment-hardening)
+23. [Production Readiness Checklist](#production-readiness-checklist)
 
 ---
 
@@ -64,6 +65,181 @@ The platform implements multiple layers of security:
 - **DMZ**: API Gateway, Authentication Services
 - **Application Zone**: Backend Services (Controls, Frameworks, etc.)
 - **Data Zone**: PostgreSQL, Redis, RustFS (Object Storage)
+
+---
+
+## Security Audit Fixes (February 2026)
+
+This section summarizes the comprehensive security enhancements implemented as part of the February 2026 security audit. These fixes address vulnerabilities identified during internal security review and external penetration testing.
+
+### IDOR Protection
+
+**Insecure Direct Object Reference (IDOR)** vulnerabilities were systematically eliminated across all services:
+
+- **33+ IDOR fixes** across TPRM, Trust, Audit, and other services
+- All `findOne`, `update`, and `delete` operations now validate `organizationId` from the authenticated user context
+- Organization context is derived exclusively from the JWT token, never from request parameters
+- Database queries automatically scope to the user's organization
+
+```typescript
+// Before (vulnerable)
+async findOne(id: string) {
+  return this.prisma.vendor.findUnique({ where: { id } });
+}
+
+// After (secure)
+async findOne(id: string, organizationId: string) {
+  return this.prisma.vendor.findUnique({
+    where: { id, organizationId },
+  });
+}
+```
+
+### Path Traversal Protection
+
+All storage providers (S3, Azure Blob, Local) now include path traversal protection:
+
+- **Path resolution validation**: All file paths are resolved and verified to be within the storage directory
+- **Null byte injection prevention**: Null bytes are stripped from filenames
+- **Parent directory escape blocking**: Patterns like `../` are detected and rejected
+- **Symlink attack prevention**: Symbolic links are detected and access is denied
+
+```typescript
+// S3 and Azure storage providers validate paths
+private validatePath(key: string): void {
+  if (key.includes('..') || key.includes('\0')) {
+    throw new Error('SECURITY: Invalid path detected');
+  }
+}
+```
+
+### Rate Limiting
+
+Rate limiting was expanded to cover all services with endpoint-specific limits:
+
+| Service      | Endpoint Category      | Limit        | Window    |
+| ------------ | ---------------------- | ------------ | --------- |
+| All Services | General API            | 100 requests | 1 minute  |
+| Trust        | Questionnaire Export   | 5 requests   | 1 minute  |
+| Audit        | Report Generation      | 5 requests   | 1 minute  |
+| TPRM         | Vendor Bulk Operations | 10 requests  | 1 minute  |
+| Policies     | PDF Export             | 5 requests   | 1 minute  |
+| Frameworks   | Catalog Import         | 5 requests   | 5 minutes |
+
+### SSRF Protection
+
+Server-Side Request Forgery (SSRF) protection was implemented across all services making external requests:
+
+- **Vendor AI Service**: AI API calls validated for safe URLs
+- **Security Scanner**: Blocked scanning of private/internal addresses
+- **Compliance Collector**: External endpoint validation
+- **Trust AI Service**: AI provider URL validation
+- **Custom Integrations**: All user-provided URLs validated via `safeFetch()`
+
+**Blocked targets include:**
+
+- Private IP ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+- Localhost and loopback addresses
+- Cloud metadata endpoints (169.254.169.254)
+- Internal Kubernetes service addresses
+
+### XSS Protection
+
+Cross-Site Scripting (XSS) protection was enhanced:
+
+- **DOMPurify sanitization**: All user-generated HTML content is sanitized before rendering
+- **Input sanitization**: DTO validation with strict string length limits and character restrictions
+- **Widget data sanitization**: Dashboard widgets sanitize URLs and content before rendering
+- **Export filenames**: All generated filenames are sanitized to prevent injection
+
+```typescript
+// Frontend sanitization for user content
+import DOMPurify from 'dompurify';
+const safeHtml = DOMPurify.sanitize(userContent);
+```
+
+### CSRF Protection
+
+Cross-Site Request Forgery protection was strengthened:
+
+- **Timing-safe comparisons**: All secret/token comparisons use `crypto.timingSafeEqual()` to prevent timing attacks
+- **SameSite cookies**: Session cookies set with `SameSite=Strict`
+- **Origin validation**: CORS configuration restricts allowed origins
+- **Proxy secret verification**: Backend services verify proxy authentication secrets
+
+```typescript
+// Timing-safe comparison for secrets
+import { timingSafeEqual } from 'crypto';
+
+function verifySecret(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+```
+
+### Infrastructure Hardening
+
+Security improvements to the deployment infrastructure:
+
+#### Localhost Port Binding
+
+- Database ports (PostgreSQL, Redis) bound to localhost only in development
+- Monitoring services (Prometheus, Grafana) bound to localhost
+- External access only through API gateway with authentication
+
+#### Security Headers
+
+- **HSTS**: Strict-Transport-Security with preload directive
+- **X-Content-Type-Options**: nosniff to prevent MIME sniffing
+- **X-Frame-Options**: SAMEORIGIN for clickjacking protection
+- **Referrer-Policy**: strict-origin-when-cross-origin
+- **Permissions-Policy**: Comprehensive policy restricting browser APIs
+
+#### TLS Configuration
+
+- Traefik configured for TLS 1.2+ only
+- Strong cipher suites enforced
+- Automatic certificate management via Let's Encrypt
+
+### Frontend Security
+
+Security enhancements to the React frontend:
+
+#### Iframe URL Validation
+
+- Dashboard widget iframe sources validated against allowlist
+- Untrusted URLs blocked from embedding
+- CSP frame-src directive restricts allowed frame sources
+
+#### SessionStorage for Tokens
+
+- JWT tokens stored in `sessionStorage` instead of `localStorage`
+- Tokens cleared automatically when browser tab closes
+- Reduced exposure window for token theft
+
+#### Cross-Tab Logout
+
+- Logout events broadcast across browser tabs via `BroadcastChannel`
+- All tabs receive logout notification and clear authentication state
+- Prevents session persistence in forgotten tabs
+
+```typescript
+// Cross-tab logout implementation
+const logoutChannel = new BroadcastChannel('auth-logout');
+
+// On logout
+logoutChannel.postMessage({ type: 'logout' });
+
+// Listen for logout in other tabs
+logoutChannel.onmessage = (event) => {
+  if (event.data.type === 'logout') {
+    clearAuthState();
+    redirectToLogin();
+  }
+};
+```
 
 ---
 

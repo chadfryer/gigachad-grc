@@ -2,18 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as https from 'https';
 import * as http from 'http';
 import { ComplianceIndicators } from '../dto/security-scan.dto';
+import { validateUrl } from '@gigachad-grc/shared';
 
 @Injectable()
 export class ComplianceCollector {
   private readonly logger = new Logger(ComplianceCollector.name);
 
   // Common trust portal paths - prioritized list (most common first)
-  private readonly TRUST_PORTAL_PATHS = [
-    '/trust',
-    '/trust/',
-    '/security',
-    '/trust-center',
-  ];
+  private readonly TRUST_PORTAL_PATHS = ['/trust', '/trust/', '/security', '/trust-center'];
 
   // Common privacy policy paths - prioritized list
   // Includes "privacy notice" variations (e.g., Twilio uses /legal/privacy)
@@ -36,7 +32,12 @@ export class ComplianceCollector {
   ];
 
   private readonly CERTIFICATION_PATTERNS = [
-    { pattern: /soc\s*2?\s*type\s*(ii|2)/i, cert: 'SOC 2 Type II', key: 'hasSOC2', type: 'Type II' },
+    {
+      pattern: /soc\s*2?\s*type\s*(ii|2)/i,
+      cert: 'SOC 2 Type II',
+      key: 'hasSOC2',
+      type: 'Type II',
+    },
     { pattern: /soc\s*2?\s*type\s*(i|1)/i, cert: 'SOC 2 Type I', key: 'hasSOC2', type: 'Type I' },
     { pattern: /soc\s*2/i, cert: 'SOC 2', key: 'hasSOC2', type: null },
     { pattern: /iso\s*27001/i, cert: 'ISO 27001', key: 'hasISO27001' },
@@ -94,11 +95,21 @@ export class ComplianceCollector {
       if (pattern.test(content)) {
         if (key) {
           switch (key) {
-            case 'hasSOC2': result.hasSOC2 = true; break;
-            case 'hasISO27001': result.hasISO27001 = true; break;
-            case 'hasGDPR': result.hasGDPR = true; break;
-            case 'hasHIPAA': result.hasHIPAA = true; break;
-            case 'hasPCIDSS': result.hasPCIDSS = true; break;
+            case 'hasSOC2':
+              result.hasSOC2 = true;
+              break;
+            case 'hasISO27001':
+              result.hasISO27001 = true;
+              break;
+            case 'hasGDPR':
+              result.hasGDPR = true;
+              break;
+            case 'hasHIPAA':
+              result.hasHIPAA = true;
+              break;
+            case 'hasPCIDSS':
+              result.hasPCIDSS = true;
+              break;
           }
         }
         if (type && key === 'hasSOC2') {
@@ -132,10 +143,7 @@ export class ComplianceCollector {
   /**
    * Check trust portal and privacy policy paths in parallel for faster scanning
    */
-  private async checkPathsInParallel(
-    baseUrl: URL,
-    result: ComplianceIndicators,
-  ): Promise<void> {
+  private async checkPathsInParallel(baseUrl: URL, result: ComplianceIndicators): Promise<void> {
     // All paths to check
     const allPaths = [
       ...this.TRUST_PORTAL_PATHS.map((p) => ({ path: p, type: 'trust' as const })),
@@ -148,9 +156,7 @@ export class ComplianceCollector {
         try {
           const pathUrl = new URL(path, baseUrl);
           const content = await this.fetchPageContent(pathUrl);
-          this.logger.debug(
-            `Path ${path} returned ${content ? content.length : 0} chars`,
-          );
+          this.logger.debug(`Path ${path} returned ${content ? content.length : 0} chars`);
           return { path, type, content };
         } catch (error) {
           this.logger.debug(`Path ${path} error: ${error.message}`);
@@ -210,7 +216,9 @@ export class ComplianceCollector {
     // Apply overall timeout of 25 seconds for all path checks
     const timeoutPromise = new Promise<void>((resolve) => {
       setTimeout(() => {
-        this.logger.warn(`Path check timeout for ${baseUrl.hostname} - some paths may not have been checked`);
+        this.logger.warn(
+          `Path check timeout for ${baseUrl.hostname} - some paths may not have been checked`
+        );
         resolve();
       }, 25000);
     });
@@ -247,6 +255,21 @@ export class ComplianceCollector {
       return null;
     }
 
+    // SSRF Protection: Validate URL before making request
+    try {
+      const validation = await validateUrl(url.toString(), {
+        allowPrivateIPs: false,
+        allowedProtocols: ['http:', 'https:'],
+      });
+      if (!validation.valid) {
+        this.logger.warn(`SSRF protection blocked request to ${url.hostname}: ${validation.error}`);
+        return null;
+      }
+    } catch (ssrfError) {
+      this.logger.warn(`SSRF validation failed for ${url.hostname}: ${ssrfError}`);
+      return null;
+    }
+
     return new Promise((resolve) => {
       const protocol = url.protocol === 'https:' ? https : http;
       let resolved = false;
@@ -269,12 +292,17 @@ export class ComplianceCollector {
           timeout: 3000,
           headers: {
             'User-Agent': 'GigaChad-GRC Security Scanner/1.0',
-            'Accept': 'text/html,application/xhtml+xml,text/plain',
+            Accept: 'text/html,application/xhtml+xml,text/plain',
           },
         },
         (res) => {
           // Follow redirects
-          if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          if (
+            res.statusCode &&
+            res.statusCode >= 300 &&
+            res.statusCode < 400 &&
+            res.headers.location
+          ) {
             try {
               const redirectUrl = new URL(res.headers.location, url);
               this.fetchPageContent(redirectUrl, redirectCount + 1).then((content) => {

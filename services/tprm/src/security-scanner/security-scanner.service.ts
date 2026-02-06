@@ -309,16 +309,20 @@ export class SecurityScannerService {
 
       return result;
     } catch (error) {
+      // Security: Log detailed error internally but store generic message in database
       this.logger.error(`Security scan failed for ${vendorId}: ${error.message}`, error.stack);
 
-      // Store failed assessment
+      // Sanitize error message to prevent storing sensitive internal details
+      const sanitizedErrorMessage = this.sanitizeErrorMessage(error.message);
+
+      // Store failed assessment with sanitized error
       const _assessment = await this.prisma.vendorAssessment.create({
         data: {
           vendorId,
           organizationId: vendor.organizationId,
           assessmentType: 'security_scan_osint',
           status: 'pending', // Failed scans are marked as pending for retry
-          outcomeNotes: `Scan failed: ${error.message}`,
+          outcomeNotes: `Scan failed: ${sanitizedErrorMessage}`,
           createdBy: userId,
         },
       });
@@ -385,6 +389,35 @@ export class SecurityScannerService {
     return assessments
       .map((a) => this.assessmentToScanResult(a))
       .filter((r): r is SecurityScanResult => r !== null);
+  }
+
+  /**
+   * Security: Sanitize error messages before storing in database
+   * Removes potentially sensitive information like file paths, stack traces, and internal details
+   */
+  private sanitizeErrorMessage(message: string): string {
+    if (!message) return 'An unexpected error occurred';
+
+    // Known safe error messages that can be passed through
+    const safePatterns = [
+      /^Security scan timed out/i,
+      /^No target URL provided/i,
+      /^Vendor with ID .* not found$/i,
+      /^Invalid URL format$/i,
+      /^Only HTTP\/HTTPS URLs are allowed/i,
+      /^Cannot scan localhost/i,
+      /^Cannot scan private/i,
+      /^Cannot scan cloud metadata/i,
+    ];
+
+    for (const pattern of safePatterns) {
+      if (pattern.test(message)) {
+        return message;
+      }
+    }
+
+    // For other errors, return a generic message to avoid exposing internal details
+    return 'Security scan encountered an error. Please try again or contact support.';
   }
 
   private assessmentToScanResult(assessment: VendorAssessment): SecurityScanResult | null {
