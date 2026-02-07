@@ -12,6 +12,7 @@ import {
   parsePaginationParams,
   createPaginatedResponse,
   getPrismaSkipTake,
+  safeOrderBy,
 } from '@gigachad-grc/shared';
 import { AssetType, AssetStatus, AssetCriticality, Prisma } from '@prisma/client';
 
@@ -19,7 +20,7 @@ import { AssetType, AssetStatus, AssetCriticality, Prisma } from '@prisma/client
 export class AssetsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly auditService: AuditService,
+    private readonly auditService: AuditService
   ) {}
 
   // ============================================
@@ -46,16 +47,16 @@ export class AssetsService {
     const asset = await this.prisma.asset.create({
       data: {
         name: dto.name,
-        type: dto.type as AssetType || AssetType.server,
-        status: dto.status as AssetStatus || AssetStatus.active,
-        criticality: dto.criticality as AssetCriticality || AssetCriticality.medium,
+        type: (dto.type as AssetType) || AssetType.server,
+        status: (dto.status as AssetStatus) || AssetStatus.active,
+        criticality: (dto.criticality as AssetCriticality) || AssetCriticality.medium,
         source: dto.source || 'manual',
         externalId: dto.externalId,
         category: dto.category,
         owner: dto.owner,
         location: dto.location,
         department: dto.department,
-        metadata: dto.metadata as Prisma.InputJsonValue || Prisma.JsonNull,
+        metadata: (dto.metadata as Prisma.InputJsonValue) || Prisma.JsonNull,
         organizationId,
         workspaceId: dto.workspaceId,
       },
@@ -138,13 +139,13 @@ export class AssetsService {
           },
         },
         ...getPrismaSkipTake(pagination),
-        orderBy: { [pagination.sortBy]: pagination.sortOrder },
+        orderBy: safeOrderBy(pagination.sortBy, pagination.sortOrder),
       }),
       this.prisma.asset.count({ where }),
     ]);
 
     return createPaginatedResponse(
-      assets.map(a => this.toAssetDto(a)),
+      assets.map((a) => this.toAssetDto(a)),
       total,
       pagination
     );
@@ -258,12 +259,7 @@ export class AssetsService {
   // ============================================
 
   async getSummary(organizationId: string): Promise<AssetSummaryDto> {
-    const [
-      totalAssets,
-      byType,
-      byStatus,
-      byCriticality,
-    ] = await Promise.all([
+    const [totalAssets, byType, byStatus, byCriticality] = await Promise.all([
       this.prisma.asset.count({
         where: { organizationId, deletedAt: null },
       }),
@@ -286,9 +282,9 @@ export class AssetsService {
 
     return {
       totalAssets,
-      byType: byType.map(b => ({ type: b.type, count: b._count })),
-      byStatus: byStatus.map(b => ({ status: b.status, count: b._count })),
-      byCriticality: byCriticality.map(b => ({
+      byType: byType.map((b) => ({ type: b.type, count: b._count })),
+      byStatus: byStatus.map((b) => ({ status: b.status, count: b._count })),
+      byCriticality: byCriticality.map((b) => ({
         criticality: b.criticality,
         count: b._count,
       })),
@@ -343,11 +339,7 @@ export class AssetsService {
     });
   }
 
-  async unlinkFromRisk(
-    organizationId: string,
-    assetId: string,
-    riskId: string
-  ): Promise<void> {
+  async unlinkFromRisk(organizationId: string, assetId: string, riskId: string): Promise<void> {
     await this.prisma.riskAsset.deleteMany({
       where: { assetId, riskId },
     });
@@ -385,11 +377,13 @@ export class AssetsService {
       workspaceId: asset.workspaceId,
       workspaceName: asset.workspace?.name,
       riskCount: asset.riskAssets?.length || 0,
-      linkedRisks: asset.riskAssets?.map((ra: { risk?: { id: string; riskId: string; title: string } }) => ({
-        riskId: ra.risk?.id,
-        riskCode: ra.risk?.riskId,
-        title: ra.risk?.title,
-      })),
+      linkedRisks: asset.riskAssets?.map(
+        (ra: { risk?: { id: string; riskId: string; title: string } }) => ({
+          riskId: ra.risk?.id,
+          riskCode: ra.risk?.riskId,
+          title: ra.risk?.title,
+        })
+      ),
       createdAt: asset.createdAt,
       updatedAt: asset.updatedAt,
     };

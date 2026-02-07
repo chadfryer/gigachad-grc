@@ -13,9 +13,10 @@ export interface EmailOptions {
 @Injectable()
 export class ConfigurableEmailService {
   private readonly logger = new Logger(ConfigurableEmailService.name);
-  
+
   // Cache transporters per organization
-  private transporterCache: Map<string, { transporter: Transporter; createdAt: number }> = new Map();
+  private transporterCache: Map<string, { transporter: Transporter; createdAt: number }> =
+    new Map();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(private configService: NotificationsConfigService) {}
@@ -49,10 +50,12 @@ export class ConfigurableEmailService {
           host: config.smtpConfig.host,
           port: config.smtpConfig.port,
           secure: config.smtpConfig.secure,
-          auth: config.smtpConfig.user ? {
-            user: config.smtpConfig.user,
-            pass: config.smtpConfig.password,
-          } : undefined,
+          auth: config.smtpConfig.user
+            ? {
+                user: config.smtpConfig.user,
+                pass: config.smtpConfig.password,
+              }
+            : undefined,
         });
         this.logger.debug(`Created SMTP transporter for org ${organizationId}`);
         break;
@@ -108,10 +111,7 @@ export class ConfigurableEmailService {
   /**
    * Send an email using the organization's configuration
    */
-  async sendEmail(
-    organizationId: string,
-    options: EmailOptions,
-  ): Promise<boolean> {
+  async sendEmail(organizationId: string, options: EmailOptions): Promise<boolean> {
     const transporter = await this.getTransporter(organizationId);
 
     if (!transporter) {
@@ -143,10 +143,7 @@ export class ConfigurableEmailService {
   /**
    * Send a test email to verify configuration
    */
-  async sendTestEmail(
-    organizationId: string,
-    recipientEmail: string,
-  ): Promise<boolean> {
+  async sendTestEmail(organizationId: string, recipientEmail: string): Promise<boolean> {
     return this.sendEmail(organizationId, {
       to: recipientEmail,
       subject: '🎉 GigaChad GRC - Test Email',
@@ -218,13 +215,17 @@ Sent from GigaChad GRC at ${new Date().toISOString()}
   }
 
   /**
-   * Strip HTML tags from string
+   * Strip HTML tags from string using iterative approach
+   * Prevents bypass via nested patterns like '<sc<script>ript>'
    */
   private stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const tagPattern = /<[^>]*>/g;
+    let result = html;
+    let previous = '';
+    while (result !== previous) {
+      previous = result;
+      result = result.replace(tagPattern, '');
+    }
+    return result.replace(/\s+/g, ' ').trim();
   }
 }
-
-
-
-

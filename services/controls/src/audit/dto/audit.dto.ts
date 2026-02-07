@@ -1,11 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsNumber, Min, IsIn, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsNumber,
+  Min,
+  IsIn,
+  MaxLength,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
-// Sanitization helper - strips HTML and trims
+/**
+ * Sanitization helper - strips HTML and trims
+ * Uses iterative approach to prevent bypass via nested patterns like '<sc<script>ript>'
+ */
 const sanitizeString = ({ value }: { value: unknown }) => {
   if (typeof value === 'string') {
-    return value.trim().replace(/<[^>]*>/g, '');
+    const tagPattern = /<[^>]*>/g;
+    let result = value.trim();
+    let previous = '';
+    while (result !== previous) {
+      previous = result;
+      result = result.replace(tagPattern, '');
+    }
+    return result;
   }
   return value;
 };
@@ -208,6 +226,3 @@ export const ACTION_TYPES = [
 
 export type EntityType = (typeof ENTITY_TYPES)[number];
 export type ActionType = (typeof ACTION_TYPES)[number];
-
-
-

@@ -2,7 +2,12 @@ import { Injectable, NotFoundException, ConflictException, Logger, Inject } from
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { STORAGE_PROVIDER, StorageProvider } from '@gigachad-grc/shared';
-import { CreateRunbookDto, UpdateRunbookDto, CreateRunbookStepDto, RunbookStatus } from './dto/bcdr.dto';
+import {
+  CreateRunbookDto,
+  UpdateRunbookDto,
+  CreateRunbookStepDto,
+  RunbookStatus,
+} from './dto/bcdr.dto';
 
 @Injectable()
 export class RunbooksService {
@@ -11,10 +16,13 @@ export class RunbooksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
-    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider
   ) {}
 
-  async findAll(organizationId: string, filters?: { search?: string; category?: string; status?: RunbookStatus; processId?: string }) {
+  async findAll(
+    organizationId: string,
+    filters?: { search?: string; category?: string; status?: RunbookStatus; processId?: string }
+  ) {
     const { search, category, status, processId } = filters || {};
 
     // Use parameterized queries to prevent SQL injection
@@ -38,7 +46,7 @@ export class RunbooksService {
     `;
 
     // Convert any BigInt values to numbers for JSON serialization
-    return runbooks.map(r => ({
+    return runbooks.map((r) => ({
       ...r,
       step_count: Number(r.step_count || 0),
     }));
@@ -82,7 +90,7 @@ export class RunbooksService {
     userId: string,
     dto: CreateRunbookDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     // Check for duplicate runbookId
     const existing = await this.prisma.$queryRaw<any[]>`
@@ -137,7 +145,7 @@ export class RunbooksService {
     userId: string,
     dto: UpdateRunbookDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     await this.findOne(id, organizationId);
 
@@ -145,9 +153,21 @@ export class RunbooksService {
     // Only these hardcoded column names can be included in the query.
     // This prevents SQL injection even though column names come from code, not user input.
     const ALLOWED_COLUMNS = new Set([
-      'title', 'description', 'status', 'category', 'system_name', 'process_id',
-      'content', 'version', 'owner_id', 'estimated_duration_minutes',
-      'required_access_level', 'prerequisites', 'tags', 'updated_by', 'updated_at',
+      'title',
+      'description',
+      'status',
+      'category',
+      'system_name',
+      'process_id',
+      'content',
+      'version',
+      'owner_id',
+      'estimated_duration_minutes',
+      'required_access_level',
+      'prerequisites',
+      'tags',
+      'updated_by',
+      'updated_at',
     ]);
 
     const updates: string[] = ['updated_by = $2::uuid', 'updated_at = NOW()'];
@@ -211,7 +231,7 @@ export class RunbooksService {
     // 3. No user input is interpolated into column names
     const result = await this.prisma.$queryRawUnsafe<any[]>(
       `UPDATE bcdr.runbooks SET ${updates.join(', ')} WHERE id = $1::uuid RETURNING *`,
-      ...values,
+      ...values
     );
 
     const runbook = result[0];
@@ -237,7 +257,7 @@ export class RunbooksService {
     organizationId: string,
     userId: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const runbook = await this.findOne(id, organizationId);
 
@@ -298,9 +318,16 @@ export class RunbooksService {
     // SECURITY: Allowed column names for dynamic UPDATE query.
     // Only these hardcoded column names can be included in the query.
     const ALLOWED_COLUMNS = new Set([
-      'title', 'description', 'instructions', 'estimated_duration_minutes',
-      'requires_approval', 'verification_steps', 'rollback_steps', 'warnings',
-      'notes', 'updated_at',
+      'title',
+      'description',
+      'instructions',
+      'estimated_duration_minutes',
+      'requires_approval',
+      'verification_steps',
+      'rollback_steps',
+      'warnings',
+      'notes',
+      'updated_at',
     ]);
 
     const updateFields: string[] = ['updated_at = NOW()'];
@@ -353,7 +380,7 @@ export class RunbooksService {
     const result = await this.prisma.$queryRawUnsafe<any[]>(
       `UPDATE bcdr.runbook_steps SET ${updateFields.join(', ')} 
        WHERE runbook_id = $1::uuid AND step_number = $2 RETURNING *`,
-      ...values,
+      ...values
     );
 
     return result[0];
@@ -382,11 +409,15 @@ export class RunbooksService {
   }
 
   async reorderSteps(runbookId: string, stepIds: string[]) {
-    for (let i = 0; i < stepIds.length; i++) {
+    // SECURITY: Limit maximum number of steps to prevent loop bound injection
+    const MAX_STEPS = 1000;
+    const safeStepIds = stepIds.slice(0, MAX_STEPS);
+
+    for (let i = 0; i < safeStepIds.length; i++) {
       await this.prisma.$executeRaw`
         UPDATE bcdr.runbook_steps
         SET step_number = ${i + 1}
-        WHERE id = ${stepIds[i]}::uuid AND runbook_id = ${runbookId}::uuid
+        WHERE id = ${safeStepIds[i]}::uuid AND runbook_id = ${runbookId}::uuid
       `;
     }
 
@@ -409,4 +440,3 @@ export class RunbooksService {
     return stats[0];
   }
 }
-

@@ -11,7 +11,13 @@ export function generateId(): string {
  * Generate a slug from a string
  */
 export function slugify(text: string): string {
-  return text
+  // SECURITY: Limit input length to prevent ReDoS attacks
+  const MAX_SLUG_INPUT_LENGTH = 10_000;
+  const input =
+    text.length > MAX_SLUG_INPUT_LENGTH ? text.substring(0, MAX_SLUG_INPUT_LENGTH) : text;
+
+  // SECURITY: Input length bounded above to prevent polynomial ReDoS
+  return input
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '')
@@ -23,7 +29,7 @@ export function slugify(text: string): string {
  * Sleep for a specified number of milliseconds
  */
 export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -45,7 +51,7 @@ export async function retry<T>(
       return await fn();
     } catch (error) {
       lastError = error as Error;
-      
+
       if (attempt < maxRetries) {
         const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
         await sleep(delay);
@@ -59,10 +65,7 @@ export async function retry<T>(
 /**
  * Pick specific keys from an object
  */
-export function pick<T extends object, K extends keyof T>(
-  obj: T,
-  keys: K[]
-): Pick<T, K> {
+export function pick<T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
   const result = {} as Pick<T, K>;
   for (const key of keys) {
     if (key in obj) {
@@ -75,10 +78,7 @@ export function pick<T extends object, K extends keyof T>(
 /**
  * Omit specific keys from an object
  */
-export function omit<T extends object, K extends keyof T>(
-  obj: T,
-  keys: K[]
-): Omit<T, K> {
+export function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
   const result = { ...obj };
   for (const key of keys) {
     delete result[key];
@@ -150,24 +150,30 @@ export function chunk<T>(array: T[], size: number): T[][] {
  * Group an array by a key
  */
 export function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
-  return array.reduce((result, item) => {
-    const groupKey = String(item[key]);
-    if (!result[groupKey]) {
-      result[groupKey] = [];
-    }
-    result[groupKey].push(item);
-    return result;
-  }, {} as Record<string, T[]>);
+  return array.reduce(
+    (result, item) => {
+      const groupKey = String(item[key]);
+      if (!result[groupKey]) {
+        result[groupKey] = [];
+      }
+      result[groupKey].push(item);
+      return result;
+    },
+    {} as Record<string, T[]>
+  );
 }
 
 /**
  * Create a map from an array by key
  */
 export function keyBy<T>(array: T[], key: keyof T): Record<string, T> {
-  return array.reduce((result, item) => {
-    result[String(item[key])] = item;
-    return result;
-  }, {} as Record<string, T>);
+  return array.reduce(
+    (result, item) => {
+      result[String(item[key])] = item;
+      return result;
+    },
+    {} as Record<string, T>
+  );
 }
 
 /**
@@ -182,13 +188,10 @@ export function unique<T>(array: T[]): T[] {
  */
 export function uniqueBy<T>(array: T[], key: keyof T): T[] {
   const seen = new Set();
-  return array.filter(item => {
+  return array.filter((item) => {
     const value = item[key];
     if (seen.has(value)) return false;
     seen.add(value);
     return true;
   });
 }
-
-
-

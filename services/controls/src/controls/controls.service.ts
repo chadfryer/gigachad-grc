@@ -767,7 +767,11 @@ export class ControlsService {
     let current = '';
     let inQuotes = false;
 
-    for (let i = 0; i < line.length; i++) {
+    // SECURITY: Limit maximum line length to prevent loop bound injection
+    const MAX_LINE_LENGTH = 1000000; // 1MB per line should be more than enough for CSV
+    const safeLineLength = Math.min(line.length, MAX_LINE_LENGTH);
+
+    for (let i = 0; i < safeLineLength; i++) {
       const char = line[i];
 
       if (char === '"') {
