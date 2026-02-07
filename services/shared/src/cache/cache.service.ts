@@ -32,10 +32,10 @@ export class CacheService {
       maxSize: options.maxSize || DEFAULT_MAX_SIZE,
       maxMemoryMB: options.maxMemoryMB || DEFAULT_MAX_MEMORY_MB,
     };
-    
+
     // Periodically clean expired entries
     setInterval(() => this.cleanup(), 60000); // Every minute
-    
+
     // Log cache stats every 5 minutes in debug mode
     if (this.options.debug) {
       setInterval(() => this.logStats(), 5 * 60 * 1000);
@@ -61,7 +61,7 @@ export class CacheService {
    */
   async get<T>(key: string): Promise<T | null> {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       this.missCount++;
       if (this.options.debug) {
@@ -82,7 +82,7 @@ export class CacheService {
 
     // LRU: Update last accessed time
     entry.lastAccessedAt = Date.now();
-    
+
     this.hitCount++;
     if (this.options.debug) {
       this.logger.debug(`Cache HIT: ${key}`);
@@ -100,11 +100,13 @@ export class CacheService {
     const ttl = ttlSeconds ?? this.options.defaultTtl;
     const sizeBytes = this.estimateSizeBytes(value);
     const maxMemoryBytes = (this.options.maxMemoryMB || DEFAULT_MAX_MEMORY_MB) * 1024 * 1024;
-    
+
     // If this single entry exceeds max memory, don't cache it
     if (sizeBytes > maxMemoryBytes) {
       if (this.options.debug) {
-        this.logger.warn(`Cache SKIP: ${key} - entry too large (${(sizeBytes / 1024 / 1024).toFixed(2)}MB)`);
+        this.logger.warn(
+          `Cache SKIP: ${key} - entry too large (${(sizeBytes / 1024 / 1024).toFixed(2)}MB)`
+        );
       }
       return;
     }
@@ -117,8 +119,8 @@ export class CacheService {
 
     // Evict using LRU if we exceed limits
     while (
-      (this.cache.size >= this.options.maxSize || 
-       this.currentMemoryBytes + sizeBytes > maxMemoryBytes) &&
+      (this.cache.size >= this.options.maxSize ||
+        this.currentMemoryBytes + sizeBytes > maxMemoryBytes) &&
       this.cache.size > 0
     ) {
       this.evictLRU();
@@ -127,14 +129,16 @@ export class CacheService {
     const now = Date.now();
     this.cache.set(key, {
       value,
-      expiresAt: now + (ttl * 1000),
+      expiresAt: now + ttl * 1000,
       lastAccessedAt: now,
       sizeBytes,
     });
     this.currentMemoryBytes += sizeBytes;
 
     if (this.options.debug) {
-      this.logger.debug(`Cache SET: ${key} (TTL: ${ttl}s, size: ${(sizeBytes / 1024).toFixed(2)}KB)`);
+      this.logger.debug(
+        `Cache SET: ${key} (TTL: ${ttl}s, size: ${(sizeBytes / 1024).toFixed(2)}KB)`
+      );
     }
   }
 
@@ -157,7 +161,12 @@ export class CacheService {
    */
   async delPattern(pattern: string): Promise<number> {
     let count = 0;
-    const prefix = pattern.replace('*', '');
+    // Use replaceAll to remove all wildcard characters, not just the first one
+    // This prevents incomplete sanitization (CWE-116)
+    let prefix = pattern;
+    while (prefix.includes('*')) {
+      prefix = prefix.replace('*', '');
+    }
     for (const [key, entry] of this.cache.entries()) {
       if (key.startsWith(prefix)) {
         this.currentMemoryBytes -= entry.sizeBytes;
@@ -174,11 +183,7 @@ export class CacheService {
   /**
    * Get or set - returns cached value or calls factory function
    */
-  async getOrSet<T>(
-    key: string,
-    factory: () => Promise<T>,
-    ttlSeconds?: number,
-  ): Promise<T> {
+  async getOrSet<T>(key: string, factory: () => Promise<T>, ttlSeconds?: number): Promise<T> {
     const cached = await this.get<T>(key);
     if (cached !== null) {
       return cached;
@@ -205,9 +210,9 @@ export class CacheService {
   /**
    * Get cache statistics with memory info
    */
-  getStats(): { 
-    size: number; 
-    maxSize: number; 
+  getStats(): {
+    size: number;
+    maxSize: number;
     memoryUsedMB: number;
     maxMemoryMB: number;
     hitRate: number;
@@ -233,8 +238,8 @@ export class CacheService {
     const stats = this.getStats();
     this.logger.log(
       `Cache stats: ${stats.size}/${stats.maxSize} entries, ` +
-      `${stats.memoryUsedMB.toFixed(2)}/${stats.maxMemoryMB}MB, ` +
-      `hit rate: ${(stats.hitRate * 100).toFixed(1)}%`
+        `${stats.memoryUsedMB.toFixed(2)}/${stats.maxMemoryMB}MB, ` +
+        `hit rate: ${(stats.hitRate * 100).toFixed(1)}%`
     );
   }
 
@@ -245,7 +250,7 @@ export class CacheService {
     const now = Date.now();
     let cleaned = 0;
     let freedBytes = 0;
-    
+
     for (const [key, entry] of this.cache.entries()) {
       if (now > entry.expiresAt) {
         freedBytes += entry.sizeBytes;
@@ -253,7 +258,7 @@ export class CacheService {
         cleaned++;
       }
     }
-    
+
     this.currentMemoryBytes -= freedBytes;
 
     if (cleaned > 0 && this.options.debug) {
@@ -289,8 +294,3 @@ export class CacheService {
     }
   }
 }
-
-
-
-
-

@@ -88,7 +88,9 @@ export class EmailService {
 
       if (!accessKeyId || !secretAccessKey) {
         this.logger.warn('AWS credentials not configured, falling back to console mode');
-        this.initializeConsoleMode('AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables not set');
+        this.initializeConsoleMode(
+          'AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables not set'
+        );
         return;
       }
 
@@ -114,7 +116,9 @@ export class EmailService {
 
       if (!host || !user || !pass) {
         this.logger.warn('SMTP credentials not configured, falling back to console mode');
-        this.initializeConsoleMode('SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables not set');
+        this.initializeConsoleMode(
+          'SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables not set'
+        );
         return;
       }
 
@@ -172,7 +176,9 @@ export class EmailService {
   ${options.text ? options.text.substring(0, 200) : this.stripHtml(options.html).substring(0, 200)}...
         `);
       } else {
-        this.logger.log(`Email sent successfully to ${maskEmail(options.to)} (Message ID: ${info.messageId})`);
+        this.logger.log(
+          `Email sent successfully to ${maskEmail(options.to)} (Message ID: ${info.messageId})`
+        );
       }
 
       return true;
@@ -182,8 +188,19 @@ export class EmailService {
     }
   }
 
+  /**
+   * Strip HTML tags using iterative approach
+   * Prevents bypass via nested patterns like '<sc<script>ript>'
+   */
   private stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').trim();
+    const tagPattern = /<[^>]*>/g;
+    let result = html;
+    let previous = '';
+    while (result !== previous) {
+      previous = result;
+      result = result.replace(tagPattern, '');
+    }
+    return result.trim();
   }
 
   async verifyConnection(): Promise<boolean> {

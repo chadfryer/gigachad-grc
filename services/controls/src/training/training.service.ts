@@ -760,8 +760,18 @@ export class TrainingService {
     }
     const uploadDir = uploadDirValidation.resolvedPath;
 
+    // SECURITY: Additional explicit path traversal check for CodeQL compliance
+    const resolvedUploadDir = path.resolve(uploadDir);
+    const resolvedBase = path.resolve(uploadsBasePath);
+    if (
+      !resolvedUploadDir.startsWith(resolvedBase + path.sep) &&
+      resolvedUploadDir !== resolvedBase
+    ) {
+      throw new BadRequestException('Path traversal detected in upload directory');
+    }
+
     // Create upload directory
-    fs.mkdirSync(uploadDir, { recursive: true });
+    fs.mkdirSync(resolvedUploadDir, { recursive: true });
 
     // SECURITY: Sanitize filename to prevent path traversal attacks
     const safeFilename = sanitizeFilename(file.originalname);
@@ -772,13 +782,24 @@ export class TrainingService {
     }
 
     // SECURITY: Validate the final zip path is within upload directory
-    const zipPathValidation = validatePathWithinBase(uploadDir, safeFilename);
+    const zipPathValidation = validatePathWithinBase(resolvedUploadDir, safeFilename);
     if (!zipPathValidation.isValid) {
       throw new BadRequestException(`Invalid file path: ${zipPathValidation.error}`);
     }
     const zipPath = zipPathValidation.resolvedPath;
 
-    fs.writeFileSync(zipPath, file.buffer);
+    // SECURITY: Additional explicit path traversal check for CodeQL compliance
+    const resolvedZipPath = path.resolve(zipPath);
+    if (
+      !resolvedZipPath.startsWith(resolvedUploadDir + path.sep) &&
+      resolvedZipPath !== resolvedUploadDir
+    ) {
+      throw new BadRequestException('Path traversal detected in file path');
+    }
+
+    // lgtm[js/http-to-file-access] - File data comes from validated multipart upload with
+    // path traversal protection (sanitizeFilename, validatePathWithinBase, explicit checks above)
+    fs.writeFileSync(resolvedZipPath, file.buffer);
 
     // For now, just store the zip - extraction would require a zip library
     // In production, you'd extract the SCORM package and parse imsmanifest.xml

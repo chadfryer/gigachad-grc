@@ -605,6 +605,11 @@ export class CollectorsService {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     (fetchOptions as any).signal = controller.signal;
 
+    // Resource exhaustion protection: limit response size
+    const maxResponseSizeBytes = Number(
+      process.env.COLLECTOR_MAX_RESPONSE_SIZE_BYTES || 10 * 1024 * 1024
+    ); // 10MB default
+
     let response: Response;
     try {
       // SECURITY: Use safeFetch to prevent SSRF attacks
@@ -619,7 +624,49 @@ export class CollectorsService {
       clearTimeout(timeout);
     }
 
-    const responseText = await response.text();
+    // SECURITY: Check content-length header to prevent resource exhaustion
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > maxResponseSizeBytes) {
+      throw new BadRequestException(
+        `Response too large: ${contentLength} bytes exceeds limit of ${maxResponseSizeBytes} bytes`
+      );
+    }
+
+    // Read response with size limit to prevent resource exhaustion (CWE-400)
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Response body is not readable');
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        totalSize += value.length;
+        if (totalSize > maxResponseSizeBytes) {
+          reader.cancel();
+          throw new BadRequestException(
+            `Response exceeded maximum size of ${maxResponseSizeBytes} bytes`
+          );
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    const responseText = new TextDecoder().decode(
+      chunks.reduce((acc, chunk) => {
+        const result = new Uint8Array(acc.length + chunk.length);
+        result.set(acc);
+        result.set(chunk, acc.length);
+        return result;
+      }, new Uint8Array())
+    );
 
     let data;
     try {
@@ -689,7 +736,12 @@ export class CollectorsService {
     switch (authType) {
       case 'api_key':
         if (authConfig.location === 'header') {
-          headers[authConfig.keyName as string] = authConfig.keyValue as string;
+          const keyName = authConfig.keyName as string;
+          // Validate header name format (alphanumeric, hyphens, underscores only)
+          if (!/^[A-Za-z0-9_-]+$/.test(keyName)) {
+            throw new BadRequestException(`Invalid header name: "${keyName}"`);
+          }
+          headers[keyName] = authConfig.keyValue as string;
         }
         break;
 

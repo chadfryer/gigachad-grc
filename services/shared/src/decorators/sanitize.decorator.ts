@@ -1,11 +1,19 @@
 import { Transform, TransformFnParams } from 'class-transformer';
 
-// Simple HTML stripper (avoids external dependency)
+/**
+ * Iteratively removes all HTML tags from a string.
+ * Uses iterative approach to prevent bypass via nested patterns like '<sc<script>ript>'
+ */
 const stripHtmlTags = (html: string): string => {
-  return html
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .trim();
+  const tagPattern = /<[^>]*>/g;
+  let result = html;
+  let previous = '';
+  // Iterate until no more tags can be removed (prevents bypass via nested tags)
+  while (result !== previous) {
+    previous = result;
+    result = result.replace(tagPattern, '');
+  }
+  return result.replace(/&nbsp;/g, ' ').trim();
 };
 
 // Safe HTML tags whitelist

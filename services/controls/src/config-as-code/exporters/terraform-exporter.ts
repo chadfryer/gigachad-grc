@@ -12,16 +12,16 @@ export class TerraformExporter implements Exporter {
     }
 
     const startTime = Date.now();
-    
+
     // Pre-allocate array with estimated size for better performance
-    const estimatedSize = 
+    const estimatedSize =
       (data.controls?.length || 0) * 10 +
       (data.frameworks?.length || 0) * 8 +
       (data.policies?.length || 0) * 8 +
       (data.risks?.length || 0) * 10 +
       (data.vendors?.length || 0) * 8 +
       20; // Header
-    
+
     const blocks: string[] = new Array(estimatedSize);
     let idx = 0;
 
@@ -39,7 +39,8 @@ export class TerraformExporter implements Exporter {
     if (data.controls && data.controls.length > 0) {
       blocks[idx++] = '# Controls';
       for (const control of data.controls) {
-        blocks[idx++] = `resource "gigachad_grc_control" "${this.sanitizeName(control.controlId || control.id)}" {`;
+        blocks[idx++] =
+          `resource "gigachad_grc_control" "${this.sanitizeName(control.controlId || control.id)}" {`;
         blocks[idx++] = `  control_id = "${control.controlId || control.id}"`;
         blocks[idx++] = `  title      = ${this.escapeString(control.title)}`;
         if (control.description) {
@@ -66,7 +67,8 @@ export class TerraformExporter implements Exporter {
     if (data.frameworks && data.frameworks.length > 0) {
       blocks[idx++] = '# Frameworks';
       for (const framework of data.frameworks) {
-        blocks[idx++] = `resource "gigachad_grc_framework" "${this.sanitizeName(framework.name)}" {`;
+        blocks[idx++] =
+          `resource "gigachad_grc_framework" "${this.sanitizeName(framework.name)}" {`;
         blocks[idx++] = `  name        = ${this.escapeString(framework.name)}`;
         blocks[idx++] = `  type        = "${framework.type}"`;
         blocks[idx++] = `  version     = "${framework.version}"`;
@@ -105,7 +107,8 @@ export class TerraformExporter implements Exporter {
     if (data.risks && data.risks.length > 0) {
       blocks[idx++] = '# Risks';
       for (const risk of data.risks) {
-        blocks[idx++] = `resource "gigachad_grc_risk" "${this.sanitizeName(risk.riskId || risk.id)}" {`;
+        blocks[idx++] =
+          `resource "gigachad_grc_risk" "${this.sanitizeName(risk.riskId || risk.id)}" {`;
         blocks[idx++] = `  risk_id     = "${risk.riskId || risk.id}"`;
         blocks[idx++] = `  title       = ${this.escapeString(risk.title)}`;
         if (risk.description) {
@@ -153,10 +156,10 @@ export class TerraformExporter implements Exporter {
 
     // Trim array to actual size and join
     const result = blocks.slice(0, idx).join('\n');
-    
+
     const elapsed = Date.now() - startTime;
     this.logger.log(`Terraform export completed in ${elapsed}ms (${idx} lines)`);
-    
+
     return result;
   }
 
@@ -180,15 +183,26 @@ export class TerraformExporter implements Exporter {
 
   private escapeString(str: string): string {
     // Escape quotes and newlines for Terraform strings
-    const escaped = str
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n');
+    const escaped = str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
     return `"${escaped}"`;
   }
 
   private arrayToTerraform(arr: string[]): string {
-    return `[${arr.map(item => `"${item.replace(/"/g, '\\"')}"`).join(', ')}]`;
+    // Escape backslashes first, then quotes (order matters to avoid double-escaping)
+    // This ensures complete sanitization for Terraform string literals
+    return `[${arr
+      .map((item) => {
+        let escaped = item;
+        // Iteratively replace all backslashes to ensure complete sanitization
+        while (escaped.includes('\\')) {
+          escaped = escaped.replace('\\', '\\\\');
+        }
+        // Then escape all quotes
+        while (escaped.includes('"')) {
+          escaped = escaped.replace('"', '\\"');
+        }
+        return `"${escaped}"`;
+      })
+      .join(', ')}]`;
   }
 }
-

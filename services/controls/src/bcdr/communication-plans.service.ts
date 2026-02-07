@@ -1,7 +1,11 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { CreateCommunicationPlanDto, UpdateCommunicationPlanDto, CreateContactDto } from './dto/bcdr.dto';
+import {
+  CreateCommunicationPlanDto,
+  UpdateCommunicationPlanDto,
+  CreateContactDto,
+} from './dto/bcdr.dto';
 import { CommunicationPlanRecord, CommunicationContactRecord } from './types/bcdr-query.types';
 
 @Injectable()
@@ -10,10 +14,13 @@ export class CommunicationPlansService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly auditService: AuditService,
+    private readonly auditService: AuditService
   ) {}
 
-  async findAll(organizationId: string, filters?: { search?: string; planType?: string; bcdrPlanId?: string }) {
+  async findAll(
+    organizationId: string,
+    filters?: { search?: string; planType?: string; bcdrPlanId?: string }
+  ) {
     const { search, planType, bcdrPlanId } = filters || {};
 
     // Use parameterized queries to prevent SQL injection
@@ -70,7 +77,7 @@ export class CommunicationPlansService {
     userId: string,
     dto: CreateCommunicationPlanDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const result = await this.prisma.$queryRaw<CommunicationPlanRecord[]>`
       INSERT INTO bcdr.communication_plans (
@@ -107,7 +114,7 @@ export class CommunicationPlansService {
     userId: string,
     dto: UpdateCommunicationPlanDto,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     await this.findOne(id, organizationId);
 
@@ -115,8 +122,14 @@ export class CommunicationPlansService {
     // Only these hardcoded column names can be included in the query.
     // This prevents SQL injection even though column names come from code, not user input.
     const ALLOWED_COLUMNS = new Set([
-      'name', 'description', 'plan_type', 'bcdr_plan_id', 'activation_triggers',
-      'is_active', 'updated_by', 'updated_at',
+      'name',
+      'description',
+      'plan_type',
+      'bcdr_plan_id',
+      'activation_triggers',
+      'is_active',
+      'updated_by',
+      'updated_at',
     ]);
 
     const updates: string[] = ['updated_by = $2::uuid', 'updated_at = NOW()'];
@@ -159,7 +172,7 @@ export class CommunicationPlansService {
     // 3. No user input is interpolated into column names
     const result = await this.prisma.$queryRawUnsafe<CommunicationPlanRecord[]>(
       `UPDATE bcdr.communication_plans SET ${updates.join(', ')} WHERE id = $1::uuid RETURNING *`,
-      ...values,
+      ...values
     );
 
     const plan = result[0];
@@ -185,7 +198,7 @@ export class CommunicationPlansService {
     organizationId: string,
     userId: string,
     userEmail?: string,
-    userName?: string,
+    userName?: string
   ) {
     const plan = await this.findOne(id, organizationId);
 
@@ -236,14 +249,32 @@ export class CommunicationPlansService {
     return result[0];
   }
 
-  async updateContact(contactId: string, updates: Partial<CreateContactDto> & { isActive?: boolean }) {
+  async updateContact(
+    contactId: string,
+    updates: Partial<CreateContactDto> & { isActive?: boolean }
+  ) {
     // SECURITY: Allowed column names for dynamic UPDATE query.
     // Only these hardcoded column names can be included in the query.
     const ALLOWED_COLUMNS = new Set([
-      'name', 'title', 'organization_name', 'contact_type', 'primary_phone',
-      'secondary_phone', 'email', 'alternate_email', 'location', 'time_zone',
-      'role_in_plan', 'responsibilities', 'escalation_level', 'escalation_wait_minutes',
-      'availability_hours', 'notes', 'sort_order', 'is_active', 'updated_at',
+      'name',
+      'title',
+      'organization_name',
+      'contact_type',
+      'primary_phone',
+      'secondary_phone',
+      'email',
+      'alternate_email',
+      'location',
+      'time_zone',
+      'role_in_plan',
+      'responsibilities',
+      'escalation_level',
+      'escalation_wait_minutes',
+      'availability_hours',
+      'notes',
+      'sort_order',
+      'is_active',
+      'updated_at',
     ]);
 
     const updateFields: string[] = ['updated_at = NOW()'];
@@ -251,7 +282,11 @@ export class CommunicationPlansService {
     let paramIndex = 2;
 
     // Helper to safely add column updates - validates column is in allowed list
-    const addUpdate = (column: string, value: string | number | boolean | null, typeCast?: string) => {
+    const addUpdate = (
+      column: string,
+      value: string | number | boolean | null,
+      typeCast?: string
+    ) => {
       if (!ALLOWED_COLUMNS.has(column)) {
         throw new Error(`Invalid column name: ${column}`);
       }
@@ -322,7 +357,7 @@ export class CommunicationPlansService {
     // 3. No user input is interpolated into column names
     const result = await this.prisma.$queryRawUnsafe<CommunicationContactRecord[]>(
       `UPDATE bcdr.communication_contacts SET ${updateFields.join(', ')} WHERE id = $1::uuid RETURNING *`,
-      ...values,
+      ...values
     );
 
     return result[0];
@@ -337,11 +372,15 @@ export class CommunicationPlansService {
   }
 
   async reorderContacts(planId: string, contactIds: string[]) {
-    for (let i = 0; i < contactIds.length; i++) {
+    // SECURITY: Limit maximum number of contacts to prevent loop bound injection
+    const MAX_CONTACTS = 1000;
+    const safeContactIds = contactIds.slice(0, MAX_CONTACTS);
+
+    for (let i = 0; i < safeContactIds.length; i++) {
       await this.prisma.$executeRaw`
         UPDATE bcdr.communication_contacts
         SET sort_order = ${i}
-        WHERE id = ${contactIds[i]}::uuid AND communication_plan_id = ${planId}::uuid
+        WHERE id = ${safeContactIds[i]}::uuid AND communication_plan_id = ${planId}::uuid
       `;
     }
 
@@ -351,7 +390,9 @@ export class CommunicationPlansService {
   // Get contacts by escalation level
   async getContactsByEscalation(organizationId: string, planId?: string) {
     // Use parameterized queries to prevent SQL injection
-    const contacts = await this.prisma.$queryRaw<(CommunicationContactRecord & { plan_name?: string })[]>`
+    const contacts = await this.prisma.$queryRaw<
+      (CommunicationContactRecord & { plan_name?: string })[]
+    >`
       SELECT c.*, cp.name as plan_name
       FROM bcdr.communication_contacts c
       JOIN bcdr.communication_plans cp ON c.communication_plan_id = cp.id
@@ -363,14 +404,16 @@ export class CommunicationPlansService {
     `;
 
     // Group by escalation level
-    const grouped = contacts.reduce((acc: Record<number, (CommunicationContactRecord & { plan_name?: string })[]>, contact) => {
-      const level = contact.escalation_level || 1;
-      if (!acc[level]) acc[level] = [];
-      acc[level].push(contact);
-      return acc;
-    }, {});
+    const grouped = contacts.reduce(
+      (acc: Record<number, (CommunicationContactRecord & { plan_name?: string })[]>, contact) => {
+        const level = contact.escalation_level || 1;
+        if (!acc[level]) acc[level] = [];
+        acc[level].push(contact);
+        return acc;
+      },
+      {}
+    );
 
     return grouped;
   }
 }
-

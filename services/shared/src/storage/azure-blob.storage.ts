@@ -83,6 +83,7 @@ export class AzureBlobStorage implements StorageProvider {
     let previousLength: number;
     do {
       previousLength = sanitized.length;
+      // lgtm[js/incomplete-multi-character-sanitization] - iterative loop ensures complete sanitization
       sanitized = sanitized.replace(/\.\.\//g, '').replace(/^\.\.$/, '');
     } while (sanitized.length !== previousLength);
     // Remove leading slashes

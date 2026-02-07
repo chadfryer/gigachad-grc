@@ -1,6 +1,6 @@
 /**
  * Logging Sanitizer - Removes or masks sensitive data from log output
- * 
+ *
  * Use this module to sanitize data before logging to prevent
  * sensitive information from appearing in log files.
  */
@@ -42,27 +42,34 @@ export function maskEmail(email: string): string {
  * Sanitizes a string value by redacting sensitive patterns
  */
 function sanitizeString(value: string): string {
-  return value
-    // Redact email addresses
-    .replace(
-      /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi,
-      '[EMAIL REDACTED]'
-    )
-    // Redact Bearer tokens (JWT format)
-    .replace(
-      /(Bearer\s+)[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]*/gi,
-      '$1[TOKEN REDACTED]'
-    )
-    // Redact standalone JWT tokens
-    .replace(
-      /\beyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/g,
-      '[JWT REDACTED]'
-    )
-    // Redact sensitive key-value pairs
-    .replace(
-      /(password|secret|apikey|api_key|token|credential|authorization)['":\s]*[=:]["']?[^"'\s,}]*/gi,
-      '$1: [REDACTED]'
-    );
+  // SECURITY: Limit input length to prevent ReDoS attacks
+  const MAX_SANITIZE_LENGTH = 100_000; // 100KB limit
+  const input =
+    value.length > MAX_SANITIZE_LENGTH
+      ? value.substring(0, MAX_SANITIZE_LENGTH) + '[TRUNCATED]'
+      : value;
+
+  // SECURITY: Input length bounded above to prevent polynomial ReDoS
+  return (
+    input
+      // Redact email addresses - using simpler pattern to avoid backtracking
+      .replace(
+        /[a-zA-Z0-9._-]{1,64}@[a-zA-Z0-9._-]{1,255}\.[a-zA-Z0-9_-]{1,63}/gi,
+        '[EMAIL REDACTED]'
+      )
+      // Redact Bearer tokens (JWT format)
+      .replace(
+        /(Bearer\s+)[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]*/gi,
+        '$1[TOKEN REDACTED]'
+      )
+      // Redact standalone JWT tokens
+      .replace(/\beyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/g, '[JWT REDACTED]')
+      // Redact sensitive key-value pairs - using bounded quantifiers
+      .replace(
+        /(password|secret|apikey|api_key|token|credential|authorization)['":\s]{0,10}[=:]["']?[^"'\s,}]{0,1000}/gi,
+        '$1: [REDACTED]'
+      )
+  );
 }
 
 /**
@@ -75,12 +82,12 @@ function isSensitiveKey(key: string): boolean {
 
 /**
  * Sanitizes any data structure for safe logging
- * 
+ *
  * - Strings: Redacts emails, tokens, and sensitive patterns
  * - Objects: Recursively sanitizes, redacting sensitive keys
  * - Arrays: Recursively sanitizes each element
  * - Primitives: Returned as-is
- * 
+ *
  * @param data - The data to sanitize
  * @returns Sanitized copy of the data
  */
@@ -142,15 +149,15 @@ export function sanitizeError(error: Error | unknown): { message: string; stack?
     const result: { message: string; stack?: string } = {
       message: sanitizeString(error.message),
     };
-    
+
     // Only include stack trace in non-production environments
     if (process.env.NODE_ENV !== 'production' && error.stack) {
       result.stack = sanitizeString(error.stack);
     }
-    
+
     return result;
   }
-  
+
   return {
     message: typeof error === 'string' ? sanitizeString(error) : 'Unknown error',
   };

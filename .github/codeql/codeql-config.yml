@@ -26,9 +26,18 @@ paths-ignore:
   - 'docs/**'
   - '*.md'
 
+  # Static training content (client-side JS with no security implications)
+  - 'frontend/public/training/**'
+
   # Coverage and reports
   - 'coverage/**'
   - '**/reports/**'
+
+  # Docker build artifacts (compiled app output in container)
+  - '/app/dist/**'
+
+  # System packages (npm installed globally in container, not our code)
+  - 'usr/local/lib/**'
 
 # Query suites to use
 queries:

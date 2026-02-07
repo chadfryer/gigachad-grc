@@ -1171,7 +1171,17 @@ export class ConfigFilesService {
     const resources: Array<{ type: string; name: string; attributes: Record<string, unknown> }> =
       [];
 
+    // SECURITY: Limit input length to prevent ReDoS attacks
+    const MAX_TERRAFORM_CONTENT_LENGTH = 1_000_000; // 1MB limit
+    if (content.length > MAX_TERRAFORM_CONTENT_LENGTH) {
+      this.logger.warn(
+        `Terraform content exceeds maximum length (${content.length} > ${MAX_TERRAFORM_CONTENT_LENGTH})`
+      );
+      return resources;
+    }
+
     // Match resource blocks: resource "type" "name" { ... }
+    // SECURITY: Input length bounded above to prevent polynomial ReDoS
     const resourceRegex = /resource\s+"([^"]+)"\s+"([^"]+)"\s*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}/g;
     let match;
 
@@ -1195,7 +1205,17 @@ export class ConfigFilesService {
   private parseResourceBody(body: string): Record<string, unknown> {
     const attributes: Record<string, unknown> = {};
 
+    // SECURITY: Limit input length to prevent ReDoS attacks
+    const MAX_BODY_LENGTH = 100_000; // 100KB limit for individual resource body
+    if (body.length > MAX_BODY_LENGTH) {
+      this.logger.warn(
+        `Resource body exceeds maximum length (${body.length} > ${MAX_BODY_LENGTH})`
+      );
+      return attributes;
+    }
+
     // Match key = value pairs
+    // SECURITY: Input length bounded above to prevent polynomial ReDoS
     const attrRegex =
       /(\w+)\s*=\s*("([^"\\]*(?:\\.[^"\\]*)*)"|(\[[^\]]*\])|(\d+(?:\.\d+)?)|(\w+))/g;
     let match;

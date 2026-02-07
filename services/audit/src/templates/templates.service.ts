@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { validatePropertyName } from '@gigachad-grc/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateAuditTemplateDto,
@@ -294,6 +295,9 @@ export class TemplatesService {
     }
 
     const progress = (audit.checklistProgress as ChecklistProgress) || {};
+
+    // Validate itemId to prevent property injection
+    validatePropertyName(dto.itemId, 'checklist item ID');
 
     // Update the item
     progress[dto.itemId] = {

@@ -5,10 +5,20 @@ import { Transform } from 'class-transformer';
 // Re-export Prisma enums for convenience
 export { AssetType, AssetStatus, AssetCriticality } from '@prisma/client';
 
-// Sanitization helper - strips HTML and trims
+/**
+ * Sanitization helper - strips HTML and trims
+ * Uses iterative approach to prevent bypass via nested patterns like '<sc<script>ript>'
+ */
 const sanitizeString = ({ value }: { value: unknown }) => {
   if (typeof value === 'string') {
-    return value.trim().replace(/<[^>]*>/g, '');
+    const tagPattern = /<[^>]*>/g;
+    let result = value.trim();
+    let previous = '';
+    while (result !== previous) {
+      previous = result;
+      result = result.replace(tagPattern, '');
+    }
+    return result;
   }
   return value;
 };
@@ -34,7 +44,20 @@ export class CreateAssetDto {
   @Transform(sanitizeString)
   source?: string;
 
-  @ApiPropertyOptional({ enum: ['server', 'workstation', 'laptop', 'mobile', 'network', 'storage', 'cloud', 'application', 'database', 'other'] })
+  @ApiPropertyOptional({
+    enum: [
+      'server',
+      'workstation',
+      'laptop',
+      'mobile',
+      'network',
+      'storage',
+      'cloud',
+      'application',
+      'database',
+      'other',
+    ],
+  })
   @IsString()
   @IsOptional()
   @MaxLength(50)
