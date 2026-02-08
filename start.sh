@@ -74,6 +74,7 @@ setup_env() {
     POSTGRES_PASSWORD=$(openssl rand -base64 24 2>/dev/null | tr -d '\n' | tr '+/' '-_' || head -c 24 /dev/urandom | base64 | tr '+/' '-_')
     REDIS_PASSWORD=$(openssl rand -base64 24 2>/dev/null | tr -d '\n' | tr '+/' '-_' || head -c 24 /dev/urandom | base64 | tr '+/' '-_')
     MINIO_PASSWORD=$(openssl rand -base64 20 2>/dev/null | tr -d '\n' | tr '+/' '-_' || head -c 20 /dev/urandom | base64 | tr '+/' '-_')
+    GRAFANA_PASSWORD=$(openssl rand -base64 32 2>/dev/null | tr -d '\n' | tr '+/' '-_' || head -c 32 /dev/urandom | base64 | tr '+/' '-_')
 
     cat > ".env" << EOF
 # ============================================================================
@@ -103,6 +104,10 @@ MINIO_ROOT_USER=rustfsadmin
 MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
 MINIO_ENDPOINT=localhost
 MINIO_PORT=9000
+
+# Grafana
+GRAFANA_ADMIN_USER=gfadmin
+GRAFANA_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
 
 # Authentication
 KEYCLOAK_ADMIN=admin
