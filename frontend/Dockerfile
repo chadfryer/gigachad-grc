@@ -30,6 +30,9 @@ ENV VITE_ENABLE_AI_MODULE=$VITE_ENABLE_AI_MODULE
 # SECURITY: Dev auth must be disabled for production builds
 ENV VITE_ENABLE_DEV_AUTH=false
 
+# Limit Node.js heap to prevent OOM kills during parallel Docker builds
+ENV NODE_OPTIONS=--max-old-space-size=2048
+
 # Build in production mode for security and optimization
 RUN npm run build -- --mode production
 
