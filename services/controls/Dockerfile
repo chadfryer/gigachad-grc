@@ -5,7 +5,7 @@
 # =============================================================================
 
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 AS builder
 
 WORKDIR /app
 
@@ -52,7 +52,7 @@ RUN ls -la node_modules/.prisma/client/ 2>/dev/null | head -5 || echo "Checking 
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:20-alpine@sha256:09e2b3d9726018aecf269bd35325f46bf75046a643a66d28360ec71132750ec8 AS production
 
 # Install OpenSSL for Prisma and patch npm's bundled tar (CVE-2026-26960)
 RUN apk add --no-cache openssl && npm update -g npm
