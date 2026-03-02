@@ -43,10 +43,14 @@ controls:
   affinity: {}
   # -- Controls-specific env vars
   env:
-    encryptionKey: ''
-    jwtSecret: ''
-    sessionSecret: ''
-    phishingTrackingSecret: ''
+    # -- Encryption key for data at rest. Auto-generated if not set.
+    encryptionKey:
+    # -- JWT signing secret. Auto-generated if not set.
+    jwtSecret:
+    # -- Session signing secret. Auto-generated if not set.
+    sessionSecret:
+    # -- Phishing tracking secret. Auto-generated if not set.
+    phishingTrackingSecret:
     backupRetentionDays: '30'
     drRemoteBackupEnabled: 'false'
     drRemoteBackupS3Bucket: ''
@@ -190,8 +194,8 @@ postgresql:
     pullPolicy: IfNotPresent
   auth:
     username: grc
-    # -- Password for the database user. MUST be set.
-    password: ''
+    # -- Password for the database user. MUST be set via --set postgresql.auth.password=<value>
+    password:
     database: gigachad_grc
     # -- Keycloak uses its own database on the same PostgreSQL instance
     keycloakDatabase: keycloak
@@ -228,8 +232,8 @@ redis:
     tag: '7-alpine'
     pullPolicy: IfNotPresent
   auth:
-    # -- Redis password. MUST be set.
-    password: ''
+    # -- Redis password. MUST be set via --set redis.auth.password=<value>
+    password:
   persistence:
     enabled: true
     size: 2Gi
@@ -263,8 +267,8 @@ keycloak:
     pullPolicy: IfNotPresent
   auth:
     adminUser: admin
-    # -- Keycloak admin password. MUST be set.
-    adminPassword: ''
+    # -- Keycloak admin password. MUST be set via --set keycloak.auth.adminPassword=<value>
+    adminPassword:
   realm: gigachad-grc
   # -- "dev" uses start-dev (no HTTPS required). "production" uses start (requires HTTPS/hostname config).
   mode: dev
@@ -294,8 +298,8 @@ rustfs:
     pullPolicy: IfNotPresent
   auth:
     rootUser: rustfsadmin
-    # -- RustFS root password. MUST be set.
-    rootPassword: ''
+    # -- RustFS root password. MUST be set via --set rustfs.auth.rootPassword=<value>
+    rootPassword:
   persistence:
     enabled: true
     size: 20Gi
@@ -353,8 +357,8 @@ grafana:
     pullPolicy: IfNotPresent
   auth:
     adminUser: admin
-    # -- Grafana admin password
-    adminPassword: ''
+    # -- Grafana admin password. MUST be set via --set grafana.auth.adminPassword=<value>
+    adminPassword:
   persistence:
     enabled: true
     size: 5Gi

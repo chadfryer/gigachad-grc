@@ -47,7 +47,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "gigachad-grc.secretName" . }}
                   key: encryption-key
-                  optional: true
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -63,7 +62,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "gigachad-grc.secretName" . }}
                   key: phishing-tracking-secret
-                  optional: true
             - name: BACKUP_RETENTION_DAYS
               value: {{ .Values.controls.env.backupRetentionDays | quote }}
             - name: DR_REMOTE_BACKUP_ENABLED
