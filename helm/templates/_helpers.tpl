@@ -62,6 +62,14 @@ Usage: {{ include "gigachad-grc.image" (dict "image" .Values.controls.image "glo
 {{- end }}
 
 {{/*
+Image pull policy: use Always if tag is "latest", otherwise use the configured policy.
+Usage: {{ include "gigachad-grc.imagePullPolicy" .Values.controls.image }}
+*/}}
+{{- define "gigachad-grc.imagePullPolicy" -}}
+{{- if eq .tag "latest" }}Always{{- else }}{{ .pullPolicy | default "IfNotPresent" }}{{- end }}
+{{- end }}
+
+{{/*
 Service account name.
 */}}
 {{- define "gigachad-grc.serviceAccountName" -}}

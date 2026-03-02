@@ -27,9 +27,13 @@ spec:
       containers:
         - name: tprm
           image: {{ include "gigachad-grc.image" (dict "image" .Values.tprm.image "global" .Values.global) }}
-          imagePullPolicy: {{ .Values.tprm.image.pullPolicy }}
+          imagePullPolicy: {{ include "gigachad-grc.imagePullPolicy" .Values.tprm.image }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: {{ .Values.tprm.port }}
               name: http
@@ -57,6 +61,14 @@ spec:
             timeoutSeconds: 5
           resources:
             {{- toYaml .Values.tprm.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
       {{- with .Values.tprm.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

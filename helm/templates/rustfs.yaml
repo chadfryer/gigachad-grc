@@ -23,12 +23,19 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gigachad-grc.serviceAccountName" . }}
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
       containers:
         - name: rustfs
           image: "{{ .Values.rustfs.image.repository }}:{{ .Values.rustfs.image.tag }}"
-          imagePullPolicy: {{ .Values.rustfs.image.pullPolicy }}
+          imagePullPolicy: {{ include "gigachad-grc.imagePullPolicy" .Values.rustfs.image }}
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 9000
               name: s3

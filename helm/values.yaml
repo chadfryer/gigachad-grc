@@ -16,6 +16,10 @@ global:
 
 # Each backend service follows the same structure. They share a database,
 # Redis cache, Keycloak auth, and RustFS storage.
+#
+# IMPORTANT: Pin image tags to specific versions for production (e.g., "v1.0.0").
+# The "latest" tag with IfNotPresent will cache stale images. If using "latest",
+# set pullPolicy to "Always".
 
 controls:
   enabled: true
@@ -262,6 +266,10 @@ keycloak:
     # -- Keycloak admin password. MUST be set.
     adminPassword: ''
   realm: gigachad-grc
+  # -- "dev" uses start-dev (no HTTPS required). "production" uses start (requires HTTPS/hostname config).
+  mode: dev
+  # -- Hostname for production mode (required when mode=production)
+  hostname: ''
   resources:
     limits:
       cpu: '1'

@@ -27,9 +27,12 @@ spec:
       containers:
         - name: frontend
           image: {{ include "gigachad-grc.image" (dict "image" .Values.frontend.image "global" .Values.global) }}
-          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          imagePullPolicy: {{ include "gigachad-grc.imagePullPolicy" .Values.frontend.image }}
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: {{ .Values.frontend.port }}
               name: http

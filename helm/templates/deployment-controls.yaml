@@ -27,9 +27,13 @@ spec:
       containers:
         - name: controls
           image: {{ include "gigachad-grc.image" (dict "image" .Values.controls.image "global" .Values.global) }}
-          imagePullPolicy: {{ .Values.controls.image.pullPolicy }}
+          imagePullPolicy: {{ include "gigachad-grc.imagePullPolicy" .Values.controls.image }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: {{ .Values.controls.port }}
               name: http
@@ -49,13 +53,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "gigachad-grc.secretName" . }}
                   key: jwt-secret
-                  optional: true
             - name: SESSION_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ include "gigachad-grc.secretName" . }}
                   key: session-secret
-                  optional: true
             - name: PHISHING_TRACKING_SECRET
               valueFrom:
                 secretKeyRef:
@@ -89,6 +91,14 @@ spec:
             timeoutSeconds: 5
           resources:
             {{- toYaml .Values.controls.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
       {{- with .Values.controls.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

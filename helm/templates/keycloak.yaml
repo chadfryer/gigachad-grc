@@ -27,11 +27,18 @@ spec:
       containers:
         - name: keycloak
           image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"
-          imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+          imagePullPolicy: {{ include "gigachad-grc.imagePullPolicy" .Values.keycloak.image }}
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           args:
+            {{- if eq .Values.keycloak.mode "production" }}
+            - start
+            {{- else }}
             - start-dev
+            {{- end }}
             - --import-realm
           ports:
             - containerPort: 8080
@@ -49,12 +56,25 @@ spec:
                 secretKeyRef:
                   name: {{ include "gigachad-grc.secretName" . }}
                   key: postgresql-password
+            {{- if eq .Values.keycloak.mode "production" }}
+            {{- if .Values.keycloak.hostname }}
+            - name: KC_HOSTNAME
+              value: {{ .Values.keycloak.hostname | quote }}
+            {{- end }}
+            - name: KC_HOSTNAME_STRICT
+              value: "true"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "true"
+            - name: KC_HTTP_ENABLED
+              value: "false"
+            {{- else }}
             - name: KC_HOSTNAME_STRICT
               value: "false"
             - name: KC_HOSTNAME_STRICT_HTTPS
               value: "false"
             - name: KC_HTTP_ENABLED
               value: "true"
+            {{- end }}
             - name: KEYCLOAK_ADMIN
               value: {{ .Values.keycloak.auth.adminUser | quote }}
             - name: KEYCLOAK_ADMIN_PASSWORD

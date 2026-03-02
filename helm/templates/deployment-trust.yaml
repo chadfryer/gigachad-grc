@@ -27,9 +27,13 @@ spec:
       containers:
         - name: trust
           image: {{ include "gigachad-grc.image" (dict "image" .Values.trust.image "global" .Values.global) }}
-          imagePullPolicy: {{ .Values.trust.image.pullPolicy }}
+          imagePullPolicy: {{ include "gigachad-grc.imagePullPolicy" .Values.trust.image }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: {{ .Values.trust.port }}
               name: http
@@ -57,6 +61,14 @@ spec:
             timeoutSeconds: 5
           resources:
             {{- toYaml .Values.trust.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
       {{- with .Values.trust.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
