@@ -195,7 +195,7 @@ postgresql:
   auth:
     username: grc
     # -- Password for the database user. MUST be set via --set postgresql.auth.password=<value>
-    password:
+    # password: (intentionally omitted -- required() enforced in templates)
     database: gigachad_grc
     # -- Keycloak uses its own database on the same PostgreSQL instance
     keycloakDatabase: keycloak
@@ -233,7 +233,7 @@ redis:
     pullPolicy: IfNotPresent
   auth:
     # -- Redis password. MUST be set via --set redis.auth.password=<value>
-    password:
+    # password: (intentionally omitted -- required() enforced in templates)
   persistence:
     enabled: true
     size: 2Gi
@@ -268,7 +268,7 @@ keycloak:
   auth:
     adminUser: admin
     # -- Keycloak admin password. MUST be set via --set keycloak.auth.adminPassword=<value>
-    adminPassword:
+    # adminPassword: (intentionally omitted -- required() enforced in templates)
   realm: gigachad-grc
   # -- "dev" uses start-dev (no HTTPS required). "production" uses start (requires HTTPS/hostname config).
   mode: dev
@@ -299,7 +299,7 @@ rustfs:
   auth:
     rootUser: rustfsadmin
     # -- RustFS root password. MUST be set via --set rustfs.auth.rootPassword=<value>
-    rootPassword:
+    # rootPassword: (intentionally omitted -- required() enforced in templates)
   persistence:
     enabled: true
     size: 20Gi
@@ -358,7 +358,7 @@ grafana:
   auth:
     adminUser: admin
     # -- Grafana admin password. MUST be set via --set grafana.auth.adminPassword=<value>
-    adminPassword:
+    # adminPassword: (intentionally omitted -- required() enforced in templates)
   persistence:
     enabled: true
     size: 5Gi
