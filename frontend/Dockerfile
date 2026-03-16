@@ -45,6 +45,9 @@ RUN if [ "$VITE_ENABLE_DEV_AUTH" = "true" ]; then \
 # Production stage - Nginx
 FROM nginx:alpine@sha256:1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba AS production
 
+# Patch OS-level CVEs (zlib CVE-2026-22184, CVE-2026-27171)
+RUN apk upgrade --no-cache
+
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 

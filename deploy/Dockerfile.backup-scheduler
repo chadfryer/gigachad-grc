@@ -1,10 +1,10 @@
 # GigaChad GRC Backup Scheduler
 # Runs automated backups on a configurable schedule
 
-FROM alpine:3.21
+FROM alpine:3.23
 
-# Install required packages
-RUN apk add --no-cache \
+# Patch OS-level CVEs and install required packages
+RUN apk upgrade --no-cache && apk add --no-cache \
     bash \
     curl \
     docker-cli \
